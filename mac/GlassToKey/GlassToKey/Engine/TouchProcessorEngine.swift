@@ -718,7 +718,6 @@ actor TouchProcessorEngine {
     func setKeymapEditingEnabled(_ enabled: Bool) {
         guard keymapEditingEnabled != enabled else { return }
         keymapEditingEnabled = enabled
-        resetState(stopVoiceDictation: enabled)
     }
 
     func setPersistentLayer(_ layer: Int) {
@@ -806,9 +805,6 @@ actor TouchProcessorEngine {
         if leftDeviceIndex == nil && rightDeviceIndex == nil {
             return
         }
-        if keymapEditingEnabled {
-            return
-        }
         let now = Self.now()
         let touches = frame.touches
         let hasTouchData = !touches.isEmpty
@@ -890,9 +886,6 @@ actor TouchProcessorEngine {
             return
         }
         if leftDeviceIndex == nil && rightDeviceIndex == nil {
-            return
-        }
-        if keymapEditingEnabled {
             return
         }
         let now = Self.now()

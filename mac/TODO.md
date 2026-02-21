@@ -1,25 +1,19 @@
 ## TODO
 - Can we wire up "Capture" and "Replay" into the menu?
 - Please explain to me how haptics works in the framework. Is this portable to windows in any way?
-- fix edit keymap lag
-- fix start typing lag 
-- REWRITE FRAMEWORK up: Framework handles all frame logic, not handled in app. Deterministic capture and replay
+- Can you explain how Haptics work in this repo and do you think it would be possible to implement in windows by reverse engineering?
 ---
 - export /import keymaps, load global.json default
-- capture / replay .atpcap
-- autocorrect bugging.
-- auto-reconnect not working
-- more realtime haptics? it still feels bad.
+- global capture / replay .atpcap (windows)
+- autocorrect bugging (symspell)
+- auto-reconnect not working?
 - Short drag sometimes fires click
 - not sure it should be able to go into gesture mode during typing intent/typing grace
 - sometimes click types letters (Lifting fingers after tap)
 ###
-- normalize % to px??
-- Have Codex refactor the GUI for effiency
-- Have Codex redesign the GUI for looks, keeping efficiency
+- normalize %!??
 ###
-- "Auto" set column x,y based on finger splay "4 finger touch" snapsMetro.
-
-
-# Karabiner stuck, help!
-sudo launchctl kickstart -k system/org.pqrs.vhid 
+- "Autosplay" set column x,y based on finger splay "4 finger touch" snapsMetro.
+- e v e n s p a c e
+###
+Gestures Config

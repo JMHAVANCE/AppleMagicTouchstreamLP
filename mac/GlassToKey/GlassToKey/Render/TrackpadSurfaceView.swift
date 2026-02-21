@@ -651,6 +651,7 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
 
     @MainActor
     final class Coordinator {
+        private static let touchPollIntervalNanoseconds: UInt64 = 8_000_000
         private weak var surfaceView: TrackpadSurfaceView?
         private weak var viewModel: ContentViewModel?
         private var touchUpdateTask: Task<Void, Never>?
@@ -691,10 +692,11 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
             touchUpdateTask = Task { [weak self] in
                 guard let self else { return }
                 self.refreshTouchSnapshot(using: viewModel, resetRevision: true)
-                var iterator = viewModel.touchRevisionUpdates.makeAsyncIterator()
                 while !Task.isCancelled {
-                    guard let _ = await iterator.next() else { break }
-                    if Task.isCancelled { break }
+                    try? await Task.sleep(nanoseconds: Self.touchPollIntervalNanoseconds)
+                    if Task.isCancelled {
+                        break
+                    }
                     self.refreshTouchSnapshot(using: viewModel, resetRevision: false)
                 }
             }
