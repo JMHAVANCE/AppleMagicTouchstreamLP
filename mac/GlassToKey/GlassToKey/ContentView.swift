@@ -460,8 +460,6 @@ struct ContentView: View {
             rightLayout: rightLayout,
             leftGridLabelInfo: leftGridLabelInfo,
             rightGridLabelInfo: rightGridLabelInfo,
-            leftGridLabels: leftGridLabels,
-            rightGridLabels: rightGridLabels,
             customButtons: customButtons,
             editModeEnabled: $editModeEnabled,
             lastHitLeft: viewModel.debugLastHitLeft,
@@ -677,8 +675,6 @@ struct ContentView: View {
         let rightLayout: ContentViewModel.Layout
         let leftGridLabelInfo: [[GridLabel]]
         let rightGridLabelInfo: [[GridLabel]]
-        let leftGridLabels: [[String]]
-        let rightGridLabels: [[String]]
         let customButtons: [CustomButton]
         @Binding var editModeEnabled: Bool
         let lastHitLeft: ContentViewModel.DebugHit?
@@ -697,8 +693,6 @@ struct ContentView: View {
                     rightLayout: rightLayout,
                     leftGridLabelInfo: leftGridLabelInfo,
                     rightGridLabelInfo: rightGridLabelInfo,
-                    leftGridLabels: leftGridLabels,
-                    rightGridLabels: rightGridLabels,
                     customButtons: customButtons,
                     editModeEnabled: $editModeEnabled,
                     lastHitLeft: lastHitLeft,
@@ -1547,8 +1541,6 @@ struct ContentView: View {
         let rightLayout: ContentViewModel.Layout
         let leftGridLabelInfo: [[GridLabel]]
         let rightGridLabelInfo: [[GridLabel]]
-        let leftGridLabels: [[String]]
-        let rightGridLabels: [[String]]
         let customButtons: [CustomButton]
         @Binding var editModeEnabled: Bool
         let lastHitLeft: ContentViewModel.DebugHit?
@@ -1556,11 +1548,6 @@ struct ContentView: View {
         @Binding var selectedButtonID: UUID?
         @Binding var selectedColumn: Int?
         @Binding var selectedGridKey: SelectedGridKey?
-        @State private var displayLeftTouchesState = [OMSTouchData]()
-        @State private var displayRightTouchesState = [OMSTouchData]()
-        @State private var lastTouchRevision: UInt64 = 0
-        @State private var lastDisplayUpdateTime: TimeInterval = 0
-        @State private var lastDisplayedHadTouches = false
 
         private let trackpadSpacing: CGFloat = 16
         private var combinedWidth: CGFloat {
@@ -1595,14 +1582,15 @@ struct ContentView: View {
                             rightLabels: surfaceLabels(from: rightGridLabelInfo),
                             leftCustomButtons: leftButtons,
                             rightCustomButtons: rightButtons,
-                            leftTouches: displayLeftTouches,
-                            rightTouches: displayRightTouches,
                             selectedColumn: editModeEnabled ? selectedColumn : nil,
                             selectedLeftKey: editModeEnabled ? surfaceKeySelection(from: selectedLeftKey) : nil,
                             selectedRightKey: editModeEnabled ? surfaceKeySelection(from: selectedRightKey) : nil,
                             selectedLeftButtonID: editModeEnabled ? selectedButton(for: leftButtons)?.id : nil,
                             selectedRightButtonID: editModeEnabled ? selectedButton(for: rightButtons)?.id : nil
-                        )
+                        ),
+                        viewModel: viewModel,
+                        editModeEnabled: editModeEnabled,
+                        selectionHandler: surfaceSelectionChanged
                     )
                     .frame(width: combinedWidth, height: trackpadSize.height)
                     if !editModeEnabled {
@@ -1617,147 +1605,13 @@ struct ContentView: View {
                                 .offset(x: trackpadSize.width + trackpadSpacing, y: 0)
                         }
                     }
-                    if editModeEnabled {
-                        customButtonsOverlay(
-                            side: .left,
-                            layout: leftLayout,
-                            buttons: leftButtons,
-                            selectedButtonID: $selectedButtonID,
-                            selectedColumn: $selectedColumn,
-                            selectedGridKey: $selectedGridKey,
-                            gridLabels: leftGridLabels
-                        )
-                        .offset(x: 0, y: 0)
-
-                        customButtonsOverlay(
-                            side: .right,
-                            layout: rightLayout,
-                            buttons: rightButtons,
-                            selectedButtonID: $selectedButtonID,
-                            selectedColumn: $selectedColumn,
-                            selectedGridKey: $selectedGridKey,
-                            gridLabels: rightGridLabels
-                        )
-                        .offset(x: trackpadSize.width + trackpadSpacing, y: 0)
-                    }
                 }
                 .frame(width: combinedWidth, height: trackpadSize.height)
-                .onAppear {
-                    refreshTouchSnapshot(resetRevision: true)
-                }
-                .task {
-                    var iterator = viewModel.touchRevisionUpdates.makeAsyncIterator()
-                    while !Task.isCancelled {
-                        guard let _ = await iterator.next() else { break }
-                        if Task.isCancelled { break }
-                        refreshTouchSnapshot(resetRevision: false)
-                    }
-                }
             }
-        }
-
-        private func refreshTouchSnapshot(resetRevision: Bool) {
-            let snapshot: ContentViewModel.TouchSnapshot
-            if resetRevision {
-                snapshot = viewModel.snapshotTouchData()
-                lastTouchRevision = snapshot.revision
-            } else if let updated = viewModel.snapshotTouchDataIfUpdated(since: lastTouchRevision) {
-                snapshot = updated
-                lastTouchRevision = updated.revision
-            } else {
-                return
-            }
-
-            let now = CACurrentMediaTime()
-            if resetRevision || shouldUpdateDisplay(snapshot: snapshot, now: now) {
-                displayLeftTouchesState = snapshot.left
-                displayRightTouchesState = snapshot.right
-                lastDisplayUpdateTime = now
-                lastDisplayedHadTouches = !(snapshot.left.isEmpty && snapshot.right.isEmpty)
-            }
-        }
-
-        private var displayLeftTouches: [OMSTouchData] {
-            displayLeftTouchesState
-        }
-
-        private var displayRightTouches: [OMSTouchData] {
-            displayRightTouchesState
         }
 
         private func customButtons(for side: TrackpadSide) -> [CustomButton] {
             customButtons.filter { $0.side == side && $0.layer == viewModel.activeLayer }
-        }
-
-        private func shouldUpdateDisplay(
-            snapshot: ContentViewModel.TouchSnapshot,
-            now: TimeInterval
-        ) -> Bool {
-            guard editModeEnabled else { return true }
-
-            let hasTouches = !(snapshot.left.isEmpty && snapshot.right.isEmpty)
-            if hasTouches != lastDisplayedHadTouches {
-                return true
-            }
-
-            if snapshot.hasTransitionState {
-                return true
-            }
-
-            let clampedHz = 30.0
-            let minInterval = 1.0 / clampedHz
-            return now - lastDisplayUpdateTime >= minInterval
-        }
-
-        private func customButtonsOverlay(
-            side: TrackpadSide,
-            layout: ContentViewModel.Layout,
-            buttons: [CustomButton],
-            selectedButtonID: Binding<UUID?>,
-            selectedColumn: Binding<Int?>,
-            selectedGridKey: Binding<SelectedGridKey?>,
-            gridLabels: [[String]]
-        ) -> some View {
-            ZStack(alignment: .topLeading) {
-                let columnRects = columnRects(for: layout.keyRects, trackpadSize: trackpadSize)
-                let selectGesture = DragGesture(minimumDistance: 0, coordinateSpace: .local)
-                    .onEnded { value in
-                        viewModel.clearTouchState()
-                        let point = value.location
-                        if let matched = buttons.last(where: { button in
-                            button.rect.rect(in: trackpadSize).contains(point)
-                        }) {
-                            selectedButtonID.wrappedValue = matched.id
-                            selectedColumn.wrappedValue = nil
-                            selectedGridKey.wrappedValue = nil
-                            return
-                        }
-                        selectedButtonID.wrappedValue = nil
-                        if let key = gridKey(at: point, keyRects: layout.keyRects, labels: gridLabels, side: side) {
-                            selectedGridKey.wrappedValue = key
-                            selectedColumn.wrappedValue = key.column
-                            return
-                        }
-                        selectedGridKey.wrappedValue = nil
-                        let resolvedColumnIndex = columnIndex(for: point, columnRects: columnRects)
-                        #if DEBUG
-                        logColumnSelection(
-                            point: point,
-                            columnRects: columnRects,
-                            resolvedIndex: resolvedColumnIndex
-                        )
-                        #endif
-                        if let columnIndex = resolvedColumnIndex {
-                            selectedColumn.wrappedValue = columnIndex
-                        } else {
-                            selectedColumn.wrappedValue = nil
-                        }
-                    }
-                Color.clear
-                    .frame(width: trackpadSize.width, height: trackpadSize.height)
-                    .contentShape(Rectangle())
-                    .simultaneousGesture(selectGesture)
-            }
         }
 
         private func selectedButton(for buttons: [CustomButton]) -> CustomButton? {
@@ -1778,105 +1632,32 @@ struct ContentView: View {
             return TrackpadSurfaceKeySelection(row: key.row, column: key.column)
         }
 
-        private func columnRects(
-            for keyRects: [[CGRect]],
-            trackpadSize: CGSize
-        ) -> [CGRect] {
-            let columnCount = keyRects.map { $0.count }.max() ?? 0
-            guard columnCount > 0 else { return [] }
-            var rects = Array(repeating: CGRect.null, count: columnCount)
-            for row in keyRects {
-                for col in 0..<row.count {
-                    rects[col] = rects[col].union(row[col])
-                }
-            }
-
-            let width = trackpadSize.width
-            let height = trackpadSize.height
-            let sortedIndices = rects.enumerated()
-                .sorted { lhs, rhs in
-                    let lhsMid = lhs.element.isNull ? 0 : lhs.element.midX
-                    let rhsMid = rhs.element.isNull ? 0 : rhs.element.midX
-                    return lhsMid < rhsMid
-                }
-                .map(\.offset)
-
-            var boundaries = Array(repeating: CGFloat.zero, count: columnCount + 1)
-            boundaries[0] = 0
-
-            for physicalIndex in 0..<max(0, sortedIndices.count - 1) {
-                let current = rects[sortedIndices[physicalIndex]]
-                let next = rects[sortedIndices[physicalIndex + 1]]
-                let currentMid = current.isNull ? 0 : current.midX
-                let nextMid = next.isNull ? width : next.midX
-                boundaries[physicalIndex + 1] = (currentMid + nextMid) / 2.0
-            }
-
-            boundaries[columnCount] = width
-
-            let columnHeight = height
-            var expandedRects = rects
-            for physicalIndex in 0..<sortedIndices.count {
-                let colIndex = sortedIndices[physicalIndex]
-                let left = boundaries[physicalIndex]
-                let right = boundaries[physicalIndex + 1]
-                expandedRects[colIndex] = CGRect(
-                    x: left,
-                    y: 0,
-                    width: max(0, right - left),
-                    height: columnHeight
+        private func surfaceSelectionChanged(_ selection: TrackpadSurfaceSelectionEvent) {
+            guard editModeEnabled else { return }
+            viewModel.clearTouchState()
+            switch selection.target {
+            case .button(let id):
+                selectedButtonID = id
+                selectedColumn = nil
+                selectedGridKey = nil
+            case .key(let row, let column, let label):
+                selectedButtonID = nil
+                selectedGridKey = SelectedGridKey(
+                    row: row,
+                    column: column,
+                    label: label,
+                    side: selection.side
                 )
+                selectedColumn = column
+            case .column(let index):
+                selectedButtonID = nil
+                selectedGridKey = nil
+                selectedColumn = index
+            case .none:
+                selectedButtonID = nil
+                selectedGridKey = nil
+                selectedColumn = nil
             }
-
-            return expandedRects
-        }
-
-        private func gridKey(
-            at point: CGPoint,
-            keyRects: [[CGRect]],
-            labels: [[String]],
-            side: TrackpadSide
-        ) -> SelectedGridKey? {
-            for rowIndex in 0..<keyRects.count {
-                guard rowIndex < labels.count else { continue }
-                for colIndex in 0..<keyRects[rowIndex].count {
-                    guard colIndex < labels[rowIndex].count else { continue }
-                    let rect = keyRects[rowIndex][colIndex]
-                    if rect.contains(point) {
-                        return SelectedGridKey(
-                            row: rowIndex,
-                            column: colIndex,
-                            label: labels[rowIndex][colIndex],
-                            side: side
-                        )
-                    }
-                }
-            }
-            return nil
-        }
-
-        private func columnIndex(
-            for point: CGPoint,
-            columnRects: [CGRect]
-        ) -> Int? {
-            if let index = columnRects.firstIndex(where: { $0.contains(point) }) {
-                return index
-            }
-            let columnCount = columnRects.count
-            guard trackpadSize.width > 0, columnCount > 0 else { return nil }
-            let normalizedX = min(max(point.x / trackpadSize.width, 0), 1)
-            var index = Int(normalizedX * CGFloat(columnCount))
-            if index == columnCount {
-                index = columnCount - 1
-            }
-            return index
-        }
-
-        private func logColumnSelection(
-            point: CGPoint,
-            columnRects: [CGRect],
-            resolvedIndex: Int?
-        ) {
         }
     }
 

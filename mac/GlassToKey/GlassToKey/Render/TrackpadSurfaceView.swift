@@ -1,6 +1,7 @@
 import AppKit
 import OpenMultitouchSupport
 import SwiftUI
+import QuartzCore
 
 struct TrackpadSurfaceLabel: Sendable, Equatable {
     var primary: String
@@ -10,6 +11,18 @@ struct TrackpadSurfaceLabel: Sendable, Equatable {
 struct TrackpadSurfaceKeySelection: Sendable, Equatable {
     var row: Int
     var column: Int
+}
+
+enum TrackpadSurfaceSelectionTarget: Equatable {
+    case button(id: UUID)
+    case key(row: Int, column: Int, label: String)
+    case column(index: Int)
+    case none
+}
+
+struct TrackpadSurfaceSelectionEvent: Equatable {
+    var side: TrackpadSide
+    var target: TrackpadSurfaceSelectionTarget
 }
 
 struct TrackpadSurfaceSnapshot {
@@ -22,8 +35,6 @@ struct TrackpadSurfaceSnapshot {
     var rightLabels: [[TrackpadSurfaceLabel]]
     var leftCustomButtons: [CustomButton]
     var rightCustomButtons: [CustomButton]
-    var leftTouches: [OMSTouchData]
-    var rightTouches: [OMSTouchData]
     var selectedColumn: Int?
     var selectedLeftKey: TrackpadSurfaceKeySelection?
     var selectedRightKey: TrackpadSurfaceKeySelection?
@@ -43,8 +54,6 @@ extension TrackpadSurfaceSnapshot {
             rightLabels: [],
             leftCustomButtons: [],
             rightCustomButtons: [],
-            leftTouches: [],
-            rightTouches: [],
             selectedColumn: nil,
             selectedLeftKey: nil,
             selectedRightKey: nil,
@@ -85,6 +94,11 @@ private struct TrackpadSurfaceStaticRenderInput: Equatable {
 final class TrackpadSurfaceView: NSView {
     private var cachedStaticRenderInput: TrackpadSurfaceStaticRenderInput?
     private var cachedStaticImage: NSImage?
+    private var leftTouches: [OMSTouchData] = []
+    private var rightTouches: [OMSTouchData] = []
+
+    var editModeEnabled = false
+    var selectionHandler: ((TrackpadSurfaceSelectionEvent) -> Void)?
 
     var snapshot: TrackpadSurfaceSnapshot = .empty {
         didSet {
@@ -99,6 +113,12 @@ final class TrackpadSurfaceView: NSView {
 
     override var isFlipped: Bool {
         true
+    }
+
+    func updateTouches(left: [OMSTouchData], right: [OMSTouchData]) {
+        leftTouches = left
+        rightTouches = right
+        needsDisplay = true
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -141,7 +161,7 @@ final class TrackpadSurfaceView: NSView {
             origin: leftOrigin,
             layout: snapshot.leftLayout,
             customButtons: snapshot.leftCustomButtons,
-            touches: snapshot.leftTouches,
+            touches: leftTouches,
             trackpadSize: snapshot.trackpadSize,
             selectedColumn: snapshot.selectedColumn,
             selectedKey: snapshot.selectedLeftKey,
@@ -151,12 +171,19 @@ final class TrackpadSurfaceView: NSView {
             origin: rightOrigin,
             layout: snapshot.rightLayout,
             customButtons: snapshot.rightCustomButtons,
-            touches: snapshot.rightTouches,
+            touches: rightTouches,
             trackpadSize: snapshot.trackpadSize,
             selectedColumn: snapshot.selectedColumn,
             selectedKey: snapshot.selectedRightKey,
             selectedButtonID: snapshot.selectedRightButtonID
         )
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard editModeEnabled else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        guard let selectionEvent = selectionEvent(at: point) else { return }
+        selectionHandler?(selectionEvent)
     }
 
     private func renderStaticImage(using input: TrackpadSurfaceStaticRenderInput) -> NSImage {
@@ -235,6 +262,191 @@ final class TrackpadSurfaceView: NSView {
             trackpadSize: trackpadSize
         )
         drawTouches(touches, origin: origin, trackpadSize: trackpadSize)
+    }
+
+    private func selectionEvent(at point: CGPoint) -> TrackpadSurfaceSelectionEvent? {
+        guard let hit = sideHit(at: point) else { return nil }
+        let side = hit.side
+        let localPoint = hit.localPoint
+        let layout = hit.layout
+        let labels = hit.labels
+        let customButtons = hit.customButtons
+        let trackpadSize = snapshot.trackpadSize
+
+        if let selectedButton = customButtons.last(where: { button in
+            button.rect.rect(in: trackpadSize).contains(localPoint)
+        }) {
+            return TrackpadSurfaceSelectionEvent(
+                side: side,
+                target: .button(id: selectedButton.id)
+            )
+        }
+
+        if let selectedKey = gridKey(
+            at: localPoint,
+            keyRects: layout.keyRects,
+            labels: labels
+        ) {
+            return TrackpadSurfaceSelectionEvent(
+                side: side,
+                target: .key(
+                    row: selectedKey.row,
+                    column: selectedKey.column,
+                    label: selectedKey.label
+                )
+            )
+        }
+
+        let columnRects = columnRects(
+            for: layout.keyRects,
+            trackpadSize: trackpadSize
+        )
+        if let index = columnIndex(
+            for: localPoint,
+            columnRects: columnRects,
+            trackpadWidth: trackpadSize.width
+        ) {
+            return TrackpadSurfaceSelectionEvent(
+                side: side,
+                target: .column(index: index)
+            )
+        }
+        return TrackpadSurfaceSelectionEvent(
+            side: side,
+            target: .none
+        )
+    }
+
+    private struct SurfaceSideHit {
+        var side: TrackpadSide
+        var localPoint: CGPoint
+        var layout: ContentViewModel.Layout
+        var labels: [[TrackpadSurfaceLabel]]
+        var customButtons: [CustomButton]
+    }
+
+    private struct SurfaceKeyHit {
+        var row: Int
+        var column: Int
+        var label: String
+    }
+
+    private func sideHit(at point: CGPoint) -> SurfaceSideHit? {
+        let width = snapshot.trackpadSize.width
+        let height = snapshot.trackpadSize.height
+        guard width > 0, height > 0 else { return nil }
+        guard point.y >= 0, point.y <= height else { return nil }
+
+        if point.x >= 0, point.x <= width {
+            return SurfaceSideHit(
+                side: .left,
+                localPoint: point,
+                layout: snapshot.leftLayout,
+                labels: snapshot.leftLabels,
+                customButtons: snapshot.leftCustomButtons
+            )
+        }
+
+        let rightOriginX = width + snapshot.spacing
+        if point.x >= rightOriginX, point.x <= rightOriginX + width {
+            return SurfaceSideHit(
+                side: .right,
+                localPoint: CGPoint(x: point.x - rightOriginX, y: point.y),
+                layout: snapshot.rightLayout,
+                labels: snapshot.rightLabels,
+                customButtons: snapshot.rightCustomButtons
+            )
+        }
+
+        return nil
+    }
+
+    private func gridKey(
+        at point: CGPoint,
+        keyRects: [[CGRect]],
+        labels: [[TrackpadSurfaceLabel]]
+    ) -> SurfaceKeyHit? {
+        for rowIndex in keyRects.indices {
+            guard rowIndex < labels.count else { continue }
+            for columnIndex in keyRects[rowIndex].indices {
+                guard columnIndex < labels[rowIndex].count else { continue }
+                if keyRects[rowIndex][columnIndex].contains(point) {
+                    return SurfaceKeyHit(
+                        row: rowIndex,
+                        column: columnIndex,
+                        label: labels[rowIndex][columnIndex].primary
+                    )
+                }
+            }
+        }
+        return nil
+    }
+
+    private func columnRects(
+        for keyRects: [[CGRect]],
+        trackpadSize: CGSize
+    ) -> [CGRect] {
+        let columnCount = keyRects.map { $0.count }.max() ?? 0
+        guard columnCount > 0 else { return [] }
+        var rects = Array(repeating: CGRect.null, count: columnCount)
+        for row in keyRects {
+            for col in 0..<row.count {
+                rects[col] = rects[col].union(row[col])
+            }
+        }
+
+        let width = trackpadSize.width
+        let height = trackpadSize.height
+        let sortedIndices = rects.enumerated()
+            .sorted { lhs, rhs in
+                let lhsMid = lhs.element.isNull ? 0 : lhs.element.midX
+                let rhsMid = rhs.element.isNull ? 0 : rhs.element.midX
+                return lhsMid < rhsMid
+            }
+            .map(\.offset)
+
+        var boundaries = Array(repeating: CGFloat.zero, count: columnCount + 1)
+        boundaries[0] = 0
+        for physicalIndex in 0..<max(0, sortedIndices.count - 1) {
+            let current = rects[sortedIndices[physicalIndex]]
+            let next = rects[sortedIndices[physicalIndex + 1]]
+            let currentMid = current.isNull ? 0 : current.midX
+            let nextMid = next.isNull ? width : next.midX
+            boundaries[physicalIndex + 1] = (currentMid + nextMid) / 2.0
+        }
+        boundaries[columnCount] = width
+
+        var expandedRects = rects
+        for physicalIndex in 0..<sortedIndices.count {
+            let index = sortedIndices[physicalIndex]
+            let left = boundaries[physicalIndex]
+            let right = boundaries[physicalIndex + 1]
+            expandedRects[index] = CGRect(
+                x: left,
+                y: 0,
+                width: max(0, right - left),
+                height: height
+            )
+        }
+        return expandedRects
+    }
+
+    private func columnIndex(
+        for point: CGPoint,
+        columnRects: [CGRect],
+        trackpadWidth: CGFloat
+    ) -> Int? {
+        if let index = columnRects.firstIndex(where: { $0.contains(point) }) {
+            return index
+        }
+        let columnCount = columnRects.count
+        guard trackpadWidth > 0, columnCount > 0 else { return nil }
+        let normalizedX = min(max(point.x / trackpadWidth, 0), 1)
+        var index = Int(normalizedX * CGFloat(columnCount))
+        if index == columnCount {
+            index = columnCount - 1
+        }
+        return index
     }
 
     private func drawSensorGrid(origin: CGPoint, trackpadSize: CGSize) {
@@ -433,6 +645,97 @@ final class TrackpadSurfaceView: NSView {
 
 struct TrackpadSurfaceRepresentable: NSViewRepresentable {
     let snapshot: TrackpadSurfaceSnapshot
+    let viewModel: ContentViewModel
+    let editModeEnabled: Bool
+    let selectionHandler: ((TrackpadSurfaceSelectionEvent) -> Void)?
+
+    @MainActor
+    final class Coordinator {
+        private weak var surfaceView: TrackpadSurfaceView?
+        private weak var viewModel: ContentViewModel?
+        private var touchUpdateTask: Task<Void, Never>?
+        private var lastTouchRevision: UInt64 = 0
+        private var lastDisplayUpdateTime: TimeInterval = 0
+        private var lastDisplayedHadTouches = false
+        private var editModeEnabled = false
+
+        deinit {
+            touchUpdateTask?.cancel()
+        }
+
+        func attach(
+            surfaceView: TrackpadSurfaceView,
+            viewModel: ContentViewModel,
+            editModeEnabled: Bool
+        ) {
+            self.surfaceView = surfaceView
+            self.editModeEnabled = editModeEnabled
+            let viewModelChanged = self.viewModel !== viewModel
+            self.viewModel = viewModel
+            if viewModelChanged || touchUpdateTask == nil {
+                restartTouchUpdates()
+            }
+        }
+
+        func detach() {
+            touchUpdateTask?.cancel()
+            touchUpdateTask = nil
+            surfaceView = nil
+            viewModel = nil
+        }
+
+        private func restartTouchUpdates() {
+            touchUpdateTask?.cancel()
+            touchUpdateTask = nil
+            guard let viewModel else { return }
+            touchUpdateTask = Task { [weak self] in
+                guard let self else { return }
+                self.refreshTouchSnapshot(using: viewModel, resetRevision: true)
+                var iterator = viewModel.touchRevisionUpdates.makeAsyncIterator()
+                while !Task.isCancelled {
+                    guard let _ = await iterator.next() else { break }
+                    if Task.isCancelled { break }
+                    self.refreshTouchSnapshot(using: viewModel, resetRevision: false)
+                }
+            }
+        }
+
+        private func refreshTouchSnapshot(
+            using viewModel: ContentViewModel,
+            resetRevision: Bool
+        ) {
+            let snapshot: ContentViewModel.TouchSnapshot
+            if resetRevision {
+                snapshot = viewModel.snapshotTouchData()
+                lastTouchRevision = snapshot.revision
+            } else if let updated = viewModel.snapshotTouchDataIfUpdated(since: lastTouchRevision) {
+                snapshot = updated
+                lastTouchRevision = updated.revision
+            } else {
+                return
+            }
+
+            let now = CACurrentMediaTime()
+            if resetRevision || shouldUpdateDisplay(snapshot: snapshot, now: now) {
+                surfaceView?.updateTouches(left: snapshot.left, right: snapshot.right)
+                lastDisplayUpdateTime = now
+                lastDisplayedHadTouches = !(snapshot.left.isEmpty && snapshot.right.isEmpty)
+            }
+        }
+
+        private func shouldUpdateDisplay(
+            snapshot: ContentViewModel.TouchSnapshot,
+            now: TimeInterval
+        ) -> Bool {
+            let hasTouches = !(snapshot.left.isEmpty && snapshot.right.isEmpty)
+            if hasTouches != lastDisplayedHadTouches {
+                return true
+            }
+            let maxRefreshRate = editModeEnabled ? 30.0 : 60.0
+            let minimumInterval = 1.0 / maxRefreshRate
+            return now - lastDisplayUpdateTime >= minimumInterval
+        }
+    }
 
     private func viewSize(for snapshot: TrackpadSurfaceSnapshot) -> CGSize {
         CGSize(
@@ -441,11 +744,22 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
         )
     }
 
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     func makeNSView(context: Context) -> TrackpadSurfaceView {
         let view = TrackpadSurfaceView(frame: CGRect(origin: .zero, size: viewSize(for: snapshot)))
         view.wantsLayer = true
         view.layer?.backgroundColor = NSColor.clear.cgColor
         view.snapshot = snapshot
+        view.editModeEnabled = editModeEnabled
+        view.selectionHandler = selectionHandler
+        context.coordinator.attach(
+            surfaceView: view,
+            viewModel: viewModel,
+            editModeEnabled: editModeEnabled
+        )
         return view
     }
 
@@ -455,5 +769,19 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
             nsView.setFrameSize(size)
         }
         nsView.snapshot = snapshot
+        nsView.editModeEnabled = editModeEnabled
+        nsView.selectionHandler = selectionHandler
+        context.coordinator.attach(
+            surfaceView: nsView,
+            viewModel: viewModel,
+            editModeEnabled: editModeEnabled
+        )
+    }
+
+    static func dismantleNSView(
+        _ nsView: TrackpadSurfaceView,
+        coordinator: Coordinator
+    ) {
+        coordinator.detach()
     }
 }

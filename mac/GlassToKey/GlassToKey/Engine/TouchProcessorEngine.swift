@@ -1123,7 +1123,7 @@ actor TouchProcessorEngine {
             }
             if !isTypingEnabled && momentaryLayerTouches.isEmpty {
                 let removedActive = removeActiveTouch(for: touchKey)
-                let removedPending = removePendingTouch(for: touchKey)
+                _ = removePendingTouch(for: touchKey)
                 if let active = removedActive {
                     if let modifierKey = active.modifierKey {
                         handleModifierUp(modifierKey, binding: active.binding)
@@ -1315,9 +1315,8 @@ actor TouchProcessorEngine {
                 if var pending = removedPending {
                     let distanceSquared = distanceSquared(from: pending.startPoint, to: point)
                     pending.maxDistanceSquared = max(pending.maxDistanceSquared, distanceSquared)
-                    var didDispatch = false
                     if intentAllowsTyping {
-                        didDispatch = maybeSendPendingContinuousTap(
+                        _ = maybeSendPendingContinuousTap(
                             pending,
                             touchKey: touchKey,
                             at: point,
@@ -1329,7 +1328,7 @@ actor TouchProcessorEngine {
                         point: point,
                         side: side
                     ) {
-                        didDispatch = maybeSendPendingContinuousTap(
+                        _ = maybeSendPendingContinuousTap(
                             pending,
                             touchKey: touchKey,
                             at: point,
@@ -1343,7 +1342,6 @@ actor TouchProcessorEngine {
                 let removedActive = removeActiveTouch(for: touchKey)
                 let hadActive = removedActive != nil
                 if var active = removedActive {
-                    var didDispatch = false
                     let releaseDistanceSquared = distanceSquared(
                         from: releaseStartPoint ?? active.startPoint,
                         to: point
@@ -1372,7 +1370,6 @@ actor TouchProcessorEngine {
                                 now: now
                             )
                             triggerBinding(active.binding, touchKey: touchKey, dispatchInfo: dispatchInfo)
-                            didDispatch = true
                         }
                     }
                     endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
@@ -1402,9 +1399,8 @@ actor TouchProcessorEngine {
                 if var pending = removedPending {
                     let distanceSquared = distanceSquared(from: pending.startPoint, to: point)
                     pending.maxDistanceSquared = max(pending.maxDistanceSquared, distanceSquared)
-                    var didDispatch = false
                     if intentAllowsTyping {
-                        didDispatch = maybeSendPendingContinuousTap(
+                        _ = maybeSendPendingContinuousTap(
                             pending,
                             touchKey: touchKey,
                             at: point,
@@ -1416,7 +1412,7 @@ actor TouchProcessorEngine {
                         point: point,
                         side: side
                     ) {
-                        didDispatch = maybeSendPendingContinuousTap(
+                        _ = maybeSendPendingContinuousTap(
                             pending,
                             touchKey: touchKey,
                             at: point,
