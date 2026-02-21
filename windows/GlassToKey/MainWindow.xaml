@@ -776,21 +776,6 @@
                 <CheckBox x:Name="RunAtStartupCheck" Content="Run at Windows startup" Foreground="#8b949e" Margin="0,4,0,0" />
                 <CheckBox x:Name="SnapRadiusModeCheck" Content="Snap Radius" Foreground="#8b949e" Margin="0,4,0,0" />
                 <CheckBox x:Name="AutocorrectModeCheck" Content="Autocorrect" Foreground="#8b949e" Margin="0,4,0,0" />
-                <Grid Margin="0,6,0,0">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="170" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="Autocorrect A/B" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                  <ComboBox x:Name="AutocorrectEditDistanceCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" SelectedIndex="1">
-                    <ComboBoxItem Tag="1" Content="A: maxEdit 1" />
-                    <ComboBoxItem Tag="2" Content="B: maxEdit 2" />
-                  </ComboBox>
-                </Grid>
-                <TextBlock Text="Blacklist words (comma/newline)" Foreground="#8b949e" FontSize="11" Margin="0,6,0,0" />
-                <TextBox x:Name="AutocorrectBlacklistBox" Height="42" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
-                <TextBlock Text="Always-correct map (wrong=right, comma/newline)" Foreground="#8b949e" FontSize="11" Margin="0,6,0,0" />
-                <TextBox x:Name="AutocorrectOverridesBox" Height="48" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
                 <Border Margin="0,8,0,0" Padding="8,6" Background="#111418" BorderBrush="#2b2f33" BorderThickness="1" CornerRadius="6">
                   <StackPanel>
                     <TextBlock Text="Autocorrect Status" Foreground="#8b949e" FontSize="11" Margin="0,0,0,4" />
@@ -816,6 +801,10 @@
                     </TextBlock>
                   </StackPanel>
                 </Border>
+                <TextBlock Text="Blacklist words (comma/newline)" Foreground="#8b949e" FontSize="11" Margin="0,6,0,0" />
+                <TextBox x:Name="AutocorrectBlacklistBox" Height="42" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+                <TextBlock Text="Always-correct map (wrong=right, comma/newline)" Foreground="#8b949e" FontSize="11" Margin="0,6,0,0" />
+                <TextBox x:Name="AutocorrectOverridesBox" Height="48" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
               </StackPanel>
             </Expander>
 

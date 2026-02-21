@@ -226,7 +226,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         SnapRadiusModeCheck.Unchecked += OnModeSettingChanged;
         RunAtStartupCheck.Checked += OnModeSettingChanged;
         RunAtStartupCheck.Unchecked += OnModeSettingChanged;
-        AutocorrectEditDistanceCombo.SelectionChanged += OnAutocorrectOptionSelectionChanged;
         HapticsStrengthSlider.ValueChanged += OnHapticsStrengthChanged;
         ForceMinSlider.ValueChanged += OnForceThresholdSliderChanged;
         ForceCapSlider.ValueChanged += OnForceThresholdSliderChanged;
@@ -589,7 +588,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         KeyboardModeCheck.IsChecked = _settings.KeyboardModeEnabled;
         AutocorrectModeCheck.IsChecked = _settings.AutocorrectEnabled;
         _settings.AutocorrectDryRunEnabled = false;
-        SetAutocorrectEditDistanceSelection(_settings.AutocorrectMaxEditDistance);
+        _settings.AutocorrectMaxEditDistance = 2;
         AutocorrectBlacklistBox.Text = _settings.AutocorrectBlacklistCsv ?? string.Empty;
         AutocorrectOverridesBox.Text = _settings.AutocorrectOverridesCsv ?? string.Empty;
         SnapRadiusModeCheck.IsChecked = _settings.SnapRadiusPercent > 0.0;
@@ -906,16 +905,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ApplySettingsFromUi();
     }
 
-    private void OnAutocorrectOptionSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressSettingsEvents)
-        {
-            return;
-        }
-
-        ApplySettingsFromUi();
-    }
-
     private void OnGestureActionSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressSettingsEvents)
@@ -1065,7 +1054,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.KeyboardModeEnabled = KeyboardModeCheck.IsChecked == true;
         _settings.AutocorrectEnabled = AutocorrectModeCheck.IsChecked == true;
         _settings.AutocorrectDryRunEnabled = false;
-        _settings.AutocorrectMaxEditDistance = ReadAutocorrectMaxEditDistanceFromUi();
+        _settings.AutocorrectMaxEditDistance = 2;
         _settings.AutocorrectBlacklistCsv = NormalizeMultilineText(AutocorrectBlacklistBox.Text);
         _settings.AutocorrectOverridesCsv = NormalizeMultilineText(AutocorrectOverridesBox.Text);
         _settings.SnapRadiusPercent = SnapRadiusModeCheck.IsChecked == true
@@ -1468,41 +1457,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private static AutocorrectOptions BuildAutocorrectOptions(UserSettings settings)
     {
         return new AutocorrectOptions(
-            MaxEditDistance: Math.Clamp(settings.AutocorrectMaxEditDistance, 1, 2),
+            MaxEditDistance: 2,
             DryRunEnabled: settings.AutocorrectDryRunEnabled,
             BlacklistCsv: settings.AutocorrectBlacklistCsv ?? string.Empty,
             OverridesCsv: settings.AutocorrectOverridesCsv ?? string.Empty);
-    }
-
-    private int ReadAutocorrectMaxEditDistanceFromUi()
-    {
-        if (AutocorrectEditDistanceCombo.SelectedItem is ComboBoxItem comboItem &&
-            int.TryParse(comboItem.Tag?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
-        {
-            return Math.Clamp(value, 1, 2);
-        }
-
-        return 2;
-    }
-
-    private void SetAutocorrectEditDistanceSelection(int value)
-    {
-        int target = Math.Clamp(value, 1, 2);
-        for (int i = 0; i < AutocorrectEditDistanceCombo.Items.Count; i++)
-        {
-            if (AutocorrectEditDistanceCombo.Items[i] is ComboBoxItem comboItem &&
-                int.TryParse(comboItem.Tag?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int candidate) &&
-                candidate == target)
-            {
-                AutocorrectEditDistanceCombo.SelectedIndex = i;
-                return;
-            }
-        }
-
-        if (AutocorrectEditDistanceCombo.Items.Count > 0)
-        {
-            AutocorrectEditDistanceCombo.SelectedIndex = AutocorrectEditDistanceCombo.Items.Count - 1;
-        }
     }
 
     private static string NormalizeMultilineText(string? text)
