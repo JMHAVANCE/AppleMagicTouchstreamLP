@@ -217,6 +217,7 @@ final class ContentViewModel: ObservableObject {
     private let renderSnapshotService: RuntimeRenderSnapshotService
     private let runtimeCommandService: RuntimeCommandService
     private let runtimeLifecycleCoordinator: RuntimeLifecycleCoordinatorService
+    private let captureReplayCoordinator: RuntimeCaptureReplayCoordinator
     private let statusVisualsService: RuntimeStatusVisualsService
     private let deviceSessionService: RuntimeDeviceSessionService
 
@@ -262,6 +263,12 @@ final class ContentViewModel: ObservableObject {
             renderSnapshotService: renderSnapshotService,
             runtimeEngine: runtimeEngine,
             runtimeCommandService: runtimeCommandService
+        )
+        captureReplayCoordinator = RuntimeCaptureReplayCoordinator(
+            inputRuntimeService: inputRuntimeService,
+            runtimeLifecycleCoordinator: runtimeLifecycleCoordinator,
+            runtimeEngine: runtimeEngine,
+            renderSnapshotService: renderSnapshotService
         )
         statusVisualsService = RuntimeStatusVisualsService(
             runtimeEngine: runtimeEngine
@@ -507,6 +514,26 @@ final class ContentViewModel: ObservableObject {
 
     func clearVisualCaches() {
         runtimeCommandService.clearVisualCaches()
+    }
+
+    func startATPCapture(to outputURL: URL) throws {
+        try captureReplayCoordinator.startCapture(to: outputURL)
+    }
+
+    func stopATPCapture() async throws -> Int {
+        try await captureReplayCoordinator.stopCapture()
+    }
+
+    func replayATPCapture(from inputURL: URL) async throws -> Int {
+        try await captureReplayCoordinator.replayCapture(from: inputURL)
+    }
+
+    var isATPCaptureActive: Bool {
+        captureReplayCoordinator.isCaptureActive
+    }
+
+    var isATPReplayActive: Bool {
+        captureReplayCoordinator.isReplayActive
     }
 
     func setTouchSnapshotRecordingEnabled(_ enabled: Bool) {

@@ -27,6 +27,7 @@
 		C0A1B2C3D4E5F60718293A44 /* EngineActorBoundary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B44 /* EngineActorBoundary.swift */; };
 		C0A1B2C3D4E5F60718293A46 /* TouchProcessorEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B46 /* TouchProcessorEngine.swift */; };
 		C0A1B2C3D4E5F60718293A45 /* TrackpadSurfaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B45 /* TrackpadSurfaceView.swift */; };
+		C0A1B2C3D4E5F60718293A47 /* ATPCaptureV3Coordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B47 /* ATPCaptureV3Coordinator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,6 +52,7 @@
 		C0A1B2C3D4E5F60718293B44 /* EngineActorBoundary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineActorBoundary.swift; sourceTree = "<group>"; };
 		C0A1B2C3D4E5F60718293B46 /* TouchProcessorEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchProcessorEngine.swift; sourceTree = "<group>"; };
 		C0A1B2C3D4E5F60718293B45 /* TrackpadSurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackpadSurfaceView.swift; sourceTree = "<group>"; };
+		C0A1B2C3D4E5F60718293B47 /* ATPCaptureV3Coordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ATPCaptureV3Coordinator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -112,6 +114,7 @@
 			children = (
 				C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */,
 				C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */,
+				C0A1B2C3D4E5F60718293B47 /* ATPCaptureV3Coordinator.swift */,
 			);
 			path = Runtime;
 			sourceTree = "<group>";
@@ -227,6 +230,7 @@
 				A1B2C3D4E5F6A7B8C9D0E1F5 /* GlassToKeyDefaultsKeys.swift in Sources */,
 				C0A1B2C3D4E5F60718293A42 /* RuntimeContracts.swift in Sources */,
 				C0A1B2C3D4E5F60718293A43 /* InputRuntimeService.swift in Sources */,
+				C0A1B2C3D4E5F60718293A47 /* ATPCaptureV3Coordinator.swift in Sources */,
 				C0A1B2C3D4E5F60718293A44 /* EngineActorBoundary.swift in Sources */,
 				C0A1B2C3D4E5F60718293A46 /* TouchProcessorEngine.swift in Sources */,
 				C0A1B2C3D4E5F60718293A45 /* TrackpadSurfaceView.swift in Sources */,

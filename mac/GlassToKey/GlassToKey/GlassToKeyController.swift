@@ -46,6 +46,26 @@ final class GlassToKeyController: ObservableObject {
         isRunning = true
     }
 
+    func startATPCapture(to outputURL: URL) throws {
+        try viewModel.startATPCapture(to: outputURL)
+    }
+
+    func stopATPCapture() async throws -> Int {
+        try await viewModel.stopATPCapture()
+    }
+
+    func replayATPCapture(from inputURL: URL) async throws -> Int {
+        try await viewModel.replayATPCapture(from: inputURL)
+    }
+
+    var isATPCaptureActive: Bool {
+        viewModel.isATPCaptureActive
+    }
+
+    var isATPReplayActive: Bool {
+        viewModel.isATPReplayActive
+    }
+
     private func configureFromDefaults() {
         viewModel.loadDevices()
         let layout = resolvedLayoutPreset()

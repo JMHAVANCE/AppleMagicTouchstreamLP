@@ -96,6 +96,10 @@ final class InputRuntimeService: @unchecked Sendable {
         stateLock.withLockUnchecked { $0.metrics }
     }
 
+    var isRunning: Bool {
+        stateLock.withLockUnchecked(\.isRunning)
+    }
+
     private func ingestLoop() async {
         for await frame in manager.rawTouchStream {
             if Task.isCancelled {
