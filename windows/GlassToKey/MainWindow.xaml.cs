@@ -233,6 +233,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RunAtStartupCheck.Checked += OnModeSettingChanged;
         RunAtStartupCheck.Unchecked += OnModeSettingChanged;
         AutocorrectEditDistanceCombo.SelectionChanged += OnAutocorrectOptionSelectionChanged;
+        AutocorrectScenarioRunButton.Click += OnRunAutocorrectScenarioClicked;
         HapticsStrengthSlider.ValueChanged += OnHapticsStrengthChanged;
         ForceMinSlider.ValueChanged += OnForceThresholdSliderChanged;
         ForceCapSlider.ValueChanged += OnForceThresholdSliderChanged;

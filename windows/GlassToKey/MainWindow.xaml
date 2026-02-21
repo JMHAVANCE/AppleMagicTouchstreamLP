@@ -853,10 +853,36 @@
         <StackPanel Orientation="Vertical">
           <TextBlock Text="Typing Test" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4" />
           <TextBox x:Name="TypingTestBox"
-                   Height="48"
+                    Height="48"
+                    AcceptsReturn="True"
+                    TextWrapping="Wrap"
+                    VerticalScrollBarVisibility="Auto" />
+          <TextBlock Text="Autocorrect Scenario Runner" Foreground="#8b949e" FontSize="12" Margin="0,10,0,4" />
+          <TextBlock Text="Use raw text and/or tokens: &lt;space&gt; &lt;backspace&gt; &lt;click&gt; &lt;app-change&gt; &lt;ctrl-down&gt; &lt;ctrl-up&gt;." Foreground="#8b949e" FontSize="11" TextWrapping="Wrap" />
+          <TextBox x:Name="AutocorrectScenarioScriptBox"
+                   Height="64"
+                   Margin="0,4,0,0"
                    AcceptsReturn="True"
                    TextWrapping="Wrap"
-                   VerticalScrollBarVisibility="Auto" />
+                   VerticalScrollBarVisibility="Auto"
+                   Text="hi hllo hoc are you&lt;space&gt;" />
+          <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <Button x:Name="AutocorrectScenarioRunButton" Width="120" Height="24" Content="Run Scenario" />
+            <TextBlock x:Name="AutocorrectScenarioStatusText" Margin="8,4,0,0" Foreground="#8b949e" FontSize="11" Text="idle" />
+          </StackPanel>
+          <TextBox x:Name="AutocorrectScenarioResultBox"
+                   Margin="0,6,0,0"
+                   MinHeight="86"
+                   MaxHeight="170"
+                   IsReadOnly="True"
+                   TextWrapping="Wrap"
+                   VerticalScrollBarVisibility="Auto"
+                   HorizontalScrollBarVisibility="Disabled"
+                   Foreground="#e7e9ea"
+                   Background="#0d1117"
+                   BorderBrush="#2b2f33"
+                   BorderThickness="1"
+                   Text="Run a scenario to view autocorrect replay results." />
         </StackPanel>
       </Border>
     </Grid>

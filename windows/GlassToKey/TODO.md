@@ -1,5 +1,7 @@
 ## TODO:
 - How far can we push symspell -- can we have it use more context? -- can we have it ressurect words from the buffer if I go back to correct them through backspaces? Lets tune it in windows and port it to mac!
+- symspell works great! I want to add "word ressurection" 
+- I want to move some of the autocorrect stuff into Typing Test
 ---
 - Can we add 3-finger tap? this one should be easy to differentiate between typing fast, right?
 - Is there any way to add a "click and drag gesture that would start on Hold and Release when you release your fingers? [3 finger "grasp" to 1 finger] [Can we try 5-finger hold to activate - gesture stays active until 0 fingers so I can drag around until I release??]
