@@ -787,7 +787,6 @@
                     <ComboBoxItem Tag="2" Content="B: maxEdit 2" />
                   </ComboBox>
                 </Grid>
-                <CheckBox x:Name="AutocorrectDryRunCheck" Content="Autocorrect dry-run (preview only)" Foreground="#8b949e" Margin="0,4,0,0" />
                 <TextBlock Text="Blacklist words (comma/newline)" Foreground="#8b949e" FontSize="11" Margin="0,6,0,0" />
                 <TextBox x:Name="AutocorrectBlacklistBox" Height="42" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
                 <TextBlock Text="Always-correct map (wrong=right, comma/newline)" Foreground="#8b949e" FontSize="11" Margin="0,6,0,0" />
@@ -795,14 +794,6 @@
                 <Border Margin="0,8,0,0" Padding="8,6" Background="#111418" BorderBrush="#2b2f33" BorderThickness="1" CornerRadius="6">
                   <StackPanel>
                     <TextBlock Text="Autocorrect Status" Foreground="#8b949e" FontSize="11" Margin="0,0,0,4" />
-                    <TextBlock Foreground="#8b949e" FontSize="11">
-                      <Run Text="Current app: " />
-                      <Run x:Name="AutocorrectCurrentAppValueText" Text="n/a" Foreground="#e7e9ea" />
-                    </TextBlock>
-                    <TextBlock Foreground="#8b949e" FontSize="11" Margin="0,2,0,0">
-                      <Run Text="Mode: " />
-                      <Run x:Name="AutocorrectModeValueText" Text="n/a" Foreground="#e7e9ea" />
-                    </TextBlock>
                     <TextBlock Foreground="#8b949e" FontSize="11">
                       <Run Text="Last corrected: " />
                       <Run x:Name="AutocorrectLastCorrectedValueText" Text="n/a" Foreground="#e7e9ea" />
@@ -819,27 +810,10 @@
                       <Run Text="Reset source: " />
                       <Run x:Name="AutocorrectResetSourceValueText" Text="n/a" Foreground="#e7e9ea" />
                     </TextBlock>
-                    <TextBlock Foreground="#8b949e" FontSize="11" Margin="0,2,0,0">
-                      <Run Text="Counters: " />
-                      <Run x:Name="AutocorrectCountersValueText" Text="n/a" Foreground="#e7e9ea" />
-                    </TextBlock>
                     <TextBlock Foreground="#8b949e" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap">
                       <Run Text="Recent words: " />
                       <Run x:Name="AutocorrectWordHistoryValueText" Text="n/a" Foreground="#e7e9ea" />
                     </TextBlock>
-                    <TextBlock Text="Trace ring buffer" Foreground="#8b949e" FontSize="11" Margin="0,6,0,2" />
-                    <TextBox x:Name="AutocorrectTraceValueBox"
-                             MinHeight="90"
-                             MaxHeight="140"
-                             IsReadOnly="True"
-                             TextWrapping="Wrap"
-                             VerticalScrollBarVisibility="Auto"
-                             HorizontalScrollBarVisibility="Disabled"
-                             Foreground="#e7e9ea"
-                             Background="#0d1117"
-                             BorderBrush="#2b2f33"
-                             BorderThickness="1"
-                             Text="&lt;empty&gt;" />
                   </StackPanel>
                 </Border>
               </StackPanel>
@@ -857,32 +831,6 @@
                     AcceptsReturn="True"
                     TextWrapping="Wrap"
                     VerticalScrollBarVisibility="Auto" />
-          <TextBlock Text="Autocorrect Scenario Runner" Foreground="#8b949e" FontSize="12" Margin="0,10,0,4" />
-          <TextBlock Text="Use raw text and/or tokens: &lt;space&gt; &lt;backspace&gt; &lt;click&gt; &lt;app-change&gt; &lt;ctrl-down&gt; &lt;ctrl-up&gt;." Foreground="#8b949e" FontSize="11" TextWrapping="Wrap" />
-          <TextBox x:Name="AutocorrectScenarioScriptBox"
-                   Height="64"
-                   Margin="0,4,0,0"
-                   AcceptsReturn="True"
-                   TextWrapping="Wrap"
-                   VerticalScrollBarVisibility="Auto"
-                   Text="hi hllo hoc are you&lt;space&gt;" />
-          <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-            <Button x:Name="AutocorrectScenarioRunButton" Width="120" Height="24" Content="Run Scenario" />
-            <TextBlock x:Name="AutocorrectScenarioStatusText" Margin="8,4,0,0" Foreground="#8b949e" FontSize="11" Text="idle" />
-          </StackPanel>
-          <TextBox x:Name="AutocorrectScenarioResultBox"
-                   Margin="0,6,0,0"
-                   MinHeight="86"
-                   MaxHeight="170"
-                   IsReadOnly="True"
-                   TextWrapping="Wrap"
-                   VerticalScrollBarVisibility="Auto"
-                   HorizontalScrollBarVisibility="Disabled"
-                   Foreground="#e7e9ea"
-                   Background="#0d1117"
-                   BorderBrush="#2b2f33"
-                   BorderThickness="1"
-                   Text="Run a scenario to view autocorrect replay results." />
         </StackPanel>
       </Border>
     </Grid>

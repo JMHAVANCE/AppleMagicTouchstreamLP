@@ -39,7 +39,6 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     private const int AutocorrectMinimumWordLength = 3;
     private const int AutocorrectMaximumWordLength = 48;
     private const int AutocorrectCacheCapacity = 2048;
-    private const int AutocorrectTraceCapacity = 48;
     private const int AutocorrectWordHistoryCapacity = 24;
     private const int AutocorrectMaxEditDistanceMin = 1;
     private const int AutocorrectMaxEditDistanceMax = 2;
@@ -58,7 +57,6 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     private readonly Dictionary<uint, string> _processNameCache = new();
     private readonly HashSet<string> _autocorrectBlacklist = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _autocorrectOverrides = new(StringComparer.Ordinal);
-    private readonly AutocorrectTraceEntry[] _autocorrectTrace = new AutocorrectTraceEntry[AutocorrectTraceCapacity];
     private readonly string[] _autocorrectWordHistory = new string[AutocorrectWordHistoryCapacity];
     private readonly long _repeatInitialDelayTicks;
     private readonly long _repeatIntervalTicks;
@@ -69,10 +67,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     private string _autocorrectBufferSnapshot = string.Empty;
     private string _autocorrectSkipReason = "idle";
     private string _autocorrectLastResetSource = "none";
-    private string _autocorrectTraceSnapshot = "<empty>";
     private string _autocorrectWordHistorySnapshot = "<empty>";
-    private int _autocorrectTraceWriteIndex;
-    private int _autocorrectTraceCount;
     private int _autocorrectWordHistoryWriteIndex;
     private int _autocorrectWordHistoryCount;
     private int _autocorrectMaxEditDistance = AutocorrectMaxEditDistanceMax;
@@ -175,8 +170,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             ResetByClickCount: _autocorrectCounterResetByClick,
             ResetByAppChangeCount: _autocorrectCounterResetByAppChange,
             ShortcutBypassCount: _autocorrectCounterShortcutBypass,
-            WordHistory: _autocorrectWordHistorySnapshot,
-            Trace: _autocorrectTraceSnapshot);
+            WordHistory: _autocorrectWordHistorySnapshot);
     }
 
     public void NotifyPointerActivity()
@@ -698,7 +692,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         if (_autocorrectWordBuffer.Length < AutocorrectMinimumWordLength ||
             _autocorrectWordBuffer.Length > AutocorrectMaximumWordLength)
         {
-            RegisterAutocorrectSkip("word_length", typedWord, suggestion: null);
+            RegisterAutocorrectSkip("word_length");
             ResetAutocorrectState();
             return;
         }
@@ -706,7 +700,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         SymSpell? symSpell = SymSpellInstance.Value;
         if (symSpell == null)
         {
-            RegisterAutocorrectSkip("dictionary_unavailable", typedWord, suggestion: null);
+            RegisterAutocorrectSkip("dictionary_unavailable");
             ResetAutocorrectState();
             return;
         }
@@ -714,7 +708,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         string typedLower = typedWord.ToLowerInvariant();
         if (_autocorrectBlacklist.Contains(typedLower))
         {
-            RegisterAutocorrectSkip("blacklisted", typedWord, suggestion: null);
+            RegisterAutocorrectSkip("blacklisted");
             ResetAutocorrectState();
             return;
         }
@@ -734,7 +728,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
         if (string.IsNullOrEmpty(correctedLower))
         {
-            RegisterAutocorrectSkip("no_suggestion", typedWord, suggestion: null);
+            RegisterAutocorrectSkip("no_suggestion");
             ResetAutocorrectState();
             return;
         }
@@ -742,7 +736,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         string corrected = ApplyWordCasePattern(correctedLower, typedWord);
         if (string.Equals(corrected, typedWord, StringComparison.Ordinal))
         {
-            RegisterAutocorrectSkip("already_correct", typedWord, corrected);
+            RegisterAutocorrectSkip("already_correct");
             ResetAutocorrectState();
             return;
         }
@@ -784,20 +778,12 @@ internal sealed class SendInputDispatcher : IInputDispatcher
                 ? $"{typedWord} -> {corrected} (override)"
                 : $"{typedWord} -> {corrected}";
             _autocorrectSkipReason = "corrected";
-            RecordAutocorrectTrace(
-                resolutionSource == "override" ? "corrected_override" : "corrected",
-                typedWord,
-                corrected);
         }
         else
         {
             _autocorrectCounterSkipped++;
             _autocorrectLastCorrected = $"{typedWord} -> {corrected} (dry-run)";
             _autocorrectSkipReason = "dry_run_preview";
-            RecordAutocorrectTrace(
-                resolutionSource == "override" ? "dry_run_override" : "dry_run_preview",
-                typedWord,
-                corrected);
         }
 
         ResetAutocorrectState();
@@ -1027,7 +1013,6 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
     private void ResetAutocorrectState(string? reason = null)
     {
-        string priorWord = _autocorrectWordBuffer.ToString();
         _autocorrectWordBuffer.Clear();
         _autocorrectBufferSnapshot = string.Empty;
         if (!string.IsNullOrWhiteSpace(reason))
@@ -1042,16 +1027,13 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             {
                 _autocorrectCounterResetByAppChange++;
             }
-
-            RecordAutocorrectTrace(reason, priorWord, suggestion: null);
         }
     }
 
-    private void RegisterAutocorrectSkip(string reason, string typedWord, string? suggestion)
+    private void RegisterAutocorrectSkip(string reason)
     {
         _autocorrectCounterSkipped++;
         _autocorrectSkipReason = reason;
-        RecordAutocorrectTrace(reason, typedWord, suggestion);
     }
 
     private void RecordWordHistory(string word)
@@ -1069,55 +1051,6 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         }
 
         _autocorrectWordHistorySnapshot = BuildWordHistorySnapshot();
-    }
-
-    private void RecordAutocorrectTrace(string reason, string? word, string? suggestion)
-    {
-        AutocorrectTraceEntry entry = new(
-            Timestamp: DateTimeOffset.Now.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture),
-            App: string.IsNullOrWhiteSpace(_autocorrectForegroundApp) ? "unknown" : _autocorrectForegroundApp,
-            Reason: string.IsNullOrWhiteSpace(reason) ? "none" : reason,
-            Word: string.IsNullOrWhiteSpace(word) ? "-" : word,
-            Suggestion: string.IsNullOrWhiteSpace(suggestion) ? "-" : suggestion);
-        _autocorrectTrace[_autocorrectTraceWriteIndex] = entry;
-        _autocorrectTraceWriteIndex = (_autocorrectTraceWriteIndex + 1) % _autocorrectTrace.Length;
-        if (_autocorrectTraceCount < _autocorrectTrace.Length)
-        {
-            _autocorrectTraceCount++;
-        }
-
-        _autocorrectTraceSnapshot = BuildTraceSnapshot();
-    }
-
-    private string BuildTraceSnapshot()
-    {
-        if (_autocorrectTraceCount == 0)
-        {
-            return "<empty>";
-        }
-
-        StringBuilder builder = new(capacity: 256);
-        for (int i = 0; i < _autocorrectTraceCount; i++)
-        {
-            int index = (_autocorrectTraceWriteIndex - _autocorrectTraceCount + i + _autocorrectTrace.Length) % _autocorrectTrace.Length;
-            AutocorrectTraceEntry entry = _autocorrectTrace[index];
-            if (i > 0)
-            {
-                builder.Append('\n');
-            }
-
-            builder.Append(entry.Timestamp);
-            builder.Append(" | ");
-            builder.Append(entry.App);
-            builder.Append(" | ");
-            builder.Append(entry.Reason);
-            builder.Append(" | ");
-            builder.Append(entry.Word);
-            builder.Append(" | ");
-            builder.Append(entry.Suggestion);
-        }
-
-        return builder.ToString();
     }
 
     private string BuildWordHistorySnapshot()
@@ -1382,21 +1315,13 @@ internal readonly record struct AutocorrectStatusSnapshot(
     long ResetByClickCount,
     long ResetByAppChangeCount,
     long ShortcutBypassCount,
-    string WordHistory,
-    string Trace);
+    string WordHistory);
 
 internal readonly record struct AutocorrectOptions(
     int MaxEditDistance,
     bool DryRunEnabled,
     string BlacklistCsv,
     string OverridesCsv);
-
-internal readonly record struct AutocorrectTraceEntry(
-    string Timestamp,
-    string App,
-    string Reason,
-    string Word,
-    string Suggestion);
 
 internal sealed class NullInputDispatcher : IInputDispatcher
 {
