@@ -177,6 +177,15 @@ final class ContentViewModel: ObservableObject {
         case gesture
     }
 
+    struct ReplayTimelineState: Equatable {
+        var sourceName: String
+        var frameCount: Int
+        var durationSeconds: Double
+        var currentFrameIndex: Int
+        var currentTimeSeconds: Double
+        var isPlaying: Bool
+    }
+
     @MainActor
     final class StatusViewModel: ObservableObject {
         @Published var contactFingerCountsBySide = SidePair(left: 0, right: 0)
@@ -190,6 +199,7 @@ final class ContentViewModel: ObservableObject {
     @Published var isListening: Bool = false
     @Published var isTypingEnabled: Bool = true
     @Published var keyboardModeEnabled: Bool = false
+    @Published private(set) var replayTimelineState: ReplayTimelineState?
     @Published private(set) var activeLayer: Int = 0
     private let isDragDetectionEnabled = true
     @Published var availableDevices = [OMSDeviceInfo]()
@@ -220,6 +230,7 @@ final class ContentViewModel: ObservableObject {
     private let captureReplayCoordinator: RuntimeCaptureReplayCoordinator
     private let statusVisualsService: RuntimeStatusVisualsService
     private let deviceSessionService: RuntimeDeviceSessionService
+    private var replayPlaybackTask: Task<Void, Never>?
 
     init() {
         let inputRuntimeService = InputRuntimeService(manager: manager)
@@ -516,6 +527,10 @@ final class ContentViewModel: ObservableObject {
         runtimeCommandService.clearVisualCaches()
     }
 
+    deinit {
+        replayPlaybackTask?.cancel()
+    }
+
     func startATPCapture(to outputURL: URL) throws {
         try captureReplayCoordinator.startCapture(to: outputURL)
     }
@@ -525,7 +540,111 @@ final class ContentViewModel: ObservableObject {
     }
 
     func replayATPCapture(from inputURL: URL) async throws -> Int {
-        try await captureReplayCoordinator.replayCapture(from: inputURL)
+        let info = try await captureReplayCoordinator.beginReplaySession(from: inputURL)
+        replayTimelineState = ReplayTimelineState(
+            sourceName: info.sourceName,
+            frameCount: info.frameCount,
+            durationSeconds: info.durationSeconds,
+            currentFrameIndex: info.currentFrameIndex,
+            currentTimeSeconds: info.currentTimeSeconds,
+            isPlaying: false
+        )
+        let finalPosition = try await captureReplayCoordinator.playReplay()
+        replayTimelineState?.currentFrameIndex = finalPosition.frameIndex
+        replayTimelineState?.currentTimeSeconds = finalPosition.timeSeconds
+        replayTimelineState?.isPlaying = false
+        try await captureReplayCoordinator.endReplaySession()
+        replayTimelineState = nil
+        return info.frameCount
+    }
+
+    func beginReplaySession(from inputURL: URL) async throws {
+        await cancelReplayPlaybackTaskAndAwaitCompletion()
+        let info = try await captureReplayCoordinator.beginReplaySession(from: inputURL)
+        replayTimelineState = ReplayTimelineState(
+            sourceName: info.sourceName,
+            frameCount: info.frameCount,
+            durationSeconds: info.durationSeconds,
+            currentFrameIndex: info.currentFrameIndex,
+            currentTimeSeconds: info.currentTimeSeconds,
+            isPlaying: false
+        )
+    }
+
+    func endReplaySession() async {
+        await cancelReplayPlaybackTaskAndAwaitCompletion()
+        do {
+            try await captureReplayCoordinator.endReplaySession()
+        } catch {
+            // Keep UI responsive even if restore fails; AppDelegate surfaces errors when needed.
+        }
+        replayTimelineState = nil
+    }
+
+    func scrubReplay(to timeSeconds: Double) async throws {
+        await cancelReplayPlaybackTaskAndAwaitCompletion()
+        let position = try await captureReplayCoordinator.setReplayTimeSeconds(timeSeconds)
+        replayTimelineState?.currentFrameIndex = position.frameIndex
+        replayTimelineState?.currentTimeSeconds = position.timeSeconds
+        replayTimelineState?.isPlaying = false
+    }
+
+    func toggleReplayPlayback() {
+        guard var replayState = replayTimelineState else { return }
+        if replayState.isPlaying {
+            replayPlaybackTask?.cancel()
+            replayPlaybackTask = nil
+            replayState.isPlaying = false
+            replayTimelineState = replayState
+            return
+        }
+
+        let shouldRestartFromBeginning = replayState.frameCount > 0 &&
+            replayState.currentTimeSeconds >= replayState.durationSeconds
+        replayState.isPlaying = true
+        replayTimelineState = replayState
+        replayPlaybackTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                if shouldRestartFromBeginning {
+                    let restartPosition = try await self.captureReplayCoordinator.setReplayTimeSeconds(0)
+                    await MainActor.run { [weak self] in
+                        self?.replayTimelineState?.currentFrameIndex = restartPosition.frameIndex
+                        self?.replayTimelineState?.currentTimeSeconds = restartPosition.timeSeconds
+                    }
+                }
+
+                let finalPosition = try await self.captureReplayCoordinator.playReplay { progress in
+                    Task { @MainActor [weak self] in
+                        self?.replayTimelineState?.currentFrameIndex = progress.frameIndex
+                        self?.replayTimelineState?.currentTimeSeconds = progress.timeSeconds
+                    }
+                }
+                guard !Task.isCancelled else { return }
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    self.replayTimelineState?.currentFrameIndex = finalPosition.frameIndex
+                    self.replayTimelineState?.currentTimeSeconds = finalPosition.timeSeconds
+                    self.replayTimelineState?.isPlaying = false
+                    self.replayPlaybackTask = nil
+                }
+            } catch {
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    self.replayTimelineState?.isPlaying = false
+                    self.replayPlaybackTask = nil
+                }
+            }
+        }
+    }
+
+    private func cancelReplayPlaybackTaskAndAwaitCompletion() async {
+        guard let task = replayPlaybackTask else {
+            return
+        }
+        replayPlaybackTask = nil
+        task.cancel()
+        await task.value
     }
 
     var isATPCaptureActive: Bool {

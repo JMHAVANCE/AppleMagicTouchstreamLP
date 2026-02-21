@@ -88,6 +88,8 @@ struct ContentView: View {
     @State private var layoutOption: TrackpadLayoutPreset = .sixByThree
     @State private var leftGridLabelInfo: [[GridLabel]] = []
     @State private var rightGridLabelInfo: [[GridLabel]] = []
+    @State private var replayScrubValue: Double = 0
+    @State private var replayScrubInProgress = false
     @AppStorage(GlassToKeyDefaultsKeys.leftDeviceID) private var storedLeftDeviceID = ""
     @AppStorage(GlassToKeyDefaultsKeys.rightDeviceID) private var storedRightDeviceID = ""
     @AppStorage(GlassToKeyDefaultsKeys.columnSettings) private var storedColumnSettingsData = Data()
@@ -420,12 +422,27 @@ struct ContentView: View {
             .onChange(of: storedAutoResyncMissingTrackpads) { newValue in
                 viewModel.setAutoResyncEnabled(newValue)
             }
+            .onReceive(viewModel.$replayTimelineState) { state in
+                if state != nil, editModeEnabled {
+                    editModeEnabled = false
+                }
+                if let state, !replayScrubInProgress {
+                    replayScrubValue = max(state.currentTimeSeconds, 0)
+                }
+                if state == nil {
+                    replayScrubInProgress = false
+                    replayScrubValue = 0
+                }
+            }
     }
 
     @ViewBuilder
     private var mainLayout: some View {
         VStack(spacing: 16) {
             headerView
+            if let replayTimelineState = viewModel.replayTimelineState {
+                replayTimelineView(replayTimelineState)
+            }
             contentRow
         }
     }
@@ -435,9 +452,78 @@ struct ContentView: View {
         HeaderControlsView(
             editModeEnabled: $editModeEnabled,
             statusViewModel: viewModel.statusViewModel,
+            replayModeEnabled: viewModel.replayTimelineState != nil,
             layerToggleBinding: layerToggleBinding,
             onImportKeymap: importKeymap,
             onExportKeymap: exportKeymap
+        )
+    }
+
+    private func replayTimelineView(
+        _ state: ContentViewModel.ReplayTimelineState
+    ) -> some View {
+        let maxTime = max(state.durationSeconds, 0)
+        let maxFrameIndex = max(state.frameCount - 1, 0)
+        return HStack(spacing: 12) {
+            Text("Replay")
+                .font(.subheadline)
+                .bold()
+            Text(state.sourceName)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Button(state.isPlaying ? "Pause" : "Play") {
+                viewModel.toggleReplayPlayback()
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(state.frameCount == 0)
+            Slider(
+                value: Binding(
+                    get: { replayScrubValue },
+                    set: { replayScrubValue = $0 }
+                ),
+                in: 0...max(maxTime, 0.001),
+                step: 0.01
+            ) { editing in
+                replayScrubInProgress = editing
+                guard !editing else { return }
+                Task {
+                    try? await viewModel.scrubReplay(to: replayScrubValue)
+                }
+            }
+            .disabled(state.frameCount == 0 || state.isPlaying)
+            Text("\(formatReplayTime(state.currentTimeSeconds))/\(formatReplayTime(state.durationSeconds))")
+                .font(.caption.monospacedDigit())
+                .frame(width: 150, alignment: .trailing)
+            Text("\(max(state.currentFrameIndex, 0))/\(maxFrameIndex)")
+                .font(.caption.monospacedDigit())
+                .frame(width: 80, alignment: .trailing)
+            Button("Exit Replay") {
+                Task {
+                    await viewModel.endReplaySession()
+                }
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.blue.opacity(0.08))
+        )
+    }
+
+    private func formatReplayTime(_ seconds: Double) -> String {
+        let clamped = max(0, seconds)
+        let totalMilliseconds = Int((clamped * 1_000).rounded())
+        let minutes = totalMilliseconds / 60_000
+        let secondsComponent = (totalMilliseconds / 1_000) % 60
+        let millisecondsComponent = totalMilliseconds % 1_000
+        return String(
+            format: "%02d:%02d.%03d",
+            minutes,
+            secondsComponent,
+            millisecondsComponent
         )
     }
 
@@ -522,6 +608,7 @@ struct ContentView: View {
     private struct HeaderControlsView: View {
         @Binding var editModeEnabled: Bool
         @ObservedObject var statusViewModel: ContentViewModel.StatusViewModel
+        let replayModeEnabled: Bool
         let layerToggleBinding: Binding<Bool>
         let onImportKeymap: () -> Void
         let onExportKeymap: () -> Void
@@ -554,6 +641,7 @@ struct ContentView: View {
                 .buttonStyle(.bordered)
                 Toggle("Edit Keymap", isOn: $editModeEnabled)
                     .toggleStyle(SwitchToggleStyle())
+                    .disabled(replayModeEnabled)
                 HStack(spacing: 6) {
                     Text("Layer0")
                     Toggle("", isOn: layerToggleBinding)

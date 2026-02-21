@@ -16,3 +16,5 @@
 - e v e n s p a c e
 ###
 Gestures Config
+###
+- Replay genius: If you want, I can also add replay hotkeys (Space play/pause, arrow keys frame step).

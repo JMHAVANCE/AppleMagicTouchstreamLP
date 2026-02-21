@@ -1,8 +1,24 @@
+import Dispatch
 import Foundation
 import OpenMultitouchSupport
 import os
 
 enum ATPCaptureV3Codec {
+    struct CaptureSample: Sendable {
+        let frame: RuntimeRawFrame
+        let arrivalTicks: Int64
+    }
+
+    struct ReplaySample: Sendable {
+        let frame: RuntimeRawFrame
+        let replayTimeSeconds: Double
+    }
+
+    struct ReplayData: Sendable {
+        let samples: [ReplaySample]
+        let durationSeconds: Double
+    }
+
     static let fileMagic = "ATPCAP01"
     static let schema = "g2k-replay-v1"
     static let currentVersion: Int32 = 3
@@ -16,6 +32,27 @@ enum ATPCaptureV3Codec {
 
     static func write(
         frames: [RuntimeRawFrame],
+        to url: URL,
+        tickFrequency: Int64 = defaultTickFrequency,
+        platform: String = "macOS",
+        source: String = "GlassToKeyMenuCapture"
+    ) throws {
+        let baseTimestamp = frames.first?.timestamp ?? 0
+        let samples = frames.map { frame in
+            let ticks = Int64(((frame.timestamp - baseTimestamp) * Double(tickFrequency)).rounded())
+            return CaptureSample(frame: frame, arrivalTicks: max(0, ticks))
+        }
+        try write(
+            samples: samples,
+            to: url,
+            tickFrequency: tickFrequency,
+            platform: platform,
+            source: source
+        )
+    }
+
+    static func write(
+        samples: [CaptureSample],
         to url: URL,
         tickFrequency: Int64 = defaultTickFrequency,
         platform: String = "macOS",
@@ -46,7 +83,7 @@ enum ATPCaptureV3Codec {
             capturedAt: iso8601Timestamp(Date()),
             platform: platform,
             source: source,
-            framesCaptured: frames.count
+            framesCaptured: samples.count
         )
         try handle.write(contentsOf: recordHeader(
             payloadLength: metaPayload.count,
@@ -62,19 +99,16 @@ enum ATPCaptureV3Codec {
         ))
         try handle.write(contentsOf: metaPayload)
 
-        let baseTimestamp = frames.first?.timestamp ?? 0
         var sequence: UInt64 = 1
-        for frame in frames {
+        for sample in samples {
+            let frame = sample.frame
             guard let deviceIndex = Int32(exactly: frame.deviceIndex) else {
                 throw RuntimeCaptureReplayError.invalidATPCapture(
                     reason: "deviceIndex \(frame.deviceIndex) out of Int32 range"
                 )
             }
             let payload = try encodeFramePayload(sequence: sequence, frame: frame)
-            let arrivalTicks = max(
-                Int64(0),
-                Int64(((frame.timestamp - baseTimestamp) * Double(tickFrequency)).rounded())
-            )
+            let arrivalTicks = max(0, sample.arrivalTicks)
 
             try handle.write(contentsOf: recordHeader(
                 payloadLength: payload.count,
@@ -93,12 +127,12 @@ enum ATPCaptureV3Codec {
         }
     }
 
-    static func readFrames(from url: URL) throws -> [RuntimeRawFrame] {
+    static func readReplayData(from url: URL) throws -> ReplayData {
         let data = try Data(contentsOf: url)
-        return try parseFrames(data: data)
+        return try parseReplayData(data: data)
     }
 
-    static func parseFrames(data: Data) throws -> [RuntimeRawFrame] {
+    static func parseReplayData(data: Data) throws -> ReplayData {
         let container = try readContainer(data: data)
         guard container.header.version == currentVersion else {
             throw RuntimeCaptureReplayError.unsupportedATPCaptureVersion(
@@ -109,6 +143,8 @@ enum ATPCaptureV3Codec {
         var expectedSequence: UInt64 = 1
         var frames: [RuntimeRawFrame] = []
         frames.reserveCapacity(1024)
+        var rawArrivalTicks: [Int64] = []
+        rawArrivalTicks.reserveCapacity(1024)
 
         for record in container.records {
             if record.deviceIndex == metaRecordDeviceIndex {
@@ -126,10 +162,75 @@ enum ATPCaptureV3Codec {
                 )
             }
             frames.append(frame)
+            rawArrivalTicks.append(record.arrivalTicks)
             expectedSequence &+= 1
         }
 
-        return frames
+        let replayTimes = try replayTimelineSeconds(
+            rawArrivalTicks: rawArrivalTicks,
+            tickFrequency: container.header.tickFrequency
+        )
+        var samples: [ReplaySample] = []
+        samples.reserveCapacity(frames.count)
+        for index in frames.indices {
+            var frame = frames[index]
+            let replayTime = replayTimes[index]
+            frame.timestamp = replayTime
+            samples.append(
+                ReplaySample(
+                    frame: frame,
+                    replayTimeSeconds: replayTime
+                )
+            )
+        }
+        return ReplayData(
+            samples: samples,
+            durationSeconds: replayTimes.last ?? 0
+        )
+    }
+
+    static func readFrames(from url: URL) throws -> [RuntimeRawFrame] {
+        try readReplayData(from: url).samples.map(\.frame)
+    }
+
+    static func parseFrames(data: Data) throws -> [RuntimeRawFrame] {
+        try parseReplayData(data: data).samples.map(\.frame)
+    }
+
+    private static func replayTimelineSeconds(
+        rawArrivalTicks: [Int64],
+        tickFrequency: Int64
+    ) throws -> [Double] {
+        guard !rawArrivalTicks.isEmpty else {
+            return []
+        }
+
+        let normalizedFrequency = max(1, tickFrequency)
+        let firstTick = rawArrivalTicks[0]
+        var normalizedTicks: [Int64] = []
+        normalizedTicks.reserveCapacity(rawArrivalTicks.count)
+
+        var previousTick: Int64 = 0
+        for (index, rawTick) in rawArrivalTicks.enumerated() {
+            let tick = rawTick - firstTick
+            guard tick >= 0 else {
+                throw RuntimeCaptureReplayError.invalidATPCapture(
+                    reason: "arrivalTicks must be monotonic (record \(index))"
+                )
+            }
+
+            if index > 0, tick < previousTick {
+                throw RuntimeCaptureReplayError.invalidATPCapture(
+                    reason: "arrivalTicks must be monotonic (record \(index))"
+                )
+            }
+
+            normalizedTicks.append(tick)
+            previousTick = tick
+        }
+
+        let frequencyAsDouble = Double(normalizedFrequency)
+        return normalizedTicks.map { Double($0) / frequencyAsDouble }
     }
 
     private static func readContainer(data: Data) throws -> ATPCaptureContainer {
@@ -579,7 +680,9 @@ enum ATPCaptureV3Codec {
 enum RuntimeCaptureReplayError: LocalizedError {
     case captureAlreadyRunning
     case captureNotRunning
-    case replayAlreadyRunning
+    case replaySessionAlreadyActive
+    case replaySessionNotActive
+    case replayPlaybackAlreadyActive
     case captureOrReplayConflict
     case unableToStartRuntimeForCapture
     case unableToRestartRuntimeAfterReplay
@@ -592,8 +695,12 @@ enum RuntimeCaptureReplayError: LocalizedError {
             return "A capture session is already running."
         case .captureNotRunning:
             return "No capture session is currently running."
-        case .replayAlreadyRunning:
-            return "A replay session is already running."
+        case .replaySessionAlreadyActive:
+            return "A replay session is already active."
+        case .replaySessionNotActive:
+            return "No replay session is active."
+        case .replayPlaybackAlreadyActive:
+            return "Replay playback is already running."
         case .captureOrReplayConflict:
             return "Capture and replay cannot run at the same time."
         case .unableToStartRuntimeForCapture:
@@ -608,16 +715,35 @@ enum RuntimeCaptureReplayError: LocalizedError {
     }
 }
 
+struct RuntimeReplaySessionInfo: Sendable, Equatable {
+    let sourceName: String
+    let frameCount: Int
+    let durationSeconds: Double
+    let currentFrameIndex: Int
+    let currentTimeSeconds: Double
+    let isPlaying: Bool
+}
+
+struct RuntimeReplayPosition: Sendable, Equatable {
+    let frameIndex: Int
+    let timeSeconds: Double
+}
+
 final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
     private actor CaptureBuffer {
-        private var frames: [RuntimeRawFrame] = []
+        private var samples: [ATPCaptureV3Codec.CaptureSample] = []
 
-        func append(_ frame: RuntimeRawFrame) {
-            frames.append(frame)
+        func append(_ frame: RuntimeRawFrame, arrivalTicks: Int64) {
+            samples.append(
+                ATPCaptureV3Codec.CaptureSample(
+                    frame: frame,
+                    arrivalTicks: max(0, arrivalTicks)
+                )
+            )
         }
 
-        func snapshot() -> [RuntimeRawFrame] {
-            frames
+        func snapshot() -> [ATPCaptureV3Codec.CaptureSample] {
+            samples
         }
     }
 
@@ -628,10 +754,21 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
         let task: Task<Void, Never>
     }
 
+    private struct ReplaySession {
+        let sourceName: String
+        let frames: [RuntimeRawFrame]
+        let frameTimesSeconds: [Double]
+        let durationSeconds: Double
+        let wasRuntimeRunningBeforeSession: Bool
+        var currentFrameIndex: Int
+        var currentTimeSeconds: Double
+    }
+
     private struct State {
         var captureSession: CaptureSession?
         var captureInitializing = false
-        var replayInProgress = false
+        var replaySession: ReplaySession?
+        var replayPlaybackInProgress = false
     }
 
     private let inputRuntimeService: InputRuntimeService
@@ -657,7 +794,11 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
     }
 
     var isReplayActive: Bool {
-        stateLock.withLockUnchecked(\.replayInProgress)
+        stateLock.withLockUnchecked { $0.replaySession != nil }
+    }
+
+    var isReplayPlaying: Bool {
+        stateLock.withLockUnchecked(\.replayPlaybackInProgress)
     }
 
     func startCapture(to outputURL: URL) throws {
@@ -670,7 +811,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
             guard !state.captureInitializing else {
                 return false
             }
-            guard !state.replayInProgress else {
+            guard state.replaySession == nil else {
                 return false
             }
             state.captureInitializing = true
@@ -694,12 +835,18 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
 
         let buffer = CaptureBuffer()
         let stream = inputRuntimeService.rawFrameStream
+        let captureStartUptime = DispatchTime.now().uptimeNanoseconds
         let task = Task.detached(priority: .userInitiated) {
             for await rawFrame in stream {
                 if Task.isCancelled {
                     return
                 }
-                await buffer.append(rawFrame)
+                let nowUptime = DispatchTime.now().uptimeNanoseconds
+                let elapsed = nowUptime >= captureStartUptime ? nowUptime - captureStartUptime : 0
+                await buffer.append(
+                    rawFrame,
+                    arrivalTicks: Int64(clamping: elapsed)
+                )
             }
         }
 
@@ -732,83 +879,303 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
             _ = runtimeLifecycleCoordinator.stop(stopVoiceDictation: false)
         }
 
-        let frames = await session.buffer.snapshot()
-        try ATPCaptureV3Codec.write(frames: frames, to: session.outputURL)
-        return frames.count
+        let samples = await session.buffer.snapshot()
+        try ATPCaptureV3Codec.write(samples: samples, to: session.outputURL)
+        return samples.count
     }
 
     func replayCapture(from inputURL: URL) async throws -> Int {
-        let startedReplay = stateLock.withLockUnchecked { state -> Bool in
-            guard !state.replayInProgress else { return false }
+        let info = try await beginReplaySession(from: inputURL)
+        _ = try await playReplay()
+        try await endReplaySession()
+        return info.frameCount
+    }
+
+    func beginReplaySession(from inputURL: URL) async throws -> RuntimeReplaySessionInfo {
+        let sourceName = inputURL.lastPathComponent
+        let replayData = try ATPCaptureV3Codec.readReplayData(from: inputURL)
+        let frames = replayData.samples.map(\.frame)
+        let frameTimes = replayData.samples.map(\.replayTimeSeconds)
+        let wasRunning = inputRuntimeService.isRunning
+        let durationSeconds = replayData.durationSeconds
+
+        let canBegin = stateLock.withLockUnchecked { state -> Bool in
             guard state.captureSession == nil else { return false }
             guard !state.captureInitializing else { return false }
-            state.replayInProgress = true
+            guard state.replaySession == nil else { return false }
             return true
         }
-
-        guard startedReplay else {
+        guard canBegin else {
             if isCaptureActive {
                 throw RuntimeCaptureReplayError.captureOrReplayConflict
             }
-            throw RuntimeCaptureReplayError.replayAlreadyRunning
+            throw RuntimeCaptureReplayError.replaySessionAlreadyActive
         }
-
-        defer {
-            stateLock.withLockUnchecked { state in
-                state.replayInProgress = false
-            }
-        }
-
-        let frames = try ATPCaptureV3Codec.readFrames(from: inputURL)
-        let wasRunning = inputRuntimeService.isRunning
 
         _ = inputRuntimeService.stop()
         await runtimeEngine.setListening(true)
         await runtimeEngine.reset(stopVoiceDictation: false)
 
-        var replayFailure: Error?
-        do {
-            try await replayFrames(frames)
-        } catch {
-            replayFailure = error
+        var currentIndex = -1
+        var currentTime = 0.0
+        if !frames.isEmpty {
+            await ingestFrame(frames[0])
+            currentIndex = 0
+            currentTime = frameTimes[0]
         }
 
-        do {
-            try await restoreRuntimeAfterReplay(wasRunning: wasRunning)
-        } catch {
-            if replayFailure == nil {
-                replayFailure = error
+        let session = ReplaySession(
+            sourceName: sourceName,
+            frames: frames,
+            frameTimesSeconds: frameTimes,
+            durationSeconds: durationSeconds,
+            wasRuntimeRunningBeforeSession: wasRunning,
+            currentFrameIndex: currentIndex,
+            currentTimeSeconds: currentTime
+        )
+        stateLock.withLockUnchecked { state in
+            state.replaySession = session
+            state.replayPlaybackInProgress = false
+        }
+
+        return RuntimeReplaySessionInfo(
+            sourceName: sourceName,
+            frameCount: frames.count,
+            durationSeconds: durationSeconds,
+            currentFrameIndex: currentIndex,
+            currentTimeSeconds: currentTime,
+            isPlaying: false
+        )
+    }
+
+    func replaySessionInfo() -> RuntimeReplaySessionInfo? {
+        stateLock.withLockUnchecked { state in
+            guard let session = state.replaySession else { return nil }
+            return RuntimeReplaySessionInfo(
+                sourceName: session.sourceName,
+                frameCount: session.frames.count,
+                durationSeconds: session.durationSeconds,
+                currentFrameIndex: session.currentFrameIndex,
+                currentTimeSeconds: session.currentTimeSeconds,
+                isPlaying: state.replayPlaybackInProgress
+            )
+        }
+    }
+
+    @discardableResult
+    func setReplayTimeSeconds(_ timeSeconds: Double) async throws -> RuntimeReplayPosition {
+        let replaySession = stateLock.withLockUnchecked { state -> ReplaySession? in
+            guard !state.replayPlaybackInProgress else { return nil }
+            return state.replaySession
+        }
+        if isReplayPlaying {
+            throw RuntimeCaptureReplayError.replayPlaybackAlreadyActive
+        }
+        guard let session = replaySession else {
+            throw RuntimeCaptureReplayError.replaySessionNotActive
+        }
+
+        guard !session.frames.isEmpty else {
+            stateLock.withLockUnchecked { state in
+                state.replaySession?.currentFrameIndex = -1
+                state.replaySession?.currentTimeSeconds = 0
+            }
+            await runtimeEngine.reset(stopVoiceDictation: false)
+            return RuntimeReplayPosition(frameIndex: -1, timeSeconds: 0)
+        }
+
+        let clampedTime = min(max(timeSeconds, 0), session.durationSeconds)
+        let targetIndex = frameIndex(
+            forTime: clampedTime,
+            frameTimes: session.frameTimesSeconds
+        )
+
+        await runtimeEngine.setListening(true)
+        await runtimeEngine.reset(stopVoiceDictation: false)
+        if targetIndex >= 0 {
+            for index in 0...targetIndex {
+                await ingestFrame(session.frames[index])
             }
         }
 
-        if let replayFailure {
-            throw replayFailure
+        stateLock.withLockUnchecked { state in
+            state.replaySession?.currentFrameIndex = targetIndex
+            state.replaySession?.currentTimeSeconds = clampedTime
         }
-
-        return frames.count
+        return RuntimeReplayPosition(
+            frameIndex: targetIndex,
+            timeSeconds: clampedTime
+        )
     }
 
-    private func replayFrames(_ frames: [RuntimeRawFrame]) async throws {
-        var previousTimestamp: TimeInterval?
+    @discardableResult
+    func playReplay(
+        onProgress: (@Sendable (RuntimeReplayPosition) -> Void)? = nil
+    ) async throws -> RuntimeReplayPosition {
+        let session = stateLock.withLockUnchecked { state -> ReplaySession? in
+            guard let session = state.replaySession else { return nil }
+            guard !state.replayPlaybackInProgress else { return nil }
+            state.replayPlaybackInProgress = true
+            return session
+        }
+        if isReplayPlaying, session == nil {
+            throw RuntimeCaptureReplayError.replayPlaybackAlreadyActive
+        }
+        guard let session else {
+            throw RuntimeCaptureReplayError.replaySessionNotActive
+        }
+        defer {
+            stateLock.withLockUnchecked { state in
+                state.replayPlaybackInProgress = false
+            }
+        }
 
-        for frame in frames {
-            if let previousTimestamp {
-                let deltaSeconds = frame.timestamp - previousTimestamp
-                if deltaSeconds > 0 {
-                    let nanoseconds = deltaSeconds * 1_000_000_000
-                    if nanoseconds >= 1,
-                       nanoseconds < Double(UInt64.max) {
-                        try await Task.sleep(nanoseconds: UInt64(nanoseconds.rounded()))
+        let frames = session.frames
+        let frameTimes = session.frameTimesSeconds
+        guard !frames.isEmpty else {
+            stateLock.withLockUnchecked { state in
+                state.replaySession?.currentFrameIndex = -1
+                state.replaySession?.currentTimeSeconds = 0
+            }
+            return RuntimeReplayPosition(frameIndex: -1, timeSeconds: 0)
+        }
+
+        var currentIndex = stateLock.withLockUnchecked {
+            $0.replaySession?.currentFrameIndex ?? -1
+        }
+        var currentTime = stateLock.withLockUnchecked {
+            $0.replaySession?.currentTimeSeconds ?? 0
+        }
+
+        if currentIndex < 0 {
+            await runtimeEngine.reset(stopVoiceDictation: false)
+            await ingestFrame(frames[0])
+            currentIndex = 0
+            currentTime = frameTimes[0]
+            stateLock.withLockUnchecked { state in
+                state.replaySession?.currentFrameIndex = 0
+                state.replaySession?.currentTimeSeconds = currentTime
+            }
+            onProgress?(
+                RuntimeReplayPosition(
+                    frameIndex: 0,
+                    timeSeconds: currentTime
+                )
+            )
+        }
+
+        while currentIndex + 1 < frames.count {
+            try Task.checkCancellation()
+            let nextIndex = currentIndex + 1
+            let nextTime = frameTimes[nextIndex]
+            if nextTime > currentTime {
+                let waitStartUptime = DispatchTime.now().uptimeNanoseconds
+                let waitStartTime = currentTime
+                let sleepChunkNanoseconds: UInt64 = 16_000_000
+                while currentTime < nextTime {
+                    try Task.checkCancellation()
+                    let nowUptime = DispatchTime.now().uptimeNanoseconds
+                    let elapsedNanoseconds = nowUptime >= waitStartUptime ? nowUptime - waitStartUptime : 0
+                    let elapsedSeconds = Double(elapsedNanoseconds) / 1_000_000_000
+                    let advancedTime = min(nextTime, waitStartTime + elapsedSeconds)
+                    if advancedTime > currentTime {
+                        currentTime = advancedTime
+                        stateLock.withLockUnchecked { state in
+                            state.replaySession?.currentTimeSeconds = currentTime
+                        }
+                        onProgress?(
+                            RuntimeReplayPosition(
+                                frameIndex: currentIndex,
+                                timeSeconds: currentTime
+                            )
+                        )
                     }
+                    guard currentTime < nextTime else { break }
+
+                    let remainingSeconds = nextTime - currentTime
+                    let remainingNanosecondsDouble = remainingSeconds * 1_000_000_000
+                    if remainingNanosecondsDouble < 1 {
+                        continue
+                    }
+                    let remainingNanoseconds = UInt64(
+                        min(remainingNanosecondsDouble.rounded(.up), Double(UInt64.max))
+                    )
+                    try await Task.sleep(
+                        nanoseconds: min(sleepChunkNanoseconds, max(1, remainingNanoseconds))
+                    )
                 }
             }
 
-            _ = await renderSnapshotService.ingest(
-                frame,
-                runtimeEngine: runtimeEngine
+            await ingestFrame(frames[nextIndex])
+            currentIndex = nextIndex
+            currentTime = nextTime
+            stateLock.withLockUnchecked { state in
+                state.replaySession?.currentFrameIndex = currentIndex
+                state.replaySession?.currentTimeSeconds = currentTime
+            }
+            onProgress?(
+                RuntimeReplayPosition(
+                    frameIndex: currentIndex,
+                    timeSeconds: currentTime
+                )
             )
-            previousTimestamp = frame.timestamp
         }
+
+        return RuntimeReplayPosition(
+            frameIndex: currentIndex,
+            timeSeconds: currentTime
+        )
+    }
+
+    func endReplaySession() async throws {
+        let session = stateLock.withLockUnchecked { state -> ReplaySession? in
+            let current = state.replaySession
+            state.replaySession = nil
+            state.replayPlaybackInProgress = false
+            return current
+        }
+        guard let session else { return }
+        try await restoreRuntimeAfterReplay(
+            wasRunning: session.wasRuntimeRunningBeforeSession
+        )
+    }
+
+    private func frameIndex(
+        forTime timeSeconds: Double,
+        frameTimes: [Double]
+    ) -> Int {
+        guard !frameTimes.isEmpty else {
+            return -1
+        }
+
+        if timeSeconds <= frameTimes[0] {
+            return 0
+        }
+        let lastIndex = frameTimes.count - 1
+        if timeSeconds >= frameTimes[lastIndex] {
+            return lastIndex
+        }
+
+        var low = 0
+        var high = lastIndex
+        var result = 0
+        while low <= high {
+            let mid = (low + high) / 2
+            if frameTimes[mid] <= timeSeconds {
+                result = mid
+                low = mid + 1
+            } else {
+                high = mid - 1
+            }
+        }
+        return result
+    }
+
+    private func ingestFrame(_ frame: RuntimeRawFrame) async {
+        _ = await renderSnapshotService.ingest(
+            frame,
+            runtimeEngine: runtimeEngine
+        )
     }
 
     private func restoreRuntimeAfterReplay(wasRunning: Bool) async throws {
@@ -818,9 +1185,9 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
                 throw RuntimeCaptureReplayError.unableToRestartRuntimeAfterReplay
             }
             await runtimeEngine.setListening(true)
-            return
+        } else {
+            await runtimeEngine.setListening(false)
+            await runtimeEngine.reset(stopVoiceDictation: false)
         }
-
-        await runtimeEngine.setListening(false)
     }
 }

@@ -27,7 +27,7 @@ Without these changes, Windows rejects v3 files at header parse time and cannot 
 
 ### Record header (34 bytes)
 1. `payloadLength` (Int32 LE)
-2. `arrivalTicks` (Int64 LE)
+2. `arrivalTicks` (Int64 LE, monotonic capture timeline ticks)
 3. `deviceIndex` (Int32 LE)
 4. `deviceHash` (UInt32 LE)
 5. `vendorId` (UInt32 LE)
@@ -88,6 +88,12 @@ For **mac capture <-> windows replay** and **windows capture <-> mac replay**, W
 5. Compatibility guarantee:
 - Mac parser is v3 frame-structure strict; malformed/short v3 payloads will be rejected.
 - Therefore, zero-fill is required for unavailable fields to maintain compatibility.
+
+6. Replay timing contract:
+- Replay timing MUST be derived from `arrivalTicks` + file `tickFrequency`.
+- `timestampSec` in RFV3 payload is informational/debug and MUST NOT drive replay timing.
+- `arrivalTicks` MUST be monotonic non-decreasing for frame records. Non-monotonic captures are invalid and should fail parse/replay (no repair path required).
+- Writers SHOULD source `arrivalTicks` from a host-monotonic clock taken at capture ingest time.
 
 ---
 
@@ -180,6 +186,7 @@ Inside the replay read loop:
 4. Timing:
 - Keep existing `relativeQpc -> Stopwatch` conversion using `reader.HeaderQpcFrequency`.
 - Do not use payload `timestampSec` for replay timing.
+- Validate frame-record `arrivalTicks` is monotonic non-decreasing; fail replay if violated.
 
 5. Side resolution:
 - Keep using `ReplaySideMapper.Resolve(record.DeviceIndex, record.DeviceHash, record.SideHint)`.

@@ -58,6 +58,22 @@ final class GlassToKeyController: ObservableObject {
         try await viewModel.replayATPCapture(from: inputURL)
     }
 
+    func beginReplaySession(from inputURL: URL) async throws {
+        try await viewModel.beginReplaySession(from: inputURL)
+    }
+
+    func endReplaySession() async {
+        await viewModel.endReplaySession()
+    }
+
+    func scrubReplay(to timeSeconds: Double) async throws {
+        try await viewModel.scrubReplay(to: timeSeconds)
+    }
+
+    func toggleReplayPlayback() {
+        viewModel.toggleReplayPlayback()
+    }
+
     var isATPCaptureActive: Bool {
         viewModel.isATPCaptureActive
     }

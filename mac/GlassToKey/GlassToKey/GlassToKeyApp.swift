@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem?
     private var configWindow: NSWindow?
     private var statusCancellable: AnyCancellable?
+    private var replayStateCancellable: AnyCancellable?
     private let mouseEventBlocker = MouseEventBlocker()
     private static let configWindowDefaultHeight: CGFloat = 600
     private var captureMenuItem: NSMenuItem?
@@ -50,6 +51,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.contentView = nil
         window.contentViewController = nil
         configWindow = nil
+        Task { @MainActor in
+            await controller.endReplaySession()
+            replayInProgress = controller.isATPReplayActive
+            refreshCaptureReplayMenuState()
+        }
     }
 
     private func configureStatusItem() {
@@ -140,6 +146,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             )
             self?.mouseEventBlocker.setBlockingEnabled(isTypingEnabled && keyboardModeEnabled)
         }
+        replayStateCancellable = controller.viewModel.$replayTimelineState
+            .map { $0 != nil }
+            .removeDuplicates()
+            .sink { [weak self] isReplayActive in
+                self?.replayInProgress = isReplayActive
+                self?.refreshCaptureReplayMenuState()
+            }
     }
 
     private func updateStatusIndicator(
@@ -306,16 +319,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
 
-        replayInProgress = true
-        refreshCaptureReplayMenuState()
+        openConfigWindow()
         do {
-            let frameCount = try await controller.replayATPCapture(from: inputURL)
-            replayInProgress = false
+            try await controller.beginReplaySession(from: inputURL)
+            replayInProgress = controller.isATPReplayActive
             refreshCaptureReplayMenuState()
-            presentInfo(
-                title: "Replay Complete",
-                message: "Replayed \(frameCount) frame(s)."
-            )
         } catch {
             replayInProgress = controller.isATPReplayActive
             refreshCaptureReplayMenuState()
