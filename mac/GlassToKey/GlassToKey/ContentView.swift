@@ -443,6 +443,7 @@ struct ContentView: View {
             if let replayTimelineState = viewModel.replayTimelineState {
                 replayTimelineView(replayTimelineState)
             }
+            devicesSectionView
             contentRow
         }
     }
@@ -527,6 +528,29 @@ struct ContentView: View {
         )
     }
 
+    private var devicesSectionView: some View {
+        DevicesSectionView(
+            availableDevices: viewModel.availableDevices,
+            leftDevice: viewModel.leftDevice,
+            rightDevice: viewModel.rightDevice,
+            autoResyncEnabled: $storedAutoResyncMissingTrackpads,
+            onSelectLeft: { device in
+                viewModel.selectLeftDevice(device)
+            },
+            onSelectRight: { device in
+                viewModel.selectRightDevice(device)
+            },
+            onAutoResyncChange: { newValue in
+                storedAutoResyncMissingTrackpads = newValue
+                viewModel.setAutoResyncEnabled(newValue)
+            },
+            onRefresh: {
+                viewModel.refreshDevicesAndListeners()
+            }
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private var contentRow: some View {
         HStack(alignment: .top, spacing: 18) {
             trackpadSectionView
@@ -555,8 +579,6 @@ struct ContentView: View {
 
     private var rightSidebarView: some View {
         RightSidebarView(
-            viewModel: viewModel,
-            autoResyncEnabled: $storedAutoResyncMissingTrackpads,
             layoutSelection: layoutSelectionBinding,
             layoutOption: layoutOption,
             columnSelection: columnInspectorSelection,
@@ -576,13 +598,6 @@ struct ContentView: View {
             snapRadiusPercentSetting: $snapRadiusPercentSetting,
             chordalShiftEnabled: $chordalShiftEnabled,
             keyboardModeEnabled: $keyboardModeEnabled,
-            onRefreshDevices: {
-                viewModel.refreshDevicesAndListeners()
-            },
-            onAutoResyncChange: { newValue in
-                storedAutoResyncMissingTrackpads = newValue
-                viewModel.setAutoResyncEnabled(newValue)
-            },
             onAddCustomButton: { side in
                 addCustomButton(side: side)
             },
@@ -798,8 +813,6 @@ struct ContentView: View {
     }
 
     private struct RightSidebarView: View {
-        @ObservedObject var viewModel: ContentViewModel
-        @Binding var autoResyncEnabled: Bool
         let layoutSelection: Binding<TrackpadLayoutPreset>
         let layoutOption: TrackpadLayoutPreset
         let columnSelection: ColumnInspectorSelection?
@@ -821,8 +834,6 @@ struct ContentView: View {
         @Binding var keyboardModeEnabled: Bool
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
-        let onRefreshDevices: () -> Void
-        let onAutoResyncChange: (Bool) -> Void
         let onAddCustomButton: (TrackpadSide) -> Void
         let onRemoveCustomButton: (UUID) -> Void
         let onClearTouchState: () -> Void
@@ -833,44 +844,7 @@ struct ContentView: View {
 
         var body: some View {
             VStack(alignment: .leading, spacing: 14) {
-                DevicesSectionView(
-                    availableDevices: viewModel.availableDevices,
-                    leftDevice: viewModel.leftDevice,
-                    rightDevice: viewModel.rightDevice,
-                    autoResyncEnabled: $autoResyncEnabled,
-                    onSelectLeft: { device in
-                        viewModel.selectLeftDevice(device)
-                    },
-                    onSelectRight: { device in
-                        viewModel.selectRightDevice(device)
-                    },
-                    onAutoResyncChange: onAutoResyncChange,
-                    onRefresh: onRefreshDevices
-                )
-
                 if !editModeEnabled {
-                    DisclosureGroup(
-                        isExpanded: $modeTogglesExpanded
-                    ) {
-                        ModeTogglesSectionView(
-                            autocorrectEnabled: $autocorrectEnabled,
-                            tapClickEnabled: $tapClickEnabled,
-                            snapRadiusPercentSetting: $snapRadiusPercentSetting,
-                            chordalShiftEnabled: $chordalShiftEnabled,
-                            keyboardModeEnabled: $keyboardModeEnabled
-                        )
-                        .padding(.top, 8)
-                    } label: {
-                        Text("Mode Toggles")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.primary.opacity(0.05))
-                    )
-
                     DisclosureGroup(
                         isExpanded: $typingTuningExpanded
                     ) {
@@ -888,6 +862,28 @@ struct ContentView: View {
                         .padding(.top, 8)
                     } label: {
                         Text("Typing Tuning")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.primary.opacity(0.05))
+                    )
+
+                    DisclosureGroup(
+                        isExpanded: $modeTogglesExpanded
+                    ) {
+                        ModeTogglesSectionView(
+                            autocorrectEnabled: $autocorrectEnabled,
+                            tapClickEnabled: $tapClickEnabled,
+                            snapRadiusPercentSetting: $snapRadiusPercentSetting,
+                            chordalShiftEnabled: $chordalShiftEnabled,
+                            keyboardModeEnabled: $keyboardModeEnabled
+                        )
+                        .padding(.top, 8)
+                    } label: {
+                        Text("Mode Toggles")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -1126,7 +1122,7 @@ struct ContentView: View {
 
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Button Tuning")
+                Text("Keymap Tuning")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 HStack(spacing: 8) {
