@@ -980,7 +980,7 @@ struct ContentView: View {
                         }
                         .buttonStyle(.bordered)
                         .help("Refresh trackpad list")
-                        .padding(.top, 15)
+                        .padding(.top, 20)
                     }
                 }
             }
