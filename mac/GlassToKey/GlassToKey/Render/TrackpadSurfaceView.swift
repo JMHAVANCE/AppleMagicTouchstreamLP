@@ -94,6 +94,8 @@ private struct TrackpadSurfaceStaticRenderInput: Equatable {
 }
 
 final class TrackpadSurfaceView: NSView {
+    private static let replayFallbackTouchDiameter: CGFloat = 24
+
     private var cachedStaticRenderInput: TrackpadSurfaceStaticRenderInput?
     private var cachedStaticImage: NSImage?
     private var leftTouches: [OMSTouchData] = []
@@ -616,8 +618,12 @@ final class TrackpadSurfaceView: NSView {
             let centerX = origin.x + CGFloat(touch.position.x) * trackpadSize.width
             let centerY = origin.y + (1.0 - CGFloat(touch.position.y)) * trackpadSize.height
             let unit = trackpadSize.width / 100.0
-            let width = max(2, CGFloat(touch.axis.major) * unit)
-            let height = max(2, CGFloat(touch.axis.minor) * unit)
+            let hasAxisData = touch.axis.major > 0 || touch.axis.minor > 0
+            let minimumDiameter = snapshot.replayModeEnabled && !hasAxisData
+                ? Self.replayFallbackTouchDiameter
+                : 2
+            let width = max(minimumDiameter, CGFloat(touch.axis.major) * unit)
+            let height = max(minimumDiameter, CGFloat(touch.axis.minor) * unit)
             let touchRect = CGRect(
                 x: centerX - (width * 0.5),
                 y: centerY - (height * 0.5),
