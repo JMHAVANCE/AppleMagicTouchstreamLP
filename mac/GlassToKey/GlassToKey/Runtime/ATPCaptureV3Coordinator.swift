@@ -42,7 +42,12 @@ enum ATPCaptureV3Codec {
     private static let v2TargetMaxY = 5_065
     private static let v2UsagePageDigitizer: UInt16 = 0x0D
     private static let v2UsageTouchpad: UInt16 = 0x05
+    private static let v2UsagePageUnknown: UInt16 = 0x00
+    private static let v2UsageUnknown: UInt16 = 0x00
     private static let v2DecoderProfileLegacy: UInt8 = 1
+    private static let v2DecoderProfileOfficial: UInt8 = 2
+    private static let sideHintLeft: UInt8 = 1
+    private static let sideHintRight: UInt8 = 2
 
     static func write(
         frames: [RuntimeRawFrame],
@@ -230,6 +235,10 @@ enum ATPCaptureV3Codec {
         guard record.deviceIndex >= 0 else {
             return nil
         }
+        let mappedDeviceIndex = mapV2DeviceIndex(
+            headerDeviceIndex: Int(record.deviceIndex),
+            sideHint: record.sideHint
+        )
         guard let contacts = decodeV2Contacts(
             payload: record.payload,
             usagePage: record.usagePage,
@@ -242,7 +251,7 @@ enum ATPCaptureV3Codec {
             sequence: sequence,
             timestamp: 0,
             deviceNumericID: UInt64(record.deviceHash),
-            deviceIndex: Int(record.deviceIndex),
+            deviceIndex: mappedDeviceIndex,
             contacts: contacts,
             rawTouches: []
         )
@@ -398,10 +407,17 @@ enum ATPCaptureV3Codec {
 
         var runtimeContacts: [RuntimeRawContact] = []
         runtimeContacts.reserveCapacity(contacts.count)
+        let shouldFlipY = shouldFlipYForV2(
+            usagePage: usagePage,
+            usage: usage,
+            decoderProfile: decoderProfileCode(for: profile)
+        )
         for contact in contacts where (contact.flags & 0x02) != 0 {
             let xNorm = clamp01(Float(contact.x) / Float(v2TargetMaxX))
-            let yNormTopOrigin = clamp01(Float(contact.y) / Float(v2TargetMaxY))
-            let yNormBottomOrigin = 1.0 - yNormTopOrigin
+            let yNormSource = clamp01(Float(contact.y) / Float(v2TargetMaxY))
+            let yNormBottomOrigin = shouldFlipY
+                ? (1.0 - yNormSource)
+                : yNormSource
             runtimeContacts.append(
                 RuntimeRawContact(
                     id: Int32(bitPattern: contact.id),
@@ -565,6 +581,40 @@ enum ATPCaptureV3Codec {
 
         for index in contacts.indices where (contacts[index].flags & 0x02) != 0 {
             contacts[index].id = UInt32(index)
+        }
+    }
+
+    private static func mapV2DeviceIndex(
+        headerDeviceIndex: Int,
+        sideHint: UInt8
+    ) -> Int {
+        switch sideHint {
+        case sideHintLeft:
+            return 1
+        case sideHintRight:
+            return 0
+        default:
+            return headerDeviceIndex
+        }
+    }
+
+    private static func shouldFlipYForV2(
+        usagePage: UInt16,
+        usage: UInt16,
+        decoderProfile: UInt8
+    ) -> Bool {
+        _ = usagePage
+        _ = usage
+        _ = decoderProfile
+        return true
+    }
+
+    private static func decoderProfileCode(for profile: V2DecoderProfile) -> UInt8 {
+        switch profile {
+        case .legacy:
+            return v2DecoderProfileLegacy
+        case .official:
+            return v2DecoderProfileOfficial
         }
     }
 
