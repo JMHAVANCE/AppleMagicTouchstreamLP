@@ -52,6 +52,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.contentViewController = nil
         configWindow = nil
         Task { @MainActor in
+            if captureInProgress {
+                await stopCaptureFlow()
+            }
             await controller.endReplaySession()
             replayInProgress = controller.isATPReplayActive
             refreshCaptureReplayMenuState()
@@ -275,6 +278,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
 
+        openConfigWindow()
         do {
             try controller.startATPCapture(to: outputURL)
             captureInProgress = true
