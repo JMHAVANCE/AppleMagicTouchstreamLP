@@ -1094,15 +1094,6 @@ struct ContentView: View {
                             }
                             .pickerStyle(MenuPickerStyle())
                         }
-                        if let selection {
-                            Text("Editing column \(index + 1) (highlighted column \(selection.index + 1))")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text("Editing column \(index + 1)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
                         VStack(alignment: .leading, spacing: 14) {
                             ColumnTuningRow(
                                 title: "Column Scale (%)",
@@ -1171,6 +1162,7 @@ struct ContentView: View {
                         HStack(spacing: 8) {
                             Button("Auto Splay (4+ Fingers)") {}
                                 .buttonStyle(.bordered)
+                            Spacer()
                             Button("e v e n s p a c e") {}
                                 .buttonStyle(.bordered)
                         }
