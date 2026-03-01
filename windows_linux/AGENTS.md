@@ -142,6 +142,8 @@
 ## Working Rules
 - Preserve current Windows behavior while extracting shared code.
 - Prefer extraction to `GlassToKey.Core/` over Linux-only reimplementation when the code is truly shared or should become shared under the target architecture.
+- When evolving the Linux GUI, prefer converging toward the Windows config surface rather than inventing parallel Linux-only layouts.
+- Do not add duplicate static keymap displays when the same loaded keymap can be shown directly on the live preview surface.
 - Treat `LINUX_GOLD.md` as the Linux source of truth for current state, validated behavior, and remaining work.
 - Treat touch processing as latency-sensitive. Avoid allocations, logging, and file I/O on hot paths.
 - If device probing needs an unsandboxed `ioctl` or other direct host access to resolve Linux behavior, request escalation instead of assuming the kernel or driver is broken.

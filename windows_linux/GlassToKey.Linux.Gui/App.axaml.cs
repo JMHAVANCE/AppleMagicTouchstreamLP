@@ -20,6 +20,7 @@ public partial class App : Application
         {
             _mainWindow = new MainWindow();
             desktop.MainWindow = _mainWindow;
+            _mainWindow.BeginTrayRuntimeOwnership();
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -35,21 +36,8 @@ public partial class App : Application
         ShowMainWindow();
     }
 
-    private void OnTrayStartRuntimeClick(object? sender, EventArgs e)
-    {
-        ShowMainWindow();
-        _mainWindow?.StartRuntimeFromStatusArea();
-    }
-
-    private void OnTrayStopRuntimeClick(object? sender, EventArgs e)
-    {
-        ShowMainWindow();
-        _mainWindow?.StopRuntimeFromStatusArea();
-    }
-
     private void OnTrayDoctorClick(object? sender, EventArgs e)
     {
-        ShowMainWindow();
         _mainWindow?.RunDoctorFromStatusArea();
     }
 
@@ -58,11 +46,11 @@ public partial class App : Application
         _mainWindow?.HideToStatusArea();
     }
 
-    private void OnTrayQuitClick(object? sender, EventArgs e)
+    private async void OnTrayQuitClick(object? sender, EventArgs e)
     {
         if (_mainWindow != null)
         {
-            _mainWindow.RequestExit();
+            await _mainWindow.RequestExitAsync().ConfigureAwait(false);
             return;
         }
 

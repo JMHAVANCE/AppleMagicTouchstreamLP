@@ -14,7 +14,7 @@
                      FontSize="28"
                      FontWeight="Bold"
                      Foreground="#F7F2EA" />
-          <TextBlock Text="Device binding, diagnostics, and runtime service control"
+          <TextBlock Text="Device binding and config for the tray-owned Linux runtime"
                      FontSize="14"
                      Foreground="#D9C7B5" />
         </StackPanel>
@@ -30,19 +30,23 @@
       </Grid>
     </Border>
 
-    <Grid Grid.Row="1"
-          Margin="24"
-          ColumnDefinitions="2*,1.25*">
+    <ScrollViewer Grid.Row="1"
+                  Margin="24"
+                  VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="18">
         <Border Classes="panel">
           <StackPanel Spacing="12">
             <TextBlock Classes="section" Text="Trackpads" />
-
-            <TextBlock Text="Left trackpad" />
-            <ComboBox x:Name="LeftDeviceCombo" MinWidth="320" />
-
-            <TextBlock Text="Right trackpad" Margin="0,8,0,0" />
-            <ComboBox x:Name="RightDeviceCombo" MinWidth="320" />
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Left trackpad" />
+                <ComboBox x:Name="LeftDeviceCombo" MinWidth="320" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Margin="16,0,0,0" Spacing="8">
+                <TextBlock Text="Right trackpad" />
+                <ComboBox x:Name="RightDeviceCombo" MinWidth="320" />
+              </StackPanel>
+            </Grid>
 
             <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,12,0,0">
               <Button x:Name="RefreshDevicesButton" Classes="action" Content="Refresh Devices" />
@@ -53,18 +57,7 @@
 
         <Border Classes="panel">
           <StackPanel Spacing="12">
-            <TextBlock Classes="section" Text="Runtime Owner" />
-
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <Button x:Name="StartRuntimeButton" Classes="action" Content="Start Runtime" />
-              <Button x:Name="StopRuntimeButton" Content="Stop Runtime" />
-            </StackPanel>
-            <TextBlock x:Name="RuntimeSummaryText"
-                       TextWrapping="Wrap"
-                       Foreground="#23303A" />
-            <TextBlock x:Name="RuntimeBindingsText"
-                       TextWrapping="Wrap"
-                       Foreground="#5A4032" />
+            <TextBlock Classes="section" Text="Settings" />
 
             <TextBlock Text="Layout preset" />
             <ComboBox x:Name="LayoutPresetCombo" MinWidth="240" />
@@ -84,6 +77,13 @@
                        TextWrapping="Wrap"
                        Foreground="#5A4032" />
 
+            <TextBlock x:Name="RuntimeSummaryText"
+                       TextWrapping="Wrap"
+                       Foreground="#23303A" />
+            <TextBlock x:Name="RuntimeBindingsText"
+                       TextWrapping="Wrap"
+                       Foreground="#5A4032" />
+
             <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,12,0,0">
               <Button x:Name="SaveSettingsButton" Classes="action" Content="Save Settings" />
               <Button x:Name="InitializeDefaultsButton" Content="Init Defaults" />
@@ -94,7 +94,7 @@
         <Border Classes="panel">
           <StackPanel Spacing="12">
             <TextBlock Classes="section" Text="Live Input Preview" />
-            <TextBlock Text="Reads evdev directly for diagnostics so you can inspect contact motion without moving the runtime owner onto the GUI hotpath."
+            <TextBlock Text="Reads evdev directly so you can inspect contact motion against the active loaded keymap while the tray-owned runtime stays off the GUI hotpath."
                        TextWrapping="Wrap"
                        Foreground="#5A4032" />
 
@@ -138,79 +138,23 @@
                 </StackPanel>
               </Border>
             </Grid>
-          </StackPanel>
-        </Border>
 
-        <Border Classes="panel">
-          <StackPanel Spacing="12">
-            <TextBlock Classes="section" Text="Loaded Keymap" />
-            <TextBlock Text="Renders the current preset and loaded key labels from the active keymap so the config UI reflects what the runtime should be using."
-                       TextWrapping="Wrap"
-                       Foreground="#5A4032" />
-
-            <Grid ColumnDefinitions="*,*">
-              <Border Background="#FFF3E6" BorderBrush="#D9C7B5" BorderThickness="1" CornerRadius="12" Padding="10">
-                <StackPanel Spacing="8">
-                  <TextBlock Text="Left Layout"
-                             FontWeight="SemiBold"
-                             Foreground="#5A4032" />
-                  <Canvas x:Name="LeftKeymapCanvas"
-                          Width="300"
-                          Height="220"
-                          Background="#FFF9F1" />
-                </StackPanel>
-              </Border>
-
-              <Border Grid.Column="1" Margin="12,0,0,0" Background="#FFF3E6" BorderBrush="#D9C7B5" BorderThickness="1" CornerRadius="12" Padding="10">
-                <StackPanel Spacing="8">
-                  <TextBlock Text="Right Layout"
-                             FontWeight="SemiBold"
-                             Foreground="#5A4032" />
-                  <Canvas x:Name="RightKeymapCanvas"
-                          Width="300"
-                          Height="220"
-                          Background="#FFF9F1" />
-                </StackPanel>
-              </Border>
-            </Grid>
-          </StackPanel>
-        </Border>
-      </StackPanel>
-
-      <StackPanel Grid.Column="1" Spacing="18" Margin="18,0,0,0">
-        <Border Classes="panel">
-          <StackPanel Spacing="12">
-            <TextBlock Classes="section" Text="Resolved State" />
-            <TextBlock x:Name="ResolvedBindingsText"
-                       TextWrapping="Wrap"
-                       FontFamily="avares://Avalonia.Fonts.Inter/Assets#Inter" />
-          </StackPanel>
-        </Border>
-
-        <Border Classes="panel">
-          <StackPanel Spacing="12">
-            <TextBlock Classes="section" Text="Warnings / Notes" />
-            <TextBlock x:Name="WarningsText"
-                       TextWrapping="Wrap"
-                       Foreground="#6A4533" />
-          </StackPanel>
-        </Border>
-
-        <Border Classes="panel">
-          <StackPanel Spacing="12">
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Classes="section" Text="Diagnostics" />
-              <Button x:Name="RunDoctorButton"
-                      Grid.Column="1"
-                      Classes="action"
-                      Content="Run Doctor" />
-            </Grid>
-            <TextBox x:Name="DoctorReportBox"
-                     Height="220"
-                     AcceptsReturn="True"
-                     IsReadOnly="True"
-                     TextWrapping="Wrap"
-                     FontFamily="avares://Avalonia.Fonts.Inter/Assets#Inter" />
+            <Border Background="#0C0F12"
+                    BorderBrush="#2B2F33"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="12,10"
+                    Margin="0,8,0,0">
+              <StackPanel Spacing="6">
+                <TextBlock Text="Typing Test"
+                           Foreground="#8B949E"
+                           FontSize="12" />
+                <TextBox x:Name="TypingTestBox"
+                         Height="54"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
           </StackPanel>
         </Border>
 
@@ -223,6 +167,6 @@
           </StackPanel>
         </Border>
       </StackPanel>
-    </Grid>
+    </ScrollViewer>
   </Grid>
 </Window>
