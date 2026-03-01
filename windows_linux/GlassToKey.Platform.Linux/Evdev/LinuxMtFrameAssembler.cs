@@ -119,39 +119,27 @@ public sealed class LinuxMtFrameAssembler
     public void SetLegacyPressure(int pressureRaw)
     {
         _legacyContact.PressureRaw = pressureRaw;
-        if (pressureRaw > 0)
-        {
-            _legacyContact.IsActive = true;
-        }
-
         _legacyContact.SeenThisFrame = true;
+        RefreshLegacyActiveState();
     }
 
     public void SetLegacyTouchMajor(int touchMajorRaw)
     {
         _legacyContact.TouchMajorRaw = touchMajorRaw;
-        if (touchMajorRaw > 0)
-        {
-            _legacyContact.IsActive = true;
-        }
-
         _legacyContact.SeenThisFrame = true;
+        RefreshLegacyActiveState();
     }
 
     public void SetLegacyTouchMinor(int touchMinorRaw)
     {
         _legacyContact.TouchMinorRaw = touchMinorRaw;
-        if (touchMinorRaw > 0)
-        {
-            _legacyContact.IsActive = true;
-        }
-
         _legacyContact.SeenThisFrame = true;
+        RefreshLegacyActiveState();
     }
 
     public void SetLegacyTouchActive(bool isActive)
     {
-        _legacyContact.IsActive = isActive;
+        _legacyContact.ButtonTouchActive = isActive;
         if (!isActive)
         {
             Array.Clear(_slots, 0, _slots.Length);
@@ -160,6 +148,8 @@ public sealed class LinuxMtFrameAssembler
             _legacyContact.TouchMinorRaw = 0;
             _legacyContact.PressureRaw = 0;
         }
+
+        RefreshLegacyActiveState();
     }
 
     public InputFrame CommitFrame()
@@ -301,6 +291,15 @@ public sealed class LinuxMtFrameAssembler
         Array.Resize(ref _slots, newLength);
     }
 
+    private void RefreshLegacyActiveState()
+    {
+        _legacyContact.IsActive =
+            _legacyContact.ButtonTouchActive ||
+            _legacyContact.PressureRaw > 0 ||
+            _legacyContact.TouchMajorRaw > 0 ||
+            _legacyContact.TouchMinorRaw > 0;
+    }
+
     private struct LinuxMtSlotState
     {
         public int TrackingId;
@@ -313,6 +312,7 @@ public sealed class LinuxMtFrameAssembler
 
     private struct LegacyContactState
     {
+        public bool ButtonTouchActive;
         public bool IsActive;
         public bool SeenThisFrame;
         public int XRaw;

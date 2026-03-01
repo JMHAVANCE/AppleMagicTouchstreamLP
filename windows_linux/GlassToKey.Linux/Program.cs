@@ -780,33 +780,20 @@ internal static class Program
 
         LinuxAppRuntime appRuntime = new();
         LinuxRuntimeConfiguration configuration = appRuntime.LoadConfiguration();
-        if (configuration.Bindings.Count == 0)
-        {
-            Console.Error.WriteLine("No trackpads available for engine run.");
-            return 1;
-        }
-
-        List<LinuxTrackpadBinding> bindings = [.. configuration.Bindings];
         using CancellationTokenSource cts = duration.HasValue
             ? new CancellationTokenSource(duration.Value)
             : new CancellationTokenSource();
-        using LinuxUinputDispatcher dispatcher = new();
-        using TouchProcessorRuntimeHost engine = new(dispatcher, configuration.Keymap, configuration.LayoutPreset, configuration.SharedProfile);
-        LinuxInputRuntimeService runtime = new();
-        LinuxInputRuntimeOptions options = new()
-        {
-            Observer = new ConsoleRuntimeObserver()
-        };
+        LinuxRuntimeOwner runtimeOwner = new(appRuntime);
 
         Console.WriteLine(duration.HasValue
-            ? $"Running engine for {duration.Value.TotalSeconds:0.##}s on {bindings.Count} trackpad(s)."
-            : $"Running engine until interrupted on {bindings.Count} trackpad(s).");
+            ? $"Running engine for {duration.Value.TotalSeconds:0.##}s."
+            : "Running engine until interrupted.");
         Console.WriteLine($"  Settings: {configuration.SettingsPath}");
         Console.WriteLine($"  LayoutPreset: {configuration.LayoutPreset.Name}");
         Console.WriteLine($"  KeymapPath: {configuration.Settings.KeymapPath ?? "(bundled default)"}");
-        for (int index = 0; index < bindings.Count; index++)
+        for (int index = 0; index < configuration.Bindings.Count; index++)
         {
-            LinuxTrackpadBinding binding = bindings[index];
+            LinuxTrackpadBinding binding = configuration.Bindings[index];
             Console.WriteLine($"  {binding.Side}: {binding.Device.DisplayName} [{binding.Device.DeviceNode}]");
         }
 
@@ -815,7 +802,7 @@ internal static class Program
             Console.WriteLine($"  Warning: {configuration.Warnings[index]}");
         }
 
-        await runtime.RunAsync(bindings, engine, options, cts.Token).ConfigureAwait(false);
+        await runtimeOwner.RunAsync(new ConsoleRuntimeObserver(), Console.WriteLine, cts.Token).ConfigureAwait(false);
         return 0;
     }
 

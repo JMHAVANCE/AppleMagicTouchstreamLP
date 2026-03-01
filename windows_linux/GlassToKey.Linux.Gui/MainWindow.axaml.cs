@@ -23,31 +23,24 @@ public partial class MainWindow : Window
     private readonly LinuxAppRuntime _runtime = new();
     private readonly LinuxRuntimeServiceController _runtimeController = new();
     private readonly LinuxInputPreviewController _previewController = new();
-    private readonly DispatcherTimer _runtimeStatusTimer;
     private KeyLayout _leftRenderedLayout = new(Array.Empty<NormalizedRect[]>(), Array.Empty<string[]>());
     private KeyLayout _rightRenderedLayout = new(Array.Empty<NormalizedRect[]>(), Array.Empty<string[]>());
     private KeymapStore _renderedKeymap = KeymapStore.LoadBundledDefault();
     private readonly ComboBox _leftDeviceCombo;
     private readonly ComboBox _rightDeviceCombo;
     private readonly ComboBox _layoutPresetCombo;
-    private readonly TextBlock _previewSummaryText;
+    private readonly ComboBox _fiveFingerSwipeLeftCombo;
+    private readonly ComboBox _fiveFingerSwipeRightCombo;
+    private readonly ComboBox _fiveFingerSwipeUpCombo;
+    private readonly ComboBox _fiveFingerSwipeDownCombo;
     private readonly TextBlock _leftPreviewText;
     private readonly TextBlock _rightPreviewText;
-    private readonly TextBlock _statusText;
     private readonly Canvas _leftPreviewCanvas;
     private readonly Canvas _rightPreviewCanvas;
     private bool _allowExit;
-    private bool _runtimeRefreshPending;
     private bool _runtimeOwnedByTray;
     private bool _loadingScreen;
     private bool _settingsApplyPending;
-    private LinuxRuntimeServiceSnapshot _runtimeSnapshot = new(
-        LinuxRuntimeServiceStatus.Unavailable,
-        "glasstokey-linux.service",
-        "Checking runtime owner state.",
-        null,
-        null,
-        null);
     private LinuxInputPreviewSnapshot _previewSnapshot = new(
         LinuxInputPreviewStatus.Stopped,
         "Live input preview is stopped.",
@@ -60,26 +53,20 @@ public partial class MainWindow : Window
         _leftDeviceCombo = RequireControl<ComboBox>("LeftDeviceCombo");
         _rightDeviceCombo = RequireControl<ComboBox>("RightDeviceCombo");
         _layoutPresetCombo = RequireControl<ComboBox>("LayoutPresetCombo");
-        _previewSummaryText = RequireControl<TextBlock>("PreviewSummaryText");
+        _fiveFingerSwipeLeftCombo = RequireControl<ComboBox>("FiveFingerSwipeLeftCombo");
+        _fiveFingerSwipeRightCombo = RequireControl<ComboBox>("FiveFingerSwipeRightCombo");
+        _fiveFingerSwipeUpCombo = RequireControl<ComboBox>("FiveFingerSwipeUpCombo");
+        _fiveFingerSwipeDownCombo = RequireControl<ComboBox>("FiveFingerSwipeDownCombo");
         _leftPreviewText = RequireControl<TextBlock>("LeftPreviewText");
         _rightPreviewText = RequireControl<TextBlock>("RightPreviewText");
-        _statusText = RequireControl<TextBlock>("StatusText");
         _leftPreviewCanvas = RequireControl<Canvas>("LeftPreviewCanvas");
         _rightPreviewCanvas = RequireControl<Canvas>("RightPreviewCanvas");
-        _runtimeStatusTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(2)
-        };
-        _runtimeStatusTimer.Tick += OnRuntimeStatusTimerTick;
         _previewController.SnapshotChanged += OnPreviewSnapshotChanged;
         Closing += OnWindowClosing;
         Opened += OnWindowOpened;
         WireEvents();
         LoadScreen();
-        ApplyRuntimeSnapshot(_runtimeSnapshot);
         ApplyPreviewSnapshot(_previewSnapshot);
-        _runtimeStatusTimer.Start();
-        _ = RefreshRuntimeSnapshotAsync();
     }
 
     private void InitializeComponent()
@@ -96,9 +83,13 @@ public partial class MainWindow : Window
         _leftDeviceCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _rightDeviceCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _layoutPresetCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        _fiveFingerSwipeLeftCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        _fiveFingerSwipeRightCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        _fiveFingerSwipeUpCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        _fiveFingerSwipeDownCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
     }
 
-    private void LoadScreen(string? statusOverride = null)
+    private void LoadScreen()
     {
         _loadingScreen = true;
         LinuxRuntimeConfiguration configuration = _runtime.LoadConfiguration();
@@ -114,23 +105,33 @@ public partial class MainWindow : Window
         List<PresetChoice> presetChoices = BuildPresetChoices();
         _layoutPresetCombo.ItemsSource = presetChoices;
         _layoutPresetCombo.SelectedItem = SelectPresetChoice(presetChoices, settings.LayoutPresetName) ?? presetChoices[0];
+
+        List<GestureActionChoice> gestureChoices = BuildGestureActionChoices();
+        _fiveFingerSwipeLeftCombo.ItemsSource = gestureChoices;
+        _fiveFingerSwipeRightCombo.ItemsSource = gestureChoices;
+        _fiveFingerSwipeUpCombo.ItemsSource = gestureChoices;
+        _fiveFingerSwipeDownCombo.ItemsSource = gestureChoices;
+        _fiveFingerSwipeLeftCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeLeftAction, "Typing Toggle");
+        _fiveFingerSwipeRightCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeRightAction, "Typing Toggle");
+        _fiveFingerSwipeUpCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeUpAction, "None");
+        _fiveFingerSwipeDownCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeDownAction, "None");
         RenderKeymapPreview(configuration);
         ApplyPreviewSnapshot(_previewSnapshot);
-
-        _statusText.Text = statusOverride ?? $"Detected {configuration.Devices.Count} candidate trackpad(s).";
 
         _loadingScreen = false;
     }
 
     private void OnRefreshDevicesClick(object? sender, RoutedEventArgs e)
     {
-        LoadScreen("Device list refreshed from the current Linux evdev state.");
+        LoadScreen();
+        _ = RestartPreviewAsync();
     }
 
     private void OnSwapSidesClick(object? sender, RoutedEventArgs e)
     {
-        string path = _runtime.SwapTrackpadBindings();
-        LoadScreen($"Swapped left/right bindings in {path}.");
+        _runtime.SwapTrackpadBindings();
+        LoadScreen();
+        _ = RestartPreviewAsync();
     }
 
     private async void OnLiveSettingsSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -140,7 +141,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        await SaveLiveSettingsAsync().ConfigureAwait(false);
+        await SaveLiveSettingsAsync();
     }
 
     private async Task SaveLiveSettingsAsync()
@@ -155,25 +156,31 @@ public partial class MainWindow : Window
         settings.LeftTrackpadStableId = (_leftDeviceCombo.SelectedItem as DeviceChoice)?.StableId;
         settings.RightTrackpadStableId = (_rightDeviceCombo.SelectedItem as DeviceChoice)?.StableId;
         settings.LayoutPresetName = (_layoutPresetCombo.SelectedItem as PresetChoice)?.Name ?? TrackpadLayoutPreset.SixByThree.Name;
-        string path = _runtime.SaveSettings(settings);
-        string statusMessage = $"Applied settings from {path}.";
+        settings.SharedProfile.FiveFingerSwipeLeftAction = (_fiveFingerSwipeLeftCombo.SelectedItem as GestureActionChoice)?.Value ?? "Typing Toggle";
+        settings.SharedProfile.FiveFingerSwipeRightAction = (_fiveFingerSwipeRightCombo.SelectedItem as GestureActionChoice)?.Value ?? "Typing Toggle";
+        settings.SharedProfile.FiveFingerSwipeUpAction = (_fiveFingerSwipeUpCombo.SelectedItem as GestureActionChoice)?.Value ?? "None";
+        settings.SharedProfile.FiveFingerSwipeDownAction = (_fiveFingerSwipeDownCombo.SelectedItem as GestureActionChoice)?.Value ?? "None";
+        settings.SharedProfile.TypingEnabled = true;
         try
         {
-            await RestartRuntimeForConfigChangeAsync().ConfigureAwait(false);
+            settings.Normalize();
+            _runtime.SaveSettings(settings);
+            LoadScreen();
+            await RestartPreviewAsync();
         }
         finally
         {
             _settingsApplyPending = false;
         }
-
-        LoadScreen(statusMessage);
     }
 
     private async void OnImportSettingsClick(object? sender, RoutedEventArgs e)
     {
         if (!StorageProvider.CanOpen)
         {
-            _statusText.Text = "This Linux GUI session cannot open a file picker on the current platform backend.";
+            ShowNoticeDialog(
+                "Import Unavailable",
+                "This Linux GUI session cannot open a file picker on the current platform backend.");
             return;
         }
 
@@ -190,32 +197,35 @@ public partial class MainWindow : Window
 
         if (files.Count == 0)
         {
-            _statusText.Text = "Settings import canceled.";
             return;
         }
 
         string? localPath = files[0].TryGetLocalPath();
         if (string.IsNullOrWhiteSpace(localPath))
         {
-            _statusText.Text = "The selected settings file could not be resolved to a local file path.";
+            ShowNoticeDialog(
+                "Import Failed",
+                "The selected settings file could not be resolved to a local file path.");
             return;
         }
 
         if (!TryImportSettings(localPath, out string message))
         {
-            _statusText.Text = message;
+            ShowNoticeDialog("Import Failed", message);
             return;
         }
 
-        await RestartRuntimeForConfigChangeAsync().ConfigureAwait(false);
-        LoadScreen(message);
+        LoadScreen();
+        await RestartPreviewAsync();
     }
 
     private async void OnExportSettingsClick(object? sender, RoutedEventArgs e)
     {
         if (!StorageProvider.CanSave)
         {
-            _statusText.Text = "This Linux GUI session cannot open a save picker on the current platform backend.";
+            ShowNoticeDialog(
+                "Export Unavailable",
+                "This Linux GUI session cannot open a save picker on the current platform backend.");
             return;
         }
 
@@ -233,26 +243,23 @@ public partial class MainWindow : Window
         string? localPath = file?.TryGetLocalPath();
         if (string.IsNullOrWhiteSpace(localPath))
         {
-            _statusText.Text = "Settings export canceled.";
             return;
         }
 
-        TryExportSettings(localPath, out string message);
-        _statusText.Text = message;
+        if (!TryExportSettings(localPath, out string message))
+        {
+            ShowNoticeDialog("Export Failed", message);
+        }
     }
 
     public void RunDoctorFromStatusArea()
     {
         LinuxDoctorResult result = LinuxDoctorRunner.Run();
-        _statusText.Text = result.Success
-            ? "Doctor completed successfully."
-            : "Doctor found issues. Review the report before treating the runtime as ready.";
         ShowDoctorReportWindow(result);
     }
 
     public void HideToStatusArea()
     {
-        _statusText.Text = "Window hidden.";
         _ = _previewController.StopAsync();
         Hide();
     }
@@ -268,20 +275,10 @@ public partial class MainWindow : Window
         _ = StartRuntimeAsync();
     }
 
-    private async Task RestartRuntimeForConfigChangeAsync()
-    {
-        LinuxRuntimeServiceSnapshot snapshot = await _runtimeController.RestartAsync().ConfigureAwait(false);
-        ApplyRuntimeSnapshot(snapshot);
-        if (snapshot.Failure is not null)
-        {
-            _statusText.Text = $"Runtime restart failed: {snapshot.Failure}";
-        }
-    }
-
     public async Task RequestExitAsync()
     {
         _runtimeOwnedByTray = false;
-        await StopRuntimeAsync().ConfigureAwait(false);
+        await StopRuntimeAsync();
         _allowExit = true;
         if (!Dispatcher.UIThread.CheckAccess())
         {
@@ -322,6 +319,16 @@ public partial class MainWindow : Window
         return choices;
     }
 
+    private static List<GestureActionChoice> BuildGestureActionChoices()
+    {
+        return
+        [
+            new GestureActionChoice("None", "None"),
+            new GestureActionChoice("Typing Toggle", "Typing Toggle"),
+            new GestureActionChoice("Chordal Shift", "Chordal Shift")
+        ];
+    }
+
     private static DeviceChoice? SelectDeviceChoice(IEnumerable<DeviceChoice> choices, string? stableId)
     {
         foreach (DeviceChoice choice in choices)
@@ -346,6 +353,23 @@ public partial class MainWindow : Window
         }
 
         return null;
+    }
+
+    private static GestureActionChoice SelectGestureActionChoice(
+        IEnumerable<GestureActionChoice> choices,
+        string? action,
+        string fallback)
+    {
+        string resolved = string.IsNullOrWhiteSpace(action) ? fallback : action.Trim();
+        foreach (GestureActionChoice choice in choices)
+        {
+            if (string.Equals(choice.Value, resolved, StringComparison.OrdinalIgnoreCase))
+            {
+                return choice;
+            }
+        }
+
+        return new GestureActionChoice(resolved, resolved);
     }
 
     private bool TryImportSettings(string path, out string message)
@@ -402,46 +426,31 @@ public partial class MainWindow : Window
             ?? throw new InvalidOperationException($"Required control '{name}' was not found in the Linux GUI.");
     }
 
+    private async Task RestartPreviewAsync()
+    {
+        await _previewController.StopAsync();
+        if (IsVisible)
+        {
+            EnsurePreviewActive();
+        }
+    }
+
     private async Task StartRuntimeAsync()
     {
-        _statusText.Text = "Starting the tray-owned Linux runtime service.";
-        ApplyRuntimeSnapshot(await _runtimeController.StartAsync().ConfigureAwait(false));
+        LinuxRuntimeServiceSnapshot snapshot = await _runtimeController.StartAsync();
+        HandleRuntimeControlSnapshot(snapshot, "Start Runtime");
     }
 
     private async Task StopRuntimeAsync()
     {
-        _statusText.Text = "Stopping the Linux runtime service.";
-        ApplyRuntimeSnapshot(await _runtimeController.StopAsync().ConfigureAwait(false));
-    }
-
-    private async void OnRuntimeStatusTimerTick(object? sender, EventArgs e)
-    {
-        await RefreshRuntimeSnapshotAsync().ConfigureAwait(false);
-    }
-
-    private async Task RefreshRuntimeSnapshotAsync()
-    {
-        if (_runtimeRefreshPending)
-        {
-            return;
-        }
-
-        _runtimeRefreshPending = true;
-        try
-        {
-            ApplyRuntimeSnapshot(await _runtimeController.RefreshAsync().ConfigureAwait(false));
-        }
-        finally
-        {
-            _runtimeRefreshPending = false;
-        }
+        LinuxRuntimeServiceSnapshot snapshot = await _runtimeController.StopAsync();
+        HandleRuntimeControlSnapshot(snapshot, "Stop Runtime");
     }
 
     private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
     {
         if (_allowExit)
         {
-            _runtimeStatusTimer.Stop();
             _previewController.Dispose();
             return;
         }
@@ -460,18 +469,55 @@ public partial class MainWindow : Window
 
     public void EnsurePreviewActive()
     {
-        if (_previewController.TryStart(out string message))
-        {
-            _statusText.Text = message;
-            return;
-        }
-
-        if (_previewSnapshot.Status == LinuxInputPreviewStatus.Running)
+        if (_previewController.TryStart(out _))
         {
             return;
         }
+    }
 
-        _statusText.Text = message;
+    private void ShowNoticeDialog(string title, string message)
+    {
+        Window dialog = new()
+        {
+            Width = 520,
+            Height = 220,
+            MinWidth = 420,
+            MinHeight = 180,
+            Title = title
+        };
+
+        TextBlock messageBlock = new()
+        {
+            Text = message,
+            TextWrapping = TextWrapping.Wrap
+        };
+
+        Button closeButton = new()
+        {
+            Content = "Close",
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right
+        };
+
+        StackPanel root = new()
+        {
+            Spacing = 12,
+            Margin = new Thickness(18)
+        };
+        root.Children.Add(messageBlock);
+        root.Children.Add(closeButton);
+        closeButton.Click += (_, _) => dialog.Close();
+        dialog.Content = root;
+
+        if (IsVisible)
+        {
+            dialog.Show(this);
+        }
+        else
+        {
+            dialog.Show();
+        }
+
+        dialog.Activate();
     }
 
     private void ShowDoctorReportWindow(LinuxDoctorResult result)
@@ -535,19 +581,23 @@ public partial class MainWindow : Window
         return root;
     }
 
-    private void ApplyRuntimeSnapshot(LinuxRuntimeServiceSnapshot snapshot)
+    private void HandleRuntimeControlSnapshot(LinuxRuntimeServiceSnapshot snapshot, string actionTitle)
     {
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(() => ApplyRuntimeSnapshot(snapshot));
+            Dispatcher.UIThread.Post(() => HandleRuntimeControlSnapshot(snapshot, actionTitle));
             return;
         }
 
-        _runtimeSnapshot = snapshot;
-        if (snapshot.Failure is not null)
+        if (snapshot.IsInstalled && snapshot.Failure is null)
         {
-            _statusText.Text = $"Runtime owner: {snapshot.Status}. {snapshot.Message} Failure: {snapshot.Failure}";
+            return;
         }
+
+        string message = snapshot.Failure is null
+            ? snapshot.Message
+            : $"{snapshot.Message}{Environment.NewLine}{Environment.NewLine}{snapshot.Failure}";
+        ShowNoticeDialog(actionTitle, message);
     }
 
     private void OnPreviewSnapshotChanged(LinuxInputPreviewSnapshot snapshot)
@@ -564,10 +614,6 @@ public partial class MainWindow : Window
         }
 
         _previewSnapshot = snapshot;
-        _previewSummaryText.Text = snapshot.Failure is null
-            ? $"Preview: {snapshot.Status}. {snapshot.Message}"
-            : $"Preview: {snapshot.Status}. {snapshot.Message} Failure: {snapshot.Failure}";
-
         LinuxInputPreviewTrackpadState? left = GetPreviewState(snapshot, TrackpadSide.Left);
         LinuxInputPreviewTrackpadState? right = GetPreviewState(snapshot, TrackpadSide.Right);
         _leftPreviewText.Text = BuildPreviewDetails(left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left);
@@ -599,14 +645,8 @@ public partial class MainWindow : Window
             return "No bound trackpad on this side.";
         }
 
-        int activeTipContacts = 0;
-        for (int index = 0; index < state.Contacts.Count; index++)
-        {
-            if (state.Contacts[index].TipSwitch)
-            {
-                activeTipContacts++;
-            }
-        }
+        LinuxInputPreviewContact[] activeContacts = GetTipContacts(state);
+        int activeTipContacts = activeContacts.Length;
 
         List<string> lines =
         [
@@ -619,9 +659,9 @@ public partial class MainWindow : Window
             state.BindingMessage
         ];
 
-        if (state.Contacts.Count > 0)
+        if (activeContacts.Length > 0)
         {
-            LinuxInputPreviewContact contact = state.Contacts[0];
+            LinuxInputPreviewContact contact = activeContacts[0];
             lines.Add($"First contact: id {contact.Id} @ ({contact.X},{contact.Y}) pressure {contact.Pressure} tip={(contact.TipSwitch ? "down" : "up")}");
             string[] hits = ResolveTouchedLabels(state, layout, keymap, side);
             if (hits.Length > 0)
@@ -656,6 +696,9 @@ public partial class MainWindow : Window
         });
 
         RenderPreviewKeymapOverlay(canvas, layout, keymap, side, width, height, accentHex);
+        LinuxInputPreviewContact[] activeContacts = state == null
+            ? Array.Empty<LinuxInputPreviewContact>()
+            : GetTipContacts(state);
 
         if (state == null)
         {
@@ -669,7 +712,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (state.Contacts.Count == 0)
+        if (activeContacts.Length == 0)
         {
             canvas.Children.Add(new TextBlock
             {
@@ -686,9 +729,9 @@ public partial class MainWindow : Window
         }
 
         Color accent = Color.Parse(accentHex);
-        for (int index = 0; index < state.Contacts.Count; index++)
+        for (int index = 0; index < activeContacts.Length; index++)
         {
-            LinuxInputPreviewContact contact = state.Contacts[index];
+            LinuxInputPreviewContact contact = activeContacts[index];
             double xRatio = state.MaxX > 0 ? contact.X / (double)state.MaxX : 0.5;
             double yRatio = state.MaxY > 0 ? contact.Y / (double)state.MaxY : 0.5;
             double centerX = 12 + xRatio * (width - 24);
@@ -718,6 +761,25 @@ public partial class MainWindow : Window
             Canvas.SetLeft(label, centerX - 4);
             Canvas.SetTop(label, centerY - 8);
         }
+    }
+
+    private static LinuxInputPreviewContact[] GetTipContacts(LinuxInputPreviewTrackpadState state)
+    {
+        if (state.Contacts.Count == 0)
+        {
+            return Array.Empty<LinuxInputPreviewContact>();
+        }
+
+        List<LinuxInputPreviewContact> activeContacts = [];
+        for (int index = 0; index < state.Contacts.Count; index++)
+        {
+            if (state.Contacts[index].TipSwitch)
+            {
+                activeContacts.Add(state.Contacts[index]);
+            }
+        }
+
+        return [.. activeContacts];
     }
 
     private void RenderKeymapPreview(LinuxRuntimeConfiguration configuration)
@@ -896,6 +958,14 @@ public partial class MainWindow : Window
     }
 
     private sealed record PresetChoice(string Label, string Name)
+    {
+        public override string ToString()
+        {
+            return Label;
+        }
+    }
+
+    private sealed record GestureActionChoice(string Label, string Value)
     {
         public override string ToString()
         {

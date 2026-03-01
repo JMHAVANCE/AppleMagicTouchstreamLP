@@ -153,6 +153,13 @@ public sealed class LinuxInputPreviewController : IDisposable, ILinuxInputFrameS
                     contact.Confidence);
             }
 
+            int previousTipContacts = CountTipContacts(current.Contacts);
+            int nextTipContacts = CountTipContacts(contacts);
+            bool publishImmediately =
+                count == 0 ||
+                current.ContactCount != count ||
+                previousTipContacts != nextTipContacts;
+
             _trackpads[frame.Binding.Side] = current with
             {
                 DeviceNode = frame.Snapshot.DeviceNode,
@@ -167,7 +174,7 @@ public sealed class LinuxInputPreviewController : IDisposable, ILinuxInputFrameS
             };
 
             long nowTicks = Environment.TickCount64;
-            if (nowTicks - _lastPublishTicks >= PublishInterval.TotalMilliseconds)
+            if (publishImmediately || nowTicks - _lastPublishTicks >= PublishInterval.TotalMilliseconds)
             {
                 _lastPublishTicks = nowTicks;
                 _snapshot = new LinuxInputPreviewSnapshot(
@@ -309,6 +316,20 @@ public sealed class LinuxInputPreviewController : IDisposable, ILinuxInputFrameS
             LinuxRuntimeBindingStatus.Stopped => "Live input preview is stopped.",
             _ => "Live input preview is running."
         };
+    }
+
+    private static int CountTipContacts(IReadOnlyList<LinuxInputPreviewContact> contacts)
+    {
+        int count = 0;
+        for (int index = 0; index < contacts.Count; index++)
+        {
+            if (contacts[index].TipSwitch)
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private void ThrowIfDisposed()

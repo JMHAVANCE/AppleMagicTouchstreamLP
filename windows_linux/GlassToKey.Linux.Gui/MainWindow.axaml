@@ -56,15 +56,6 @@
         <Grid ColumnDefinitions="2.35*,1*">
           <Border Classes="panel">
             <StackPanel Spacing="12">
-              <TextBlock Classes="section" Text="Live Input Preview" />
-              <TextBlock Text="Reads evdev directly so you can inspect contact motion against the active loaded keymap while the tray-owned runtime stays off the GUI hotpath."
-                         TextWrapping="Wrap"
-                         Foreground="#5A4032" />
-
-              <TextBlock x:Name="PreviewSummaryText"
-                         TextWrapping="Wrap"
-                         Foreground="#23303A" />
-
               <Grid ColumnDefinitions="*,*">
                 <Border Background="#FFF3E6" BorderBrush="#D9C7B5" BorderThickness="1" CornerRadius="12" Padding="10">
                   <StackPanel Spacing="8">
@@ -121,13 +112,48 @@
               <TextBlock Classes="section" Text="Settings" />
               <TextBlock Text="Layout preset" />
               <ComboBox x:Name="LayoutPresetCombo" MinWidth="260" />
+              <Separator Margin="0,6,0,2" />
+              <TextBlock Text="5-finger swipe"
+                         FontWeight="SemiBold" />
+              <Grid ColumnDefinitions="Auto,*"
+                    RowDefinitions="Auto,Auto,Auto,Auto">
+                <TextBlock Text="Left"
+                           VerticalAlignment="Center" />
+                <ComboBox x:Name="FiveFingerSwipeLeftCombo"
+                          Grid.Column="1"
+                          Margin="10,0,0,0"
+                          MinWidth="220" />
+                <TextBlock Grid.Row="1"
+                           Margin="0,8,0,0"
+                           Text="Right"
+                           VerticalAlignment="Center" />
+                <ComboBox x:Name="FiveFingerSwipeRightCombo"
+                          Grid.Row="1"
+                          Grid.Column="1"
+                          Margin="10,8,0,0"
+                          MinWidth="220" />
+                <TextBlock Grid.Row="2"
+                           Margin="0,8,0,0"
+                           Text="Up"
+                           VerticalAlignment="Center" />
+                <ComboBox x:Name="FiveFingerSwipeUpCombo"
+                          Grid.Row="2"
+                          Grid.Column="1"
+                          Margin="10,8,0,0"
+                          MinWidth="220" />
+                <TextBlock Grid.Row="3"
+                           Margin="0,8,0,0"
+                           Text="Down"
+                           VerticalAlignment="Center" />
+                <ComboBox x:Name="FiveFingerSwipeDownCombo"
+                          Grid.Row="3"
+                          Grid.Column="1"
+                          Margin="10,8,0,0"
+                          MinWidth="220" />
+              </Grid>
             </StackPanel>
           </Border>
         </Grid>
-
-        <TextBlock x:Name="StatusText"
-                   TextWrapping="Wrap"
-                   Foreground="#23303A" />
       </StackPanel>
     </ScrollViewer>
   </Grid>

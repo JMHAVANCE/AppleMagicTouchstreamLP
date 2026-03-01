@@ -201,7 +201,7 @@ The intended Linux user-facing shape is:
 - edits settings and keymap selection
 - surfaces binding state and runtime state
 - runs diagnostics
-- can request runtime restart/reload if needed
+- should write settings that the runtime owner picks up in-process
 - should not be required to stay alive for typing to keep working
 
 #### Tray/status surface
@@ -214,6 +214,7 @@ Current repo note:
 
 - the GUI now controls the Linux user-service runtime owner instead of hosting the engine in-process
 - that gives Linux a real runtime-owner/config-UI split for the service-backed path
+- the runtime owner now treats the XDG settings file as the source of truth and reloads updated config in-process instead of requiring GUI-driven `systemd` restarts for normal layout/binding changes
 - the remaining implementation direction is now chosen:
   - keep the runtime in the user service
   - move toward a thinner dedicated tray/controller surface
@@ -405,10 +406,11 @@ The architecture is not considered complete until:
 - [x] Avalonia GUI shell exists
 - [x] GUI can enumerate candidates and assign left/right devices
 - [x] GUI can select layout preset
-- [x] GUI can browse, set, and clear a custom keymap path
+- [x] GUI can import/export Linux settings
 - [x] GUI can run and display `doctor`
 - [x] GUI has a first tray/top-bar shell via Avalonia `TrayIcon`
-- [x] GUI start/stop/status now targets the Linux user service instead of owning the engine in-process
+- [x] Tray-owned runtime lifecycle is separate from the config window
+- [x] Normal config changes now flow through the XDG settings file and are reloaded in-process by the runtime owner
 - [x] GUI now has a live evdev input preview surface for visual input diagnostics without moving the runtime owner into the GUI
 - [x] GUI publishes self-contained cleanly
 
@@ -430,12 +432,12 @@ These are the highest-priority productization tasks because they determine wheth
 
 ### 2. GUI/product surface
 
-The GUI now sits on the correct side of the boundary: it controls the runtime owner service instead of becoming the runtime owner. The remaining work is product polish and deciding how thin the tray/controller surface should become.
+The GUI now sits on the correct side of the boundary: it edits config and previews input while the runtime owner stays outside the window. The remaining work is product polish and deciding how thin the tray/controller surface should become.
 
 - [ ] Manually validate the tray/top-bar path on the target Ubuntu desktop
-- [x] Add explicit runtime start/stop/status control in the GUI
 - [x] Implement the runtime-owner/config-UI split for the user-service path
 - [x] Keep the config UI off the hotpath while still surfacing current settings and service state
+- [x] Make normal config changes propagate through the runtime owner without restarting `systemd`
 - [x] Add a first live trackpad visualizer so host debugging can distinguish input ingest from output/dispatch faults
 - [x] Decide that the long-term tray/controller should become a thinner dedicated surface while the full config UI stays on-demand
 - [ ] Implement the thinner dedicated tray/controller surface
