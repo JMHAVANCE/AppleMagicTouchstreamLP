@@ -189,6 +189,21 @@ The intended Linux user-facing shape is:
 - an on-demand config window opened from that tray app
 - a reusable CLI/service path kept for diagnostics, packaging validation, and headless experiments
 
+Linux should support both final operator-facing modes:
+
+1. desktop:
+   tray-owned runtime for normal workstation use
+2. headless:
+   CLI/service runtime for server, kiosk, minimal-shell, or GUI-free use
+
+This is a product requirement, not just an engineering convenience:
+
+- a Linux build that cannot run headless is the wrong product shape
+- desktop tray mode is the primary UX
+- headless runtime mode remains a supported final product mode
+- what changes between modes is the host shell, not the runtime path
+- both modes should use the same `GlassToKey.Core` logic and the same Linux platform/runtime path
+
 #### Tray-owned runtime app
 
 - owns the live evdev -> engine -> `uinput` path
@@ -212,6 +227,7 @@ The intended Linux user-facing shape is:
 - remains useful for `doctor`, capture/replay, fixture work, packaging validation, and headless testing
 - remains a valid engineering/runtime harness
 - is not the primary Linux desktop product shape
+- remains a required final product mode for headless operation
 - should stay reusable and headless even if the tray app becomes the normal operator-facing runtime
 
 Current repo note:
@@ -447,6 +463,7 @@ These are the highest-priority productization tasks because they determine wheth
 - [ ] Validate `.deb` install, upgrade, and uninstall behavior
 - [ ] Decide whether wrapper mode, user service mode, or both should be the documented default for first users
 - [ ] Tighten post-install guidance once the real packaged flow is proven on host
+- [ ] Keep a documented and validated headless launch path as part of the final packaged Linux story
 
 ### 2. GUI/product surface
 
@@ -461,6 +478,7 @@ The current GUI/service split proved useful for validation, but it is no longer 
 - [ ] Move runtime ownership from the service/controller split into the Linux tray app by default
 - [ ] Replace the current second-reader preview/status hacks with direct runtime state exposed from the tray-owned runtime where practical
 - [ ] Keep the config window off the hotpath even when the tray app owns the runtime process
+- [ ] Preserve the reusable CLI/service runtime host as a supported headless mode while the tray app becomes the default desktop host
 - [ ] Decide how much runtime diagnostics should live in the config UI versus remain CLI-only
 - [ ] Decide whether keymap editing is in-scope for the config UI or whether file-based custom keymaps remain the v1 story
 - [ ] Polish the packaged GUI launcher path and desktop entry behavior
