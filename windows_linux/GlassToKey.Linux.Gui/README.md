@@ -13,6 +13,7 @@ Current scope:
 - browse, set, or clear a custom keymap path
 - run the Linux `doctor` check and inspect its report in-app
 - start, stop, and observe the Linux user-service runtime owner without hosting the engine in-process
+- inspect a live evdev preview of bound trackpads for visual debugging
 - expose a first Ubuntu top-bar/tray shell with open, hide, doctor, runtime control, and quit actions
 - save back to the same Linux settings file used by the CLI/runtime
 

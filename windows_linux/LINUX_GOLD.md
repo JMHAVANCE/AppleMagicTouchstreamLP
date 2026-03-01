@@ -212,7 +212,10 @@ Current repo note:
 
 - the GUI now controls the Linux user-service runtime owner instead of hosting the engine in-process
 - that gives Linux a real runtime-owner/config-UI split for the service-backed path
-- the remaining open question is whether the tray/status shell should stay in the config app or move into a thinner dedicated controller
+- the remaining implementation direction is now chosen:
+  - keep the runtime in the user service
+  - move toward a thinner dedicated tray/controller surface
+  - keep the full config UI on-demand
 
 ### Target dependency direction
 
@@ -403,6 +406,7 @@ The architecture is not considered complete until:
 - [x] GUI can run and display `doctor`
 - [x] GUI has a first tray/top-bar shell via Avalonia `TrayIcon`
 - [x] GUI start/stop/status now targets the Linux user service instead of owning the engine in-process
+- [x] GUI now has a live evdev input preview surface for visual input diagnostics without moving the runtime owner into the GUI
 - [x] GUI publishes self-contained cleanly
 
 ## Remaining Work
@@ -429,7 +433,9 @@ The GUI now sits on the correct side of the boundary: it controls the runtime ow
 - [x] Add explicit runtime start/stop/status control in the GUI
 - [x] Implement the runtime-owner/config-UI split for the user-service path
 - [x] Keep the config UI off the hotpath while still surfacing current settings and service state
-- [ ] Decide whether the tray shell should remain part of the config UI or move into a thinner dedicated controller
+- [x] Add a first live trackpad visualizer so host debugging can distinguish input ingest from output/dispatch faults
+- [x] Decide that the long-term tray/controller should become a thinner dedicated surface while the full config UI stays on-demand
+- [ ] Implement the thinner dedicated tray/controller surface
 - [ ] Decide how much runtime diagnostics should live in the config UI versus remain CLI-only
 - [ ] Decide whether keymap editing is in-scope for the config UI or whether file-based custom keymaps remain the v1 story
 - [ ] Polish the packaged GUI launcher path and desktop entry behavior

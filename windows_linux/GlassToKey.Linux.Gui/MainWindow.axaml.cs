@@ -3,8 +3,10 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Shapes;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.Media;
 using GlassToKey.Linux.Config;
 using GlassToKey.Linux.Runtime;
 using GlassToKey.Platform.Linux.Models;
@@ -13,8 +15,13 @@ namespace GlassToKey.Linux.Gui;
 
 public partial class MainWindow : Window
 {
+    private const double TrackpadWidthMm = 160.0;
+    private const double TrackpadHeightMm = 114.9;
+    private const double KeyWidthMm = 18.0;
+    private const double KeyHeightMm = 17.0;
     private readonly LinuxAppRuntime _runtime = new();
     private readonly LinuxRuntimeServiceController _runtimeController = new();
+    private readonly LinuxInputPreviewController _previewController = new();
     private readonly DispatcherTimer _runtimeStatusTimer;
     private readonly ComboBox _leftDeviceCombo;
     private readonly ComboBox _rightDeviceCombo;
@@ -23,11 +30,18 @@ public partial class MainWindow : Window
     private readonly TextBlock _keymapStatusText;
     private readonly TextBlock _runtimeSummaryText;
     private readonly TextBlock _runtimeBindingsText;
+    private readonly TextBlock _previewSummaryText;
+    private readonly TextBlock _leftPreviewText;
+    private readonly TextBlock _rightPreviewText;
     private readonly TextBlock _settingsPathText;
     private readonly TextBlock _resolvedBindingsText;
     private readonly TextBlock _warningsText;
     private readonly TextBlock _statusText;
     private readonly TextBox _doctorReportBox;
+    private readonly Canvas _leftPreviewCanvas;
+    private readonly Canvas _rightPreviewCanvas;
+    private readonly Canvas _leftKeymapCanvas;
+    private readonly Canvas _rightKeymapCanvas;
     private bool _allowExit;
     private bool _runtimeRefreshPending;
     private LinuxRuntimeServiceSnapshot _runtimeSnapshot = new(
@@ -37,6 +51,11 @@ public partial class MainWindow : Window
         null,
         null,
         null);
+    private LinuxInputPreviewSnapshot _previewSnapshot = new(
+        LinuxInputPreviewStatus.Stopped,
+        "Live input preview is stopped.",
+        null,
+        Array.Empty<LinuxInputPreviewTrackpadState>());
 
     public MainWindow()
     {
@@ -48,20 +67,29 @@ public partial class MainWindow : Window
         _keymapStatusText = RequireControl<TextBlock>("KeymapStatusText");
         _runtimeSummaryText = RequireControl<TextBlock>("RuntimeSummaryText");
         _runtimeBindingsText = RequireControl<TextBlock>("RuntimeBindingsText");
+        _previewSummaryText = RequireControl<TextBlock>("PreviewSummaryText");
+        _leftPreviewText = RequireControl<TextBlock>("LeftPreviewText");
+        _rightPreviewText = RequireControl<TextBlock>("RightPreviewText");
         _settingsPathText = RequireControl<TextBlock>("SettingsPathText");
         _resolvedBindingsText = RequireControl<TextBlock>("ResolvedBindingsText");
         _warningsText = RequireControl<TextBlock>("WarningsText");
         _statusText = RequireControl<TextBlock>("StatusText");
         _doctorReportBox = RequireControl<TextBox>("DoctorReportBox");
+        _leftPreviewCanvas = RequireControl<Canvas>("LeftPreviewCanvas");
+        _rightPreviewCanvas = RequireControl<Canvas>("RightPreviewCanvas");
+        _leftKeymapCanvas = RequireControl<Canvas>("LeftKeymapCanvas");
+        _rightKeymapCanvas = RequireControl<Canvas>("RightKeymapCanvas");
         _runtimeStatusTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(2)
         };
         _runtimeStatusTimer.Tick += OnRuntimeStatusTimerTick;
+        _previewController.SnapshotChanged += OnPreviewSnapshotChanged;
         Closing += OnWindowClosing;
         WireEvents();
         LoadScreen();
         ApplyRuntimeSnapshot(_runtimeSnapshot);
+        ApplyPreviewSnapshot(_previewSnapshot);
         _runtimeStatusTimer.Start();
         _ = RefreshRuntimeSnapshotAsync();
     }
@@ -77,6 +105,8 @@ public partial class MainWindow : Window
         RequireControl<Button>("SwapSidesButton").Click += OnSwapSidesClick;
         RequireControl<Button>("StartRuntimeButton").Click += OnStartRuntimeClick;
         RequireControl<Button>("StopRuntimeButton").Click += OnStopRuntimeClick;
+        RequireControl<Button>("StartPreviewButton").Click += OnStartPreviewClick;
+        RequireControl<Button>("StopPreviewButton").Click += OnStopPreviewClick;
         RequireControl<Button>("SaveSettingsButton").Click += OnSaveSettingsClick;
         RequireControl<Button>("InitializeDefaultsButton").Click += OnInitializeDefaultsClick;
         RequireControl<Button>("BrowseKeymapButton").Click += OnBrowseKeymapClick;
@@ -101,6 +131,7 @@ public partial class MainWindow : Window
         _layoutPresetCombo.SelectedItem = SelectPresetChoice(presetChoices, settings.LayoutPresetName) ?? presetChoices[0];
         _keymapPathBox.Text = settings.KeymapPath ?? string.Empty;
         _keymapStatusText.Text = BuildKeymapStatusText(settings.KeymapPath);
+        RenderKeymapPreview(configuration);
 
         _settingsPathText.Text = $"Settings: {configuration.SettingsPath}";
         _resolvedBindingsText.Text = BuildResolvedBindingsText(configuration);
@@ -204,6 +235,23 @@ public partial class MainWindow : Window
     private async void OnStopRuntimeClick(object? sender, RoutedEventArgs e)
     {
         await StopRuntimeAsync().ConfigureAwait(false);
+    }
+
+    private void OnStartPreviewClick(object? sender, RoutedEventArgs e)
+    {
+        if (_previewController.TryStart(out string message))
+        {
+            _statusText.Text = message;
+            return;
+        }
+
+        _statusText.Text = message;
+    }
+
+    private async void OnStopPreviewClick(object? sender, RoutedEventArgs e)
+    {
+        _statusText.Text = "Stopping live input preview.";
+        await _previewController.StopAsync().ConfigureAwait(false);
     }
 
     public void RunDoctorFromStatusArea()
@@ -371,6 +419,7 @@ public partial class MainWindow : Window
         if (_allowExit)
         {
             _runtimeStatusTimer.Stop();
+            _previewController.Dispose();
             return;
         }
 
@@ -397,6 +446,35 @@ public partial class MainWindow : Window
 
         RequireControl<Button>("StartRuntimeButton").IsEnabled = snapshot.CanStart;
         RequireControl<Button>("StopRuntimeButton").IsEnabled = snapshot.CanStop;
+    }
+
+    private void OnPreviewSnapshotChanged(LinuxInputPreviewSnapshot snapshot)
+    {
+        ApplyPreviewSnapshot(snapshot);
+    }
+
+    private void ApplyPreviewSnapshot(LinuxInputPreviewSnapshot snapshot)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => ApplyPreviewSnapshot(snapshot));
+            return;
+        }
+
+        _previewSnapshot = snapshot;
+        _previewSummaryText.Text = snapshot.Failure is null
+            ? $"Preview: {snapshot.Status}. {snapshot.Message}"
+            : $"Preview: {snapshot.Status}. {snapshot.Message} Failure: {snapshot.Failure}";
+
+        LinuxInputPreviewTrackpadState? left = GetPreviewState(snapshot, TrackpadSide.Left);
+        LinuxInputPreviewTrackpadState? right = GetPreviewState(snapshot, TrackpadSide.Right);
+        _leftPreviewText.Text = BuildPreviewDetails(left);
+        _rightPreviewText.Text = BuildPreviewDetails(right);
+        RenderPreviewCanvas(_leftPreviewCanvas, left, "#D05A2A");
+        RenderPreviewCanvas(_rightPreviewCanvas, right, "#246A73");
+
+        RequireControl<Button>("StartPreviewButton").IsEnabled = !snapshot.IsActive;
+        RequireControl<Button>("StopPreviewButton").IsEnabled = snapshot.IsActive;
     }
 
     private static string BuildRuntimeServiceText(LinuxRuntimeServiceSnapshot snapshot)
@@ -430,6 +508,265 @@ public partial class MainWindow : Window
         }
 
         return string.Join(Environment.NewLine, lines);
+    }
+
+    private static LinuxInputPreviewTrackpadState? GetPreviewState(
+        LinuxInputPreviewSnapshot snapshot,
+        TrackpadSide side)
+    {
+        for (int index = 0; index < snapshot.Trackpads.Count; index++)
+        {
+            if (snapshot.Trackpads[index].Side == side)
+            {
+                return snapshot.Trackpads[index];
+            }
+        }
+
+        return null;
+    }
+
+    private static string BuildPreviewDetails(LinuxInputPreviewTrackpadState? state)
+    {
+        if (state == null)
+        {
+            return "No bound trackpad on this side.";
+        }
+
+        List<string> lines =
+        [
+            $"Binding: {state.BindingStatus}",
+            $"Node: {state.DeviceNode ?? "no-node"}",
+            $"Frame: {state.FrameSequence}",
+            $"Contacts: {state.ContactCount}",
+            $"Button: {(state.IsButtonPressed ? "down" : "up")}",
+            $"Range: {state.MaxX} x {state.MaxY}",
+            state.BindingMessage
+        ];
+
+        if (state.Contacts.Count > 0)
+        {
+            LinuxInputPreviewContact contact = state.Contacts[0];
+            lines.Add($"First contact: id {contact.Id} @ ({contact.X},{contact.Y}) pressure {contact.Pressure}");
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static void RenderPreviewCanvas(Canvas canvas, LinuxInputPreviewTrackpadState? state, string accentHex)
+    {
+        canvas.Children.Clear();
+
+        double width = canvas.Width > 0 ? canvas.Width : 300;
+        double height = canvas.Height > 0 ? canvas.Height : 180;
+        canvas.Children.Add(new Rectangle
+        {
+            Width = width,
+            Height = height,
+            RadiusX = 14,
+            RadiusY = 14,
+            Stroke = new SolidColorBrush(Color.Parse("#D9C7B5")),
+            StrokeThickness = 1
+        });
+
+        if (state == null)
+        {
+            canvas.Children.Add(new TextBlock
+            {
+                Text = "No trackpad bound.",
+                Foreground = new SolidColorBrush(Color.Parse("#6A4533"))
+            });
+            Canvas.SetLeft(canvas.Children[^1], 12);
+            Canvas.SetTop(canvas.Children[^1], 12);
+            return;
+        }
+
+        if (state.Contacts.Count == 0)
+        {
+            canvas.Children.Add(new TextBlock
+            {
+                Text = state.BindingStatus == LinuxRuntimeBindingStatus.Streaming
+                    ? "Touch the trackpad to see contacts."
+                    : state.BindingMessage,
+                Foreground = new SolidColorBrush(Color.Parse("#6A4533")),
+                Width = width - 24,
+                TextWrapping = TextWrapping.Wrap
+            });
+            Canvas.SetLeft(canvas.Children[^1], 12);
+            Canvas.SetTop(canvas.Children[^1], 12);
+            return;
+        }
+
+        Color accent = Color.Parse(accentHex);
+        for (int index = 0; index < state.Contacts.Count; index++)
+        {
+            LinuxInputPreviewContact contact = state.Contacts[index];
+            double xRatio = state.MaxX > 0 ? contact.X / (double)state.MaxX : 0.5;
+            double yRatio = state.MaxY > 0 ? contact.Y / (double)state.MaxY : 0.5;
+            double centerX = 12 + xRatio * (width - 24);
+            double centerY = 12 + yRatio * (height - 24);
+            double radius = 10 + Math.Min(18, contact.Pressure / 12.0);
+
+            Ellipse ellipse = new()
+            {
+                Width = radius * 2,
+                Height = radius * 2,
+                Fill = new SolidColorBrush(accent, contact.TipSwitch ? 0.55 : 0.25),
+                Stroke = new SolidColorBrush(accent),
+                StrokeThickness = contact.Confidence ? 2 : 1
+            };
+            canvas.Children.Add(ellipse);
+            Canvas.SetLeft(ellipse, centerX - radius);
+            Canvas.SetTop(ellipse, centerY - radius);
+
+            TextBlock label = new()
+            {
+                Text = contact.Id.ToString(),
+                Foreground = new SolidColorBrush(Color.Parse("#1E2328")),
+                FontWeight = FontWeight.SemiBold
+            };
+            canvas.Children.Add(label);
+            Canvas.SetLeft(label, centerX - 4);
+            Canvas.SetTop(label, centerY - 8);
+        }
+    }
+
+    private void RenderKeymapPreview(LinuxRuntimeConfiguration configuration)
+    {
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(configuration.LayoutPreset.Columns);
+        KeyLayout leftLayout = LayoutBuilder.BuildLayout(
+            configuration.LayoutPreset,
+            TrackpadWidthMm,
+            TrackpadHeightMm,
+            KeyWidthMm,
+            KeyHeightMm,
+            columns,
+            configuration.Keymap,
+            mirrored: true);
+        KeyLayout rightLayout = LayoutBuilder.BuildLayout(
+            configuration.LayoutPreset,
+            TrackpadWidthMm,
+            TrackpadHeightMm,
+            KeyWidthMm,
+            KeyHeightMm,
+            columns,
+            configuration.Keymap,
+            mirrored: false);
+
+        RenderKeymapCanvas(_leftKeymapCanvas, leftLayout, configuration.Keymap, TrackpadSide.Left, "#D05A2A");
+        RenderKeymapCanvas(_rightKeymapCanvas, rightLayout, configuration.Keymap, TrackpadSide.Right, "#246A73");
+    }
+
+    private static void RenderKeymapCanvas(
+        Canvas canvas,
+        KeyLayout layout,
+        KeymapStore keymap,
+        TrackpadSide side,
+        string accentHex)
+    {
+        canvas.Children.Clear();
+
+        double width = canvas.Width > 0 ? canvas.Width : 300;
+        double height = canvas.Height > 0 ? canvas.Height : 220;
+        canvas.Children.Add(new Rectangle
+        {
+            Width = width,
+            Height = height,
+            RadiusX = 14,
+            RadiusY = 14,
+            Stroke = new SolidColorBrush(Color.Parse("#D9C7B5")),
+            StrokeThickness = 1
+        });
+
+        if (layout.Rects.Length == 0)
+        {
+            canvas.Children.Add(new TextBlock
+            {
+                Text = "No layout on this side for the selected preset.",
+                Foreground = new SolidColorBrush(Color.Parse("#6A4533")),
+                Width = width - 24,
+                TextWrapping = TextWrapping.Wrap
+            });
+            Canvas.SetLeft(canvas.Children[^1], 12);
+            Canvas.SetTop(canvas.Children[^1], 12);
+            return;
+        }
+
+        Color accent = Color.Parse(accentHex);
+        for (int row = 0; row < layout.Rects.Length; row++)
+        {
+            for (int col = 0; col < layout.Rects[row].Length; col++)
+            {
+                NormalizedRect rect = layout.Rects[row][col];
+                string storageKey = GridKeyPosition.StorageKey(side, row, col);
+                KeyMapping mapping = keymap.ResolveMapping(0, storageKey, layout.Labels[row][col]);
+                string label = mapping.Primary.Label;
+
+                Border keyBorder = new()
+                {
+                    Width = Math.Max(22, rect.Width * width),
+                    Height = Math.Max(20, rect.Height * height),
+                    Background = new SolidColorBrush(accent, 0.16),
+                    BorderBrush = new SolidColorBrush(accent, 0.65),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(8),
+                    Child = new TextBlock
+                    {
+                        Text = label,
+                        Foreground = new SolidColorBrush(Color.Parse("#1E2328")),
+                        FontWeight = FontWeight.SemiBold,
+                        TextAlignment = TextAlignment.Center,
+                        TextWrapping = TextWrapping.Wrap,
+                        MaxWidth = Math.Max(18, rect.Width * width - 8),
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+                    },
+                    RenderTransformOrigin = RelativePoint.Center
+                };
+                if (Math.Abs(rect.RotationDegrees) >= 0.00001)
+                {
+                    keyBorder.RenderTransform = new RotateTransform(rect.RotationDegrees);
+                }
+
+                canvas.Children.Add(keyBorder);
+                Canvas.SetLeft(keyBorder, rect.X * width);
+                Canvas.SetTop(keyBorder, rect.Y * height);
+            }
+        }
+
+        IReadOnlyList<CustomButton> customButtons = keymap.ResolveCustomButtons(0, side);
+        for (int index = 0; index < customButtons.Count; index++)
+        {
+            CustomButton button = customButtons[index];
+            Border customBorder = new()
+            {
+                Width = Math.Max(24, button.Rect.Width * width),
+                Height = Math.Max(20, button.Rect.Height * height),
+                Background = new SolidColorBrush(Color.Parse("#E07845"), 0.25),
+                BorderBrush = new SolidColorBrush(Color.Parse("#E07845")),
+                BorderThickness = new Thickness(1.5),
+                CornerRadius = new CornerRadius(10),
+                Child = new TextBlock
+                {
+                    Text = button.Primary.Label,
+                    Foreground = new SolidColorBrush(Color.Parse("#1E2328")),
+                    FontWeight = FontWeight.Bold,
+                    TextAlignment = TextAlignment.Center,
+                    TextWrapping = TextWrapping.Wrap,
+                    MaxWidth = Math.Max(18, button.Rect.Width * width - 8),
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+                },
+                RenderTransformOrigin = RelativePoint.Center
+            };
+            if (Math.Abs(button.Rect.RotationDegrees) >= 0.00001)
+            {
+                customBorder.RenderTransform = new RotateTransform(button.Rect.RotationDegrees);
+            }
+
+            canvas.Children.Add(customBorder);
+            Canvas.SetLeft(customBorder, button.Rect.X * width);
+            Canvas.SetTop(customBorder, button.Rect.Y * height);
+        }
     }
 
     private sealed record DeviceChoice(string Label, string? StableId)
