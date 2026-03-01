@@ -7,25 +7,28 @@ For Linux implementation status, validated behavior, and the remaining work chec
 Current install artifacts:
 
 - `90-glasstokey.rules`: starter `udev` rule for the tested Apple Magic Trackpad USB and Bluetooth vendor/product pairs plus `/dev/uinput`, now using a dedicated `glasstokey` group with `0660` modes and additive `uaccess`
-- `install.sh`: install script for a published Linux build with wrapper-vs-service install decisions
+- `install.sh`: install script for a published Linux build with wrapper-vs-service install decisions plus optional GUI deployment
 - `deb/`: first Debian package skeleton, including `dpkg-deb` build script, maintainer scripts, user service unit, and optional GUI desktop entry template
 
 Expected workflow:
 
 1. Publish `GlassToKey.Linux`
-2. Install the publish output plus `udev` rule
-3. Decide whether to install only the wrapper command or also the user service file
-4. Run `doctor`
-5. Run `init-config`
-6. Run `show-config`
-7. Use `bind-left` / `bind-right` if the defaults need correction
-8. Run `run-engine`
+2. Optionally publish `GlassToKey.Linux.Gui`
+3. Install the publish output plus `udev` rule
+4. Decide whether to install only the wrapper command or also the user service file
+5. Run `doctor`
+6. Run `init-config`
+7. Run `show-config`
+8. Use `bind-left` / `bind-right` if the defaults need correction
+9. Start the user service as the runtime owner
+10. Use the GUI as an optional config/doctor surface
 
 Example:
 
 ```bash
 dotnet publish GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -p:PublishProfile=LinuxSelfContained
-sudo ./packaging/linux/install.sh --launcher-mode wrapper --service-mode user
+dotnet publish GlassToKey.Linux.Gui/GlassToKey.Linux.Gui.csproj -c Release -p:PublishProfile=LinuxGuiSelfContained
+sudo ./packaging/linux/install.sh --launcher-mode wrapper --service-mode user --gui-mode auto
 glasstokey-linux doctor
 ```
 
@@ -40,6 +43,7 @@ bash ./packaging/linux/deb/build-deb.sh --version 0.1.0-dev --output-dir /tmp/gl
 Notes:
 
 - `install.sh` writes to `/opt`, `/usr/local/bin`, and `/etc/udev/rules.d`, so run it with `sudo`
+- `install.sh` now installs the GUI too when a matching self-contained GUI publish is present, giving you a fresh runtime service and config UI from one install pass
 - `--service-mode user` installs a user `systemd` unit but does not force-enable it; the script prints the exact `systemctl --user` commands to run next
 - reconnect the trackpads after install if the refreshed `udev` permissions have not applied yet
 - `deb/build-deb.sh` now expects the self-contained GUI publish output by default, so the `.deb` can carry a runnable GUI without a separate `.NET 10` GUI runtime dependency

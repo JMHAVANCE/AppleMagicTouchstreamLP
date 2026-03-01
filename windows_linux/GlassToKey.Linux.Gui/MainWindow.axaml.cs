@@ -5,7 +5,6 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
-using GlassToKey.Linux;
 using GlassToKey.Linux.Config;
 using GlassToKey.Linux.Runtime;
 using GlassToKey.Platform.Linux.Models;
@@ -15,7 +14,8 @@ namespace GlassToKey.Linux.Gui;
 public partial class MainWindow : Window
 {
     private readonly LinuxAppRuntime _runtime = new();
-    private readonly LinuxEngineRuntimeController _runtimeController = new();
+    private readonly LinuxRuntimeServiceController _runtimeController = new();
+    private readonly DispatcherTimer _runtimeStatusTimer;
     private readonly ComboBox _leftDeviceCombo;
     private readonly ComboBox _rightDeviceCombo;
     private readonly ComboBox _layoutPresetCombo;
@@ -29,6 +29,14 @@ public partial class MainWindow : Window
     private readonly TextBlock _statusText;
     private readonly TextBox _doctorReportBox;
     private bool _allowExit;
+    private bool _runtimeRefreshPending;
+    private LinuxRuntimeServiceSnapshot _runtimeSnapshot = new(
+        LinuxRuntimeServiceStatus.Unavailable,
+        "glasstokey-linux.service",
+        "Checking runtime owner state.",
+        null,
+        null,
+        null);
 
     public MainWindow()
     {
@@ -45,11 +53,17 @@ public partial class MainWindow : Window
         _warningsText = RequireControl<TextBlock>("WarningsText");
         _statusText = RequireControl<TextBlock>("StatusText");
         _doctorReportBox = RequireControl<TextBox>("DoctorReportBox");
-        _runtimeController.SnapshotChanged += OnRuntimeSnapshotChanged;
+        _runtimeStatusTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(2)
+        };
+        _runtimeStatusTimer.Tick += OnRuntimeStatusTimerTick;
         Closing += OnWindowClosing;
         WireEvents();
         LoadScreen();
-        ApplyRuntimeSnapshot(_runtimeController.Snapshot);
+        ApplyRuntimeSnapshot(_runtimeSnapshot);
+        _runtimeStatusTimer.Start();
+        _ = RefreshRuntimeSnapshotAsync();
     }
 
     private void InitializeComponent()
@@ -94,9 +108,9 @@ public partial class MainWindow : Window
             ? "No current warnings."
             : string.Join(Environment.NewLine, configuration.Warnings);
         _statusText.Text = statusOverride ?? $"Detected {configuration.Devices.Count} candidate trackpad(s). Save writes directly to the XDG-backed Linux settings file.";
-        if (_runtimeController.Snapshot.IsActive)
+        if (_runtimeSnapshot.Status is LinuxRuntimeServiceStatus.Running or LinuxRuntimeServiceStatus.Starting)
         {
-            _statusText.Text += " Restart the runtime to apply setting changes.";
+            _statusText.Text += " Restart the runtime service to apply setting changes.";
         }
 
         if (string.IsNullOrWhiteSpace(_doctorReportBox.Text))
@@ -182,21 +196,14 @@ public partial class MainWindow : Window
         RunDoctorFromStatusArea();
     }
 
-    private void OnStartRuntimeClick(object? sender, RoutedEventArgs e)
+    private async void OnStartRuntimeClick(object? sender, RoutedEventArgs e)
     {
-        if (_runtimeController.TryStart(duration: null, out string message))
-        {
-            _statusText.Text = message;
-            return;
-        }
-
-        _statusText.Text = message;
+        await StartRuntimeAsync().ConfigureAwait(false);
     }
 
     private async void OnStopRuntimeClick(object? sender, RoutedEventArgs e)
     {
-        _statusText.Text = "Stopping Linux runtime.";
-        await _runtimeController.StopAsync();
+        await StopRuntimeAsync().ConfigureAwait(false);
     }
 
     public void RunDoctorFromStatusArea()
@@ -210,19 +217,23 @@ public partial class MainWindow : Window
 
     public void HideToStatusArea()
     {
-        _statusText.Text = "Window hidden. Use the GlassToKey top-bar item to reopen the Linux control surface.";
+        _statusText.Text = "Window hidden. The runtime owner keeps running outside the config UI. Use the GlassToKey top-bar item to reopen the control surface.";
         Hide();
+    }
+
+    public void StartRuntimeFromStatusArea()
+    {
+        _ = StartRuntimeAsync();
+    }
+
+    public void StopRuntimeFromStatusArea()
+    {
+        _ = StopRuntimeAsync();
     }
 
     public void RequestExit()
     {
-        RequestExitAsync();
-    }
-
-    private async void RequestExitAsync()
-    {
         _allowExit = true;
-        await _runtimeController.StopAsync();
         Close();
     }
 
@@ -320,11 +331,46 @@ public partial class MainWindow : Window
             ?? throw new InvalidOperationException($"Required control '{name}' was not found in the Linux GUI.");
     }
 
+    private async Task StartRuntimeAsync()
+    {
+        _statusText.Text = "Starting the Linux runtime owner service.";
+        ApplyRuntimeSnapshot(await _runtimeController.StartAsync().ConfigureAwait(false));
+    }
+
+    private async Task StopRuntimeAsync()
+    {
+        _statusText.Text = "Stopping the Linux runtime owner service.";
+        ApplyRuntimeSnapshot(await _runtimeController.StopAsync().ConfigureAwait(false));
+    }
+
+    private async void OnRuntimeStatusTimerTick(object? sender, EventArgs e)
+    {
+        await RefreshRuntimeSnapshotAsync().ConfigureAwait(false);
+    }
+
+    private async Task RefreshRuntimeSnapshotAsync()
+    {
+        if (_runtimeRefreshPending)
+        {
+            return;
+        }
+
+        _runtimeRefreshPending = true;
+        try
+        {
+            ApplyRuntimeSnapshot(await _runtimeController.RefreshAsync().ConfigureAwait(false));
+        }
+        finally
+        {
+            _runtimeRefreshPending = false;
+        }
+    }
+
     private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
     {
         if (_allowExit)
         {
-            _runtimeController.Dispose();
+            _runtimeStatusTimer.Stop();
             return;
         }
 
@@ -335,24 +381,55 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnRuntimeSnapshotChanged(LinuxEngineRuntimeSnapshot snapshot)
+    private void ApplyRuntimeSnapshot(LinuxRuntimeServiceSnapshot snapshot)
     {
-        Dispatcher.UIThread.Post(() => ApplyRuntimeSnapshot(snapshot));
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => ApplyRuntimeSnapshot(snapshot));
+            return;
+        }
+
+        _runtimeSnapshot = snapshot;
+        _runtimeSummaryText.Text = snapshot.Failure is null
+            ? $"Runtime owner: {snapshot.Status}. {snapshot.Message}"
+            : $"Runtime owner: {snapshot.Status}. {snapshot.Message} Failure: {snapshot.Failure}";
+        _runtimeBindingsText.Text = BuildRuntimeServiceText(snapshot);
+
+        RequireControl<Button>("StartRuntimeButton").IsEnabled = snapshot.CanStart;
+        RequireControl<Button>("StopRuntimeButton").IsEnabled = snapshot.CanStop;
     }
 
-    private void ApplyRuntimeSnapshot(LinuxEngineRuntimeSnapshot snapshot)
+    private static string BuildRuntimeServiceText(LinuxRuntimeServiceSnapshot snapshot)
     {
-        _runtimeSummaryText.Text = snapshot.Failure is null
-            ? $"Runtime: {snapshot.Status}. {snapshot.Message}"
-            : $"Runtime: {snapshot.Status}. {snapshot.Message} Failure: {snapshot.Failure}";
-        _runtimeBindingsText.Text = snapshot.BindingStates.Count == 0
-            ? "No live runtime binding updates yet."
-            : string.Join(
-                Environment.NewLine,
-                snapshot.BindingStates.Select(static state => $"{state.Side}: {state.Status} [{state.DeviceNode ?? "no-node"}] {state.Message}"));
+        List<string> lines =
+        [
+            $"Service unit: {snapshot.ServiceName}"
+        ];
 
-        RequireControl<Button>("StartRuntimeButton").IsEnabled = !snapshot.IsActive;
-        RequireControl<Button>("StopRuntimeButton").IsEnabled = snapshot.IsActive;
+        if (!string.IsNullOrWhiteSpace(snapshot.UnitFileState))
+        {
+            lines.Add($"Unit file state: {snapshot.UnitFileState}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(snapshot.FragmentPath))
+        {
+            lines.Add($"Unit path: {snapshot.FragmentPath}");
+        }
+
+        if (snapshot.Status == LinuxRuntimeServiceStatus.NotInstalled)
+        {
+            lines.Add("Install a user service to keep the runtime on the hotpath outside this config UI.");
+        }
+        else if (snapshot.Status == LinuxRuntimeServiceStatus.Unavailable)
+        {
+            lines.Add("The current session cannot reach systemd --user. Start the runtime from a normal desktop login.");
+        }
+        else
+        {
+            lines.Add("This window controls the runtime owner service but does not host the engine itself.");
+        }
+
+        return string.Join(Environment.NewLine, lines);
     }
 
     private sealed record DeviceChoice(string Label, string? StableId)

@@ -9,6 +9,9 @@
                 Clicked="OnTrayIconClicked">
         <TrayIcon.Menu>
           <NativeMenu>
+            <NativeMenuItem Header="Start Runtime" Click="OnTrayStartRuntimeClick" />
+            <NativeMenuItem Header="Stop Runtime" Click="OnTrayStopRuntimeClick" />
+            <NativeMenuItemSeparator />
             <NativeMenuItem Header="Open Control" Click="OnTrayOpenClick" />
             <NativeMenuItem Header="Run Doctor" Click="OnTrayDoctorClick" />
             <NativeMenuItem Header="Hide Window" Click="OnTrayHideClick" />

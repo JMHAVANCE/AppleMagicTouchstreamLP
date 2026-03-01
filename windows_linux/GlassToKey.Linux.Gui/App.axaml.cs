@@ -35,6 +35,18 @@ public partial class App : Application
         ShowMainWindow();
     }
 
+    private void OnTrayStartRuntimeClick(object? sender, EventArgs e)
+    {
+        ShowMainWindow();
+        _mainWindow?.StartRuntimeFromStatusArea();
+    }
+
+    private void OnTrayStopRuntimeClick(object? sender, EventArgs e)
+    {
+        ShowMainWindow();
+        _mainWindow?.StopRuntimeFromStatusArea();
+    }
+
     private void OnTrayDoctorClick(object? sender, EventArgs e)
     {
         ShowMainWindow();

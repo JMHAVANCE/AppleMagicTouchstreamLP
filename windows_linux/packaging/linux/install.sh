@@ -6,16 +6,22 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 PUBLISH_DIR="${REPO_ROOT}/GlassToKey.Linux/bin/Release/net10.0/publish/linux-x64-self-contained"
 INSTALL_DIR="/opt/GlassToKey.Linux"
+GUI_PUBLISH_DIR="${REPO_ROOT}/GlassToKey.Linux.Gui/bin/Release/net10.0/publish/linux-x64-self-contained"
+GUI_INSTALL_DIR="/opt/GlassToKey.Linux.Gui"
 RULE_SOURCE="${SCRIPT_DIR}/90-glasstokey.rules"
 RULE_DEST="/etc/udev/rules.d/90-glasstokey.rules"
 ACCESS_GROUP="glasstokey"
 BIN_NAME="glasstokey-linux"
 BIN_DEST="/usr/local/bin/${BIN_NAME}"
+GUI_BIN_NAME="glasstokey-linux-gui"
+GUI_BIN_DEST="/usr/local/bin/${GUI_BIN_NAME}"
 LAUNCHER_MODE="wrapper"
 SERVICE_MODE="none"
+GUI_MODE="auto"
 SERVICE_USER="${SUDO_USER:-}"
 SERVICE_NAME="glasstokey-linux"
 EXECUTABLE_NAME="GlassToKey.Linux"
+GUI_EXECUTABLE_NAME="GlassToKey.Linux.Gui"
 
 usage() {
   cat <<EOF
@@ -25,11 +31,15 @@ Usage:
 Options:
   --publish-dir <path>     Publish output to install.
   --install-dir <path>     Target installation directory. Default: ${INSTALL_DIR}
+  --gui-publish-dir <path> Optional GUI publish output to install.
+  --gui-install-dir <path> Optional GUI install directory. Default: ${GUI_INSTALL_DIR}
   --rule-source <path>     udev rules file to install.
   --access-group <name>    Device access group. Default: ${ACCESS_GROUP}
   --bin-name <name>        Wrapper command name. Default: ${BIN_NAME}
+  --gui-bin-name <name>    GUI wrapper command name. Default: ${GUI_BIN_NAME}
   --launcher-mode <mode>   wrapper | none. Default: ${LAUNCHER_MODE}
   --service-mode <mode>    user | none. Default: ${SERVICE_MODE}
+  --gui-mode <mode>        auto | none. Default: ${GUI_MODE}
   --service-user <user>    Target user for a user systemd service. Default: \$SUDO_USER
   --service-name <name>    Service file basename. Default: ${SERVICE_NAME}
   --help                   Show this help.
@@ -71,12 +81,16 @@ add_user_to_access_group() {
   GROUP_MEMBERSHIP_CHANGED="yes"
 }
 
-install_wrapper() {
-  cat > "${BIN_DEST}" <<EOF
+install_wrapper_script() {
+  local output_path="$1"
+  local target_dir="$2"
+  local executable_name="$3"
+
+  cat > "${output_path}" <<EOF
 #!/usr/bin/env bash
-exec "${INSTALL_DIR}/${EXECUTABLE_NAME}" "\$@"
+exec "${target_dir}/${executable_name}" "\$@"
 EOF
-  chmod 0755 "${BIN_DEST}"
+  chmod 0755 "${output_path}"
 }
 
 install_user_service() {
@@ -99,7 +113,7 @@ install_user_service() {
   cat > "${service_path}" <<EOF
 [Unit]
 Description=GlassToKey Linux runtime
-After=network.target
+After=graphical-session.target
 
 [Service]
 Type=simple
@@ -126,6 +140,14 @@ while [ "$#" -gt 0 ]; do
       INSTALL_DIR="$2"
       shift 2
       ;;
+    --gui-publish-dir)
+      GUI_PUBLISH_DIR="$2"
+      shift 2
+      ;;
+    --gui-install-dir)
+      GUI_INSTALL_DIR="$2"
+      shift 2
+      ;;
     --rule-source)
       RULE_SOURCE="$2"
       shift 2
@@ -139,12 +161,21 @@ while [ "$#" -gt 0 ]; do
       BIN_DEST="/usr/local/bin/${BIN_NAME}"
       shift 2
       ;;
+    --gui-bin-name)
+      GUI_BIN_NAME="$2"
+      GUI_BIN_DEST="/usr/local/bin/${GUI_BIN_NAME}"
+      shift 2
+      ;;
     --launcher-mode)
       LAUNCHER_MODE="$2"
       shift 2
       ;;
     --service-mode)
       SERVICE_MODE="$2"
+      shift 2
+      ;;
+    --gui-mode)
+      GUI_MODE="$2"
       shift 2
       ;;
     --service-user)
@@ -187,6 +218,15 @@ case "${SERVICE_MODE}" in
     ;;
 esac
 
+case "${GUI_MODE}" in
+  auto|none)
+    ;;
+  *)
+    echo "Unsupported GUI mode: ${GUI_MODE}" >&2
+    exit 1
+    ;;
+esac
+
 if [ ! -d "${PUBLISH_DIR}" ]; then
   echo "Publish directory not found: ${PUBLISH_DIR}" >&2
   echo "Build it first with:" >&2
@@ -213,7 +253,17 @@ cp -a "${PUBLISH_DIR}/." "${INSTALL_DIR}/"
 install -m 0644 "${RULE_SOURCE}" "${RULE_DEST}"
 
 if [ "${LAUNCHER_MODE}" = "wrapper" ]; then
-  install_wrapper
+  install_wrapper_script "${BIN_DEST}" "${INSTALL_DIR}" "${EXECUTABLE_NAME}"
+fi
+
+GUI_INSTALLED="no"
+if [ "${GUI_MODE}" = "auto" ] &&
+   [ -d "${GUI_PUBLISH_DIR}" ] &&
+   [ -f "${GUI_PUBLISH_DIR}/${GUI_EXECUTABLE_NAME}" ]; then
+  mkdir -p "${GUI_INSTALL_DIR}"
+  cp -a "${GUI_PUBLISH_DIR}/." "${GUI_INSTALL_DIR}/"
+  install_wrapper_script "${GUI_BIN_DEST}" "${GUI_INSTALL_DIR}" "${GUI_EXECUTABLE_NAME}"
+  GUI_INSTALLED="yes"
 fi
 
 SERVICE_PATH=""
@@ -230,6 +280,10 @@ echo "Access group: ${ACCESS_GROUP}"
 if [ "${LAUNCHER_MODE}" = "wrapper" ]; then
   echo "Wrapper command: ${BIN_DEST}"
 fi
+if [ "${GUI_INSTALLED}" = "yes" ]; then
+  echo "GUI installed to ${GUI_INSTALL_DIR}"
+  echo "GUI command: ${GUI_BIN_DEST}"
+fi
 if [ -n "${SERVICE_PATH}" ]; then
   echo "User service installed to ${SERVICE_PATH}"
 fi
@@ -244,12 +298,12 @@ if [ "${LAUNCHER_MODE}" = "wrapper" ]; then
   echo "  3. Run '${BIN_NAME} doctor'"
   echo "  4. Run '${BIN_NAME} init-config' if this is the first install"
   echo "  5. Run '${BIN_NAME} show-config' and confirm left/right device bindings"
-  echo "  6. Run '${BIN_NAME} run-engine 10' for a live smoke test"
+  echo "  6. Run '${BIN_NAME} run-engine 10' for a direct smoke test when needed"
 else
   echo "  3. Run '${INSTALL_DIR}/${EXECUTABLE_NAME} doctor'"
   echo "  4. Run '${INSTALL_DIR}/${EXECUTABLE_NAME} init-config' if this is the first install"
   echo "  5. Run '${INSTALL_DIR}/${EXECUTABLE_NAME} show-config' and confirm left/right device bindings"
-  echo "  6. Run '${INSTALL_DIR}/${EXECUTABLE_NAME} run-engine 10' for a live smoke test"
+  echo "  6. Run '${INSTALL_DIR}/${EXECUTABLE_NAME} run-engine 10' for a direct smoke test when needed"
 fi
 
 if [ -n "${SERVICE_PATH}" ]; then
@@ -260,4 +314,10 @@ if [ -n "${SERVICE_PATH}" ]; then
   echo "  sudo -u ${SERVICE_USER} journalctl --user -u ${SERVICE_NAME}.service -f"
   echo
   echo "If your sudo environment does not expose the user session bus, run those three commands after logging in as ${SERVICE_USER}."
+fi
+
+if [ "${GUI_INSTALLED}" = "yes" ]; then
+  echo
+  echo "Optional config UI:"
+  echo "  ${GUI_BIN_NAME}"
 fi

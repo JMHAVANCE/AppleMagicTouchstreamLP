@@ -179,6 +179,41 @@ These top-level apps should stay thin:
 - provide platform UI shell entry points
 - package/publish the final app
 
+### Target Linux product model
+
+The intended Linux user-facing shape is:
+
+- a long-running runtime owner on the hotpath
+- a separate config UI off the hotpath
+- an optional tray/status surface that is either part of the runtime owner or a very thin controller
+
+#### Runtime owner
+
+- owns the live evdev -> engine -> `uinput` path
+- owns reconnect supervision
+- should be able to run as a user service or another long-lived runtime process
+- should continue working without the config UI being open
+
+#### Config UI
+
+- edits settings and keymap selection
+- surfaces binding state and runtime state
+- runs diagnostics
+- can request runtime restart/reload if needed
+- should not be required to stay alive for typing to keep working
+
+#### Tray/status surface
+
+- optional but desirable for day-to-day Linux use
+- should stay thin
+- should not absorb heavy diagnostics/config logic that belongs in the config UI
+
+Current repo note:
+
+- the GUI now controls the Linux user-service runtime owner instead of hosting the engine in-process
+- that gives Linux a real runtime-owner/config-UI split for the service-backed path
+- the remaining open question is whether the tray/status shell should stay in the config app or move into a thinner dedicated controller
+
 ### Target dependency direction
 
 The desired dependency graph is:
@@ -261,6 +296,21 @@ The architecture is not considered complete until:
   - `uaccess` alone was not reliable for recreated Bluetooth nodes in the tested Ubuntu session
   - checked-in packaging now prefers a dedicated `glasstokey` group with `0660` modes
   - `TAG+="uaccess"` remains only an additive desktop-session hint
+- The `glasstokey` group flow has now been validated through a real install/relogin cycle on the host:
+  - `/dev/uinput` and matched `/dev/input/event*` nodes came up as `root:glasstokey`
+  - `doctor` reported `Summary: ok` after session refresh
+  - stable-id bindings survived event-node renumbering across reboot/reconnect
+- The checked-in wrapper install flow and user-service flow were both validated on the host.
+- The Linux user service now runs `run-engine` until interrupted rather than timing out after 10 seconds.
+- Packaged reconnect validation is now proven on the host for both:
+  - Bluetooth power off/on churn
+  - USB unplug/replug churn
+- A reconnect bug was fixed in the runtime supervision path:
+  - a dropped engine frame no longer causes a fake evdev disconnect/rebind loop
+- Real Linux `.atpcap` fixtures now exist under `GlassToKey.Linux/fixtures/linux/` for:
+  - `bluetooth-trackpad`
+  - `bluetooth-reconnect`
+  - `usb-trackpad`
 - Sandbox caveat:
   - `EVIOCGABS` can fail inside the coding sandbox even when it works on the real host
   - treat that as an environment validation issue first, not product-side evidence that fallback logic is required
@@ -317,6 +367,10 @@ The architecture is not considered complete until:
 - [x] Linux fixture checking exists
 - [x] normalized version 3 Linux captures preserve physical click state in frame-header flags
 - [x] `doctor` checks XDG config, bundled keymap presence, live bindings, evdev accessibility, and `/dev/uinput` readiness
+- [x] checked-in real Linux fixture coverage now exists for:
+  - Bluetooth normal typing
+  - Bluetooth reconnect churn
+  - USB normal typing
 
 ### Bundled Linux defaults
 
@@ -335,6 +389,10 @@ The architecture is not considered complete until:
 - [x] install script supports wrapper-vs-service decisions
 - [x] Debian package skeleton exists
 - [x] Debian package build script can produce a `.deb` from current publish outputs
+- [x] wrapper install flow validated on the host
+- [x] user-service install flow validated on the host
+- [x] dedicated `glasstokey` group permission flow validated on the host after relogin
+- [x] packaged runtime survives reboot/session refresh with working evdev + `uinput` access
 
 ### GUI
 
@@ -344,6 +402,7 @@ The architecture is not considered complete until:
 - [x] GUI can browse, set, and clear a custom keymap path
 - [x] GUI can run and display `doctor`
 - [x] GUI has a first tray/top-bar shell via Avalonia `TrayIcon`
+- [x] GUI start/stop/status now targets the Linux user service instead of owning the engine in-process
 - [x] GUI publishes self-contained cleanly
 
 ## Remaining Work
@@ -352,36 +411,39 @@ The architecture is not considered complete until:
 
 These are the highest-priority productization tasks because they determine whether the current Linux runtime can be installed and operated reliably outside the dev shell.
 
-- [ ] Validate the dedicated `glasstokey` group flow end-to-end from a fresh install on the target Ubuntu session
-- [ ] Confirm reconnect behavior for packaged Bluetooth trackpads after node churn, not just in a dev shell
-- [ ] Confirm packaged `/dev/uinput` access and evdev access both survive reboot/login/logout cycles
-- [ ] Validate the checked-in `90-glasstokey.rules` against the currently supported Apple vendor/product pairs on the host and in packaged installs
-- [ ] Validate wrapper-only install flow from `packaging/linux/install.sh`
-- [ ] Validate user-service install flow from `packaging/linux/install.sh`
+- [x] Validate the dedicated `glasstokey` group flow end-to-end from a fresh install on the target Ubuntu session
+- [x] Confirm reconnect behavior for packaged Bluetooth trackpads after node churn, not just in a dev shell
+- [x] Confirm packaged `/dev/uinput` access and evdev access both survive reboot/login/logout cycles
+- [x] Validate the checked-in `90-glasstokey.rules` against the currently supported Apple vendor/product pairs on the host and in packaged installs
+- [x] Validate wrapper-only install flow from `packaging/linux/install.sh`
+- [x] Validate user-service install flow from `packaging/linux/install.sh`
 - [ ] Validate `.deb` install, upgrade, and uninstall behavior
 - [ ] Decide whether wrapper mode, user service mode, or both should be the documented default for first users
 - [ ] Tighten post-install guidance once the real packaged flow is proven on host
 
 ### 2. GUI/product surface
 
-The GUI exists, but it is still a control shell rather than the finished Linux product surface.
+The GUI now sits on the correct side of the boundary: it controls the runtime owner service instead of becoming the runtime owner. The remaining work is product polish and deciding how thin the tray/controller surface should become.
 
 - [ ] Manually validate the tray/top-bar path on the target Ubuntu desktop
-- [ ] Add explicit runtime start/stop/status control in the GUI
-- [ ] Surface current binding state and reconnect status in the GUI
-- [ ] Decide how much runtime diagnostics should live in the GUI versus remain CLI-only
-- [ ] Decide whether keymap editing is in-scope for the GUI or whether file-based custom keymaps remain the v1 story
+- [x] Add explicit runtime start/stop/status control in the GUI
+- [x] Implement the runtime-owner/config-UI split for the user-service path
+- [x] Keep the config UI off the hotpath while still surfacing current settings and service state
+- [ ] Decide whether the tray shell should remain part of the config UI or move into a thinner dedicated controller
+- [ ] Decide how much runtime diagnostics should live in the config UI versus remain CLI-only
+- [ ] Decide whether keymap editing is in-scope for the config UI or whether file-based custom keymaps remain the v1 story
 - [ ] Polish the packaged GUI launcher path and desktop entry behavior
+- [ ] Keep packaged GUI validation aligned with current source behavior during iteration
 
 ### 3. Runtime validation and regression depth
 
 The live path works. The next gap is broader validation under the ways users will actually run it.
 
-- [ ] Add more Linux replay fixtures from real host captures covering both tested trackpad families and both USB/Bluetooth transport paths
-- [ ] Validate unplug/replug churn while `run-engine` is active for longer sessions
-- [ ] Validate the same churn under packaged wrapper/service execution, not just ad hoc runs
+- [x] Add more Linux replay fixtures from real host captures covering both tested trackpad families and both USB/Bluetooth transport paths
+- [x] Validate unplug/replug churn while `run-engine` is active for longer sessions
+- [x] Validate the same churn under packaged wrapper/service execution, not just ad hoc runs
 - [ ] Decide whether optional dispatch tracing should be added as targeted diagnostics for runtime misbehavior
-- [ ] Keep `.atpcap` as the primary long-form offline diagnostic artifact
+- [x] Keep `.atpcap` as the primary long-form offline diagnostic artifact
 
 ### 4. Shared-core and semantic cleanup
 
@@ -404,11 +466,11 @@ These are intentionally not blocking the current packaging/productization push, 
 
 ## Recommended Immediate Work Order
 
-1. Close packaged permission validation around the `glasstokey` group model.
-2. Validate the install script and `.deb` flow end-to-end on the target Ubuntu desktop.
-3. Manually validate the GUI tray/runtime control shell on the host.
-4. Add a small set of real capture fixtures covering the current tested hardware and reconnect churn.
-5. Only then return to deeper shared-core cleanup or deferred parity work.
+1. Decide and implement the final Linux runtime-owner/config-UI/tray split.
+2. Validate and polish the GUI tray/runtime control shell on the host.
+3. Validate `.deb` install, upgrade, and uninstall behavior end-to-end.
+4. Check in and keep maintaining the new Linux fixture set as regression coverage.
+5. Then return to deeper shared-core cleanup or deferred parity work.
 
 ## Build Commands
 

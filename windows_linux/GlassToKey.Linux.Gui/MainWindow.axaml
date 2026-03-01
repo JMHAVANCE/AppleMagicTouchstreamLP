@@ -14,7 +14,7 @@
                      FontSize="28"
                      FontWeight="Bold"
                      Foreground="#F7F2EA" />
-          <TextBlock Text="Device binding, diagnostics, and runtime settings"
+          <TextBlock Text="Device binding, diagnostics, and runtime service control"
                      FontSize="14"
                      Foreground="#D9C7B5" />
         </StackPanel>
@@ -53,7 +53,7 @@
 
         <Border Classes="panel">
           <StackPanel Spacing="12">
-            <TextBlock Classes="section" Text="Runtime" />
+            <TextBlock Classes="section" Text="Runtime Owner" />
 
             <StackPanel Orientation="Horizontal" Spacing="10">
               <Button x:Name="StartRuntimeButton" Classes="action" Content="Start Runtime" />
