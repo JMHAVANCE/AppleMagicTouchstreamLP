@@ -38,3 +38,4 @@ Notes:
 - `--service-mode user` installs a user `systemd` unit but does not force-enable it; the script prints the exact `systemctl --user` commands to run next
 - reconnect the trackpads after install if the refreshed `udev` permissions have not applied yet
 - `deb/build-deb.sh` now expects the self-contained GUI publish output by default, so the `.deb` can carry a runnable GUI without a separate `.NET 10` GUI runtime dependency
+- current host finding: the packaged rule tags the older Bluetooth trackpad node with `uaccess`, but this Ubuntu session still did not receive a live ACL on the recreated node. That means the packaged reconnect story is not fully validated yet and may need additional session/logind-specific handling or a different permission strategy.

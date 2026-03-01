@@ -353,7 +353,8 @@ Current repo status:
 - Linux `.atpcap` version 3 capture now preserves physical click state in the shared frame-header flags, so replay fidelity is better aligned with the live path
 - the Linux runtime now also supervises stable-id rebinds across device-node churn, the semantic surface is broader, and the repo now has both a first Debian package skeleton and a starting GUI/device-picker project
 - the repo now also has a reusable `GlassToKey.Linux.Host` library so the CLI and GUI share one Linux host/config/runtime layer, and the GUI can publish self-contained cleanly
-- the remaining big cleanup is unplug/replug live validation, more GUI surface, and a fuller packaged end-user flow
+- unplug/replug logic is now code-complete enough to validate, but the packaged Bluetooth reconnect permission story is still not fully closed because the current Ubuntu session did not receive a live ACL on a recreated `uaccess`-tagged node
+- the remaining big cleanup is more GUI surface and closing the packaged end-user permission flow
 
 ## Phase 3: engine extraction
 

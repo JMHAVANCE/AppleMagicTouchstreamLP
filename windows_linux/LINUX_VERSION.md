@@ -300,6 +300,7 @@ Current repo status:
 - `GlassToKey.Linux.Host` now carries the reusable Linux XDG settings/runtime/doctor surface shared by both the CLI and GUI
 - `GlassToKey.Linux.Gui` now exists as a first device-picker/settings/doctor shell, can browse or clear a custom keymap path, and now publishes self-contained cleanly
 - `packaging/linux/deb/build-deb.sh` can now produce a real Debian package skeleton from self-contained CLI and GUI publish outputs
+- packaged `udev` validation is partially complete: on this Ubuntu host the installed Bluetooth trackpad node now shows `TAGS=:uaccess:` under `udevadm`, but the node still did not receive a live user ACL after reconnect, so session/logind integration still needs follow-up before calling the packaged reconnect story done
 - this means the Linux work is past proof-of-life and into real runtime integration. It is now in early usable-alpha/packaging-and-diagnostics territory, even though GUI, packaged install flow, and semantic cleanup are still in progress
 
 ### Step 4: add a Linux app host
