@@ -29,6 +29,7 @@ Current CLI/runtime features:
 - `VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, and `BRIGHT_DOWN` now resolve through semantic codes and Linux evdev output mappings instead of relying on Windows VK fallback
 - Linux semantic coverage now also includes mute/media transport, lock keys, print/pause/menu, and F13-F24
 - the CLI now consumes the shared `GlassToKey.Linux.Host` library instead of carrying its own private copy of the Linux settings/runtime layer
+- the generated/installable Linux `udev` rules now prefer a dedicated `glasstokey` access group plus `0660` device modes, with `uaccess` left as an additive hint instead of the primary trust model
 - checked-in publish profiles now cover:
   - framework-dependent `linux-x64`
   - self-contained single-file `linux-x64`
@@ -50,6 +51,7 @@ Packaging notes:
 
 - framework-dependent publish still expects the target machine to have `.NET 10` runtime installed
 - self-contained publish avoids the runtime prerequisite, but device permissions still need a targeted `udev` rule for `/dev/input/event*` and `/dev/uinput`
+- on the current Ubuntu host, `uaccess` tags alone were not sufficient to guarantee user ACLs on recreated Bluetooth trackpad nodes, so the packaged permission strategy now prefers the dedicated `glasstokey` group model
 - `print-udev-rules` is the current packaging scaffold for those permissions
 - run overlapping `dotnet build` / `dotnet publish` commands for the same project graph sequentially; parallel publishes can collide in shared output paths
 - `packaging/linux/install.sh` and `packaging/linux/90-glasstokey.rules` are the checked-in install artifacts

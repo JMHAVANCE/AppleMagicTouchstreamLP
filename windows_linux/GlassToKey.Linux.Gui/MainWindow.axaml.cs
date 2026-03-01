@@ -1,6 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using GlassToKey.Linux;
 using GlassToKey.Linux.Config;
@@ -22,6 +24,7 @@ public partial class MainWindow : Window
     private readonly TextBlock _warningsText;
     private readonly TextBlock _statusText;
     private readonly TextBox _doctorReportBox;
+    private bool _allowExit;
 
     public MainWindow()
     {
@@ -36,6 +39,7 @@ public partial class MainWindow : Window
         _warningsText = RequireControl<TextBlock>("WarningsText");
         _statusText = RequireControl<TextBlock>("StatusText");
         _doctorReportBox = RequireControl<TextBox>("DoctorReportBox");
+        Closing += OnWindowClosing;
         WireEvents();
         LoadScreen();
     }
@@ -160,11 +164,28 @@ public partial class MainWindow : Window
 
     private void OnRunDoctorClick(object? sender, RoutedEventArgs e)
     {
+        RunDoctorFromStatusArea();
+    }
+
+    public void RunDoctorFromStatusArea()
+    {
         LinuxDoctorResult result = LinuxDoctorRunner.Run();
         _doctorReportBox.Text = result.Report;
         _statusText.Text = result.Success
             ? "Doctor completed successfully."
             : "Doctor found issues. Review the report below before treating the runtime as ready.";
+    }
+
+    public void HideToStatusArea()
+    {
+        _statusText.Text = "Window hidden. Use the GlassToKey top-bar item to reopen the Linux control surface.";
+        Hide();
+    }
+
+    public void RequestExit()
+    {
+        _allowExit = true;
+        Close();
     }
 
     private static List<DeviceChoice> BuildDeviceChoices(IReadOnlyList<LinuxInputDeviceDescriptor> devices)
@@ -259,6 +280,20 @@ public partial class MainWindow : Window
     {
         return this.FindControl<T>(name)
             ?? throw new InvalidOperationException($"Required control '{name}' was not found in the Linux GUI.");
+    }
+
+    private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
+    {
+        if (_allowExit)
+        {
+            return;
+        }
+
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime)
+        {
+            e.Cancel = true;
+            HideToStatusArea();
+        }
     }
 
     private sealed record DeviceChoice(string Label, string? StableId)

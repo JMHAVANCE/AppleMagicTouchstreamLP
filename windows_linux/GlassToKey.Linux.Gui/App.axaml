@@ -1,6 +1,24 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="GlassToKey.Linux.Gui.App">
+  <TrayIcon.Icons>
+    <TrayIcons>
+      <TrayIcon Icon="/Assets/StatusIcon.png"
+                IsVisible="True"
+                ToolTipText="GlassToKey Linux"
+                Clicked="OnTrayIconClicked">
+        <TrayIcon.Menu>
+          <NativeMenu>
+            <NativeMenuItem Header="Open Control" Click="OnTrayOpenClick" />
+            <NativeMenuItem Header="Run Doctor" Click="OnTrayDoctorClick" />
+            <NativeMenuItem Header="Hide Window" Click="OnTrayHideClick" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Quit" Click="OnTrayQuitClick" />
+          </NativeMenu>
+        </TrayIcon.Menu>
+      </TrayIcon>
+    </TrayIcons>
+  </TrayIcon.Icons>
   <Application.Styles>
     <FluentTheme />
     <Style Selector="Window">

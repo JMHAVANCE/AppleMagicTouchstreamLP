@@ -8,6 +8,7 @@ PUBLISH_DIR="${REPO_ROOT}/GlassToKey.Linux/bin/Release/net10.0/publish/linux-x64
 INSTALL_DIR="/opt/GlassToKey.Linux"
 RULE_SOURCE="${SCRIPT_DIR}/90-glasstokey.rules"
 RULE_DEST="/etc/udev/rules.d/90-glasstokey.rules"
+ACCESS_GROUP="glasstokey"
 BIN_NAME="glasstokey-linux"
 BIN_DEST="/usr/local/bin/${BIN_NAME}"
 LAUNCHER_MODE="wrapper"
@@ -25,6 +26,7 @@ Options:
   --publish-dir <path>     Publish output to install.
   --install-dir <path>     Target installation directory. Default: ${INSTALL_DIR}
   --rule-source <path>     udev rules file to install.
+  --access-group <name>    Device access group. Default: ${ACCESS_GROUP}
   --bin-name <name>        Wrapper command name. Default: ${BIN_NAME}
   --launcher-mode <mode>   wrapper | none. Default: ${LAUNCHER_MODE}
   --service-mode <mode>    user | none. Default: ${SERVICE_MODE}
@@ -43,6 +45,30 @@ require_root() {
 
 resolve_user_home() {
   getent passwd "$1" | cut -d: -f6
+}
+
+ensure_access_group() {
+  if ! getent group "${ACCESS_GROUP}" >/dev/null 2>&1; then
+    groupadd --system "${ACCESS_GROUP}"
+  fi
+}
+
+add_user_to_access_group() {
+  if [ -z "${SERVICE_USER}" ]; then
+    return
+  fi
+
+  if ! id -u "${SERVICE_USER}" >/dev/null 2>&1; then
+    echo "Could not resolve access-group user '${SERVICE_USER}'." >&2
+    exit 1
+  fi
+
+  if id -nG "${SERVICE_USER}" | tr ' ' '\n' | grep -Fx "${ACCESS_GROUP}" >/dev/null 2>&1; then
+    return
+  fi
+
+  usermod -a -G "${ACCESS_GROUP}" "${SERVICE_USER}"
+  GROUP_MEMBERSHIP_CHANGED="yes"
 }
 
 install_wrapper() {
@@ -102,6 +128,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --rule-source)
       RULE_SOURCE="$2"
+      shift 2
+      ;;
+    --access-group)
+      ACCESS_GROUP="$2"
       shift 2
       ;;
     --bin-name)
@@ -174,6 +204,10 @@ if [ ! -f "${RULE_SOURCE}" ]; then
   exit 1
 fi
 
+GROUP_MEMBERSHIP_CHANGED="no"
+ensure_access_group
+add_user_to_access_group
+
 mkdir -p "${INSTALL_DIR}"
 cp -a "${PUBLISH_DIR}/." "${INSTALL_DIR}/"
 install -m 0644 "${RULE_SOURCE}" "${RULE_DEST}"
@@ -192,6 +226,7 @@ udevadm trigger
 
 echo "Installed GlassToKey.Linux to ${INSTALL_DIR}"
 echo "udev rules installed to ${RULE_DEST}"
+echo "Access group: ${ACCESS_GROUP}"
 if [ "${LAUNCHER_MODE}" = "wrapper" ]; then
   echo "Wrapper command: ${BIN_DEST}"
 fi
@@ -201,16 +236,20 @@ fi
 echo
 echo "Post-install guidance:"
 echo "  1. Reconnect the trackpads or wait a few seconds for the refreshed udev permissions to apply."
+echo "  2. Ensure the desktop user is in the '${ACCESS_GROUP}' group."
+if [ "${GROUP_MEMBERSHIP_CHANGED}" = "yes" ]; then
+  echo "     '${SERVICE_USER}' was added to '${ACCESS_GROUP}'. Log out and back in before testing live input."
+fi
 if [ "${LAUNCHER_MODE}" = "wrapper" ]; then
-  echo "  2. Run '${BIN_NAME} doctor'"
-  echo "  3. Run '${BIN_NAME} init-config' if this is the first install"
-  echo "  4. Run '${BIN_NAME} show-config' and confirm left/right device bindings"
-  echo "  5. Run '${BIN_NAME} run-engine 10' for a live smoke test"
+  echo "  3. Run '${BIN_NAME} doctor'"
+  echo "  4. Run '${BIN_NAME} init-config' if this is the first install"
+  echo "  5. Run '${BIN_NAME} show-config' and confirm left/right device bindings"
+  echo "  6. Run '${BIN_NAME} run-engine 10' for a live smoke test"
 else
-  echo "  2. Run '${INSTALL_DIR}/${EXECUTABLE_NAME} doctor'"
-  echo "  3. Run '${INSTALL_DIR}/${EXECUTABLE_NAME} init-config' if this is the first install"
-  echo "  4. Run '${INSTALL_DIR}/${EXECUTABLE_NAME} show-config' and confirm left/right device bindings"
-  echo "  5. Run '${INSTALL_DIR}/${EXECUTABLE_NAME} run-engine 10' for a live smoke test"
+  echo "  3. Run '${INSTALL_DIR}/${EXECUTABLE_NAME} doctor'"
+  echo "  4. Run '${INSTALL_DIR}/${EXECUTABLE_NAME} init-config' if this is the first install"
+  echo "  5. Run '${INSTALL_DIR}/${EXECUTABLE_NAME} show-config' and confirm left/right device bindings"
+  echo "  6. Run '${INSTALL_DIR}/${EXECUTABLE_NAME} run-engine 10' for a live smoke test"
 fi
 
 if [ -n "${SERVICE_PATH}" ]; then

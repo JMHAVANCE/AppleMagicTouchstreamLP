@@ -354,6 +354,7 @@ Current repo status:
 - the Linux runtime now also supervises stable-id rebinds across device-node churn, the semantic surface is broader, and the repo now has both a first Debian package skeleton and a starting GUI/device-picker project
 - the repo now also has a reusable `GlassToKey.Linux.Host` library so the CLI and GUI share one Linux host/config/runtime layer, and the GUI can publish self-contained cleanly
 - unplug/replug logic is now code-complete enough to validate, but the packaged Bluetooth reconnect permission story is still not fully closed because the current Ubuntu session did not receive a live ACL on a recreated `uaccess`-tagged node
+- the checked-in permission direction now prefers a dedicated `glasstokey` group instead of relying on `uaccess` alone
 - the remaining big cleanup is more GUI surface and closing the packaged end-user permission flow
 
 ## Phase 3: engine extraction

@@ -300,7 +300,8 @@ Current repo status:
 - `GlassToKey.Linux.Host` now carries the reusable Linux XDG settings/runtime/doctor surface shared by both the CLI and GUI
 - `GlassToKey.Linux.Gui` now exists as a first device-picker/settings/doctor shell, can browse or clear a custom keymap path, and now publishes self-contained cleanly
 - `packaging/linux/deb/build-deb.sh` can now produce a real Debian package skeleton from self-contained CLI and GUI publish outputs
-- packaged `udev` validation is partially complete: on this Ubuntu host the installed Bluetooth trackpad node now shows `TAGS=:uaccess:` under `udevadm`, but the node still did not receive a live user ACL after reconnect, so session/logind integration still needs follow-up before calling the packaged reconnect story done
+- packaged `udev` validation is partially complete: on this Ubuntu host the installed Bluetooth trackpad node now shows `TAGS=:uaccess:` under `udevadm`, but the node still did not receive a live user ACL after reconnect. Based on that, the checked-in packaging direction now prefers a dedicated `glasstokey` group with `0660` device modes, keeping `uaccess` only as a secondary hint.
+- the Linux GUI now has a first Ubuntu top-bar/tray path through Avalonia `TrayIcon`, though that control surface still needs a manual runtime validation pass on the host
 - this means the Linux work is past proof-of-life and into real runtime integration. It is now in early usable-alpha/packaging-and-diagnostics territory, even though GUI, packaged install flow, and semantic cleanup are still in progress
 
 ### Step 4: add a Linux app host
@@ -444,7 +445,7 @@ Current status:
 
 - active, early
 - users can now select devices through the current CLI/XDG settings path, type through the live engine path, validate permissions/runtime state through `doctor`, record/replay normalized Linux `.atpcap` diagnostics, and regression-check those captures with fixture files
-- a first GUI/device-picker/doctor shell now exists, but richer GUI-based runtime control, unplug/replug live validation, and packaged install flow still need work
+- a first GUI/device-picker/doctor/top-bar shell now exists, but richer GUI-based runtime control and final packaged permission validation still need work
 
 Estimated effort:
 
