@@ -1,7 +1,7 @@
 # Apple Magic TouchstreamLP
 - Also known as GlassToKey!
 
-## Mac: **(Packaged with .APP)**
+## Mac: **(Packaged with signed .DMG)**
 - Built on top of the wonderful: https://github.com/Kyome22/OpenMultitouchSupport
 
 *The app will ask for elevated Accessibility permissions on first run*
