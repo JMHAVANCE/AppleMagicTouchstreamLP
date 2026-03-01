@@ -185,40 +185,45 @@ These top-level apps should stay thin:
 
 The intended Linux user-facing shape is:
 
-- a long-running runtime owner on the hotpath
-- a separate config UI off the hotpath
-- an optional tray/status surface that is either part of the runtime owner or a very thin controller
+- a long-running tray app that owns the runtime on the hotpath
+- an on-demand config window opened from that tray app
+- a reusable CLI/service path kept for diagnostics, packaging validation, and headless experiments
 
-#### Runtime owner
+#### Tray-owned runtime app
 
 - owns the live evdev -> engine -> `uinput` path
 - owns reconnect supervision
-- should be able to run as a user service or another long-lived runtime process
-- should continue working without the config UI being open
+- owns the tray/top-bar surface
+- opens and closes the config window on demand
+- should be the primary day-to-day Linux product shape
+- should mirror the existing Windows and macOS product model as closely as practical
+- must keep the runtime work off the UI thread even though the tray app owns the process
 
-#### Config UI
+#### Config window
 
 - edits settings and keymap selection
-- surfaces binding state and runtime state
+- surfaces binding state and live runtime state
 - runs diagnostics
-- should write settings that the runtime owner picks up in-process
+- should read runtime state directly from the tray-owned runtime instead of relying on a second preview/runtime split where possible
 - should not be required to stay alive for typing to keep working
 
-#### Tray/status surface
+#### CLI/service path
 
-- optional but desirable for day-to-day Linux use
-- should stay thin
-- should not absorb heavy diagnostics/config logic that belongs in the config UI
+- remains useful for `doctor`, capture/replay, fixture work, packaging validation, and headless testing
+- remains a valid engineering/runtime harness
+- is not the primary Linux desktop product shape
+- should stay reusable and headless even if the tray app becomes the normal operator-facing runtime
 
 Current repo note:
 
-- the GUI now controls the Linux user-service runtime owner instead of hosting the engine in-process
-- that gives Linux a real runtime-owner/config-UI split for the service-backed path
-- the runtime owner now treats the XDG settings file as the source of truth and reloads updated config in-process instead of requiring GUI-driven `systemd` restarts for normal layout/binding changes
+- the current Linux user-service/controller split is now treated as an engineering checkpoint, not the final desktop architecture
+- it validated that the runtime can stay headless and reusable
+- it also exposed the drawbacks of splitting desktop runtime ownership across a service process, a controller GUI, and separate preview/runtime state paths
 - the remaining implementation direction is now chosen:
-  - keep the runtime in the user service
-  - move toward a thinner dedicated tray/controller surface
-  - keep the full config UI on-demand
+  - pivot Linux toward the Windows/macOS shape
+  - make the tray app own the runtime by default
+  - keep the config UI as an on-demand window from that tray app
+  - retain CLI/service flows as engineering and packaging paths, not the primary desktop UX
 
 ### Recorded design decision
 
@@ -445,15 +450,17 @@ These are the highest-priority productization tasks because they determine wheth
 
 ### 2. GUI/product surface
 
-The GUI now sits on the correct side of the boundary: it edits config and previews input while the runtime owner stays outside the window. The remaining work is product polish and deciding how thin the tray/controller surface should become.
+The current GUI/service split proved useful for validation, but it is no longer the target desktop shape. The next work is to pivot Linux toward the Windows/macOS model where the tray app owns the runtime and opens the config window on demand.
 
 - [ ] Manually validate the tray/top-bar path on the target Ubuntu desktop
-- [x] Implement the runtime-owner/config-UI split for the user-service path
+- [x] Implement the runtime-owner/config-UI split for the user-service path as an engineering checkpoint
 - [x] Keep the config UI off the hotpath while still surfacing current settings and service state
 - [x] Make normal config changes propagate through the runtime owner without restarting `systemd`
 - [x] Add a first live trackpad visualizer so host debugging can distinguish input ingest from output/dispatch faults
-- [x] Decide that the long-term tray/controller should become a thinner dedicated surface while the full config UI stays on-demand
-- [ ] Implement the thinner dedicated tray/controller surface
+- [x] Decide that Linux should pivot toward the Windows/macOS product model: tray app owns runtime, config opens on demand, CLI/service stays secondary
+- [ ] Move runtime ownership from the service/controller split into the Linux tray app by default
+- [ ] Replace the current second-reader preview/status hacks with direct runtime state exposed from the tray-owned runtime where practical
+- [ ] Keep the config window off the hotpath even when the tray app owns the runtime process
 - [ ] Decide how much runtime diagnostics should live in the config UI versus remain CLI-only
 - [ ] Decide whether keymap editing is in-scope for the config UI or whether file-based custom keymaps remain the v1 story
 - [ ] Polish the packaged GUI launcher path and desktop entry behavior
