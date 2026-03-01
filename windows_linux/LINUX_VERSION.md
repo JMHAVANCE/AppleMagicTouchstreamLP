@@ -295,6 +295,9 @@ Current repo status:
 - `GlassToKey.Linux` now also exposes `doctor`, `capture-atpcap`, `summarize-atpcap`, `replay-atpcap`, `write-atpcap-fixture`, and `check-atpcap-fixture` for packaging checks and offline diagnostics
 - the repo now also carries Linux install artifacts in `packaging/linux/`, and the install script now supports wrapper-vs-service install decisions with explicit post-install guidance
 - Linux `.atpcap` version 3 capture now preserves physical click state in shared frame-header flags, so replay fidelity is closer to the live path
+- the Linux runtime now supervises stable-id rebinds across device-node churn, so unplug/replug recovery no longer depends on a full process restart
+- the Linux semantic/output path now covers broader non-text keys like mute/media transport, lock keys, print/pause/menu, and F13-F24 without leaning on VK fallback
+- `GlassToKey.Linux.Gui` now exists as a first device-picker/settings shell, and `packaging/linux/deb/build-deb.sh` can now produce a real Debian package skeleton from the current publish outputs
 - this means the Linux work is past proof-of-life and into real runtime integration. It is now in early usable-alpha/packaging-and-diagnostics territory, even though GUI, packaged install flow, and semantic cleanup are still in progress
 
 ### Step 4: add a Linux app host
@@ -438,7 +441,7 @@ Current status:
 
 - active, early
 - users can now select devices through the current CLI/XDG settings path, type through the live engine path, validate permissions/runtime state through `doctor`, record/replay normalized Linux `.atpcap` diagnostics, and regression-check those captures with fixture files
-- GUI-based selection/remapping, unplug/replug polish, and packaged install flow still need work
+- a first GUI/device-picker shell now exists, but richer GUI-based selection/remapping, unplug/replug live validation, and packaged install flow still need work
 
 Estimated effort:
 
@@ -564,7 +567,7 @@ Current repo status:
   - framework-dependent `linux-x64`
   - self-contained single-file `linux-x64`
 - `packaging/linux/90-glasstokey.rules` and `packaging/linux/install.sh` are now checked in as the first install artifacts
-- a real installer or `.deb` does not exist yet
+- `packaging/linux/deb/build-deb.sh` now builds a first `.deb` skeleton from the current publish outputs
 
 Example permission areas to document:
 
@@ -673,7 +676,7 @@ That is the smallest scope that still feels like a real Linux release.
 
 - package dependencies
 - udev rules
-- installer script or `.deb`
+- installer script and first `.deb` skeleton
 - troubleshooting docs
 
 ## Final recommendation

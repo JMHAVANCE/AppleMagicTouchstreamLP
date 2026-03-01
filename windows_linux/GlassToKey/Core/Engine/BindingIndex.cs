@@ -284,14 +284,9 @@ internal static class EngineActionResolver
                 semanticPrimaryCode: DispatchSemanticCode.Shift);
         }
 
-        if (TryParseModifierChord(resolved, "Ctrl+", 0x11, DispatchSemanticCode.Ctrl, out EngineKeyAction chord))
+        if (TryParseModifierChord(resolved, out EngineKeyAction chord))
         {
             return chord;
-        }
-
-        if (TryParseModifierChord(resolved, "Win+", 0x5B, DispatchSemanticCode.LeftMeta, out EngineKeyAction winChord))
-        {
-            return winChord;
         }
 
         if (resolved.Equals("EMOJI", StringComparison.OrdinalIgnoreCase))
@@ -388,18 +383,27 @@ internal static class EngineActionResolver
 
     private static bool TryParseModifierChord(
         string text,
-        string prefix,
-        ushort modifierVirtualKey,
-        DispatchSemanticCode modifierSemanticCode,
         out EngineKeyAction action)
     {
         action = EngineKeyAction.None;
-        if (!text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        int plusIndex = text.IndexOf('+', StringComparison.Ordinal);
+        if (plusIndex <= 0 || plusIndex >= text.Length - 1)
         {
             return false;
         }
 
-        string token = text.Substring(prefix.Length).Trim();
+        string modifierLabel = text[..plusIndex].Trim();
+        string token = text[(plusIndex + 1)..].Trim();
+        if (!DispatchKeyResolver.TryResolveModifierVirtualKey(modifierLabel, out ushort modifierVirtualKey))
+        {
+            return false;
+        }
+
+        if (!DispatchSemanticResolver.TryResolveModifierCode(modifierLabel, out DispatchSemanticCode modifierSemanticCode))
+        {
+            return false;
+        }
+
         if (!DispatchKeyResolver.TryResolveVirtualKey(token, out ushort keyVk))
         {
             return false;

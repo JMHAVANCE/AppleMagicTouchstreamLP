@@ -351,7 +351,8 @@ Current repo status:
 - the Linux host now also has checked-in publish profiles for framework-dependent and self-contained `linux-x64` publishes, so packaging work has started moving into versioned repo artifacts
 - `doctor`, normalized Linux `.atpcap` capture/replay/summary commands, fixture generation/check commands, and checked-in install artifacts under `packaging/linux/` now exist
 - Linux `.atpcap` version 3 capture now preserves physical click state in the shared frame-header flags, so replay fidelity is better aligned with the live path
-- the remaining big cleanup is broader semantic coverage beyond the currently validated label set, unplug/replug polish, and a packaged install flow with a real GUI
+- the Linux runtime now also supervises stable-id rebinds across device-node churn, the semantic surface is broader, and the repo now has both a first Debian package skeleton and a starting GUI/device-picker project
+- the remaining big cleanup is unplug/replug live validation, more GUI surface, and a fuller packaged end-user flow
 
 ## Phase 3: engine extraction
 
@@ -404,7 +405,7 @@ Current status:
 
 - achieved enough to call this phase active
 - the CLI host, XDG settings, diagnostics commands, `.atpcap` capture/replay scaffolding, and packaging artifacts now exist
-- the next step inside this phase is packaging polish and operator-facing product work: install validation, packaged distribution, unplug/replug polish, and eventually a GUI
+- the next step inside this phase is packaging polish and operator-facing product work: install validation, packaged distribution, unplug/replug live validation, and expanding the starting GUI shell
 
 ## Concrete v1 Linux file plan
 

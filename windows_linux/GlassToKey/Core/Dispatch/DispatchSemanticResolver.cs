@@ -68,6 +68,32 @@ internal static class DispatchSemanticResolver
             case "DEL":
                 code = DispatchSemanticCode.Delete;
                 return true;
+            case "CAPSLOCK":
+            case "CAPS":
+                code = DispatchSemanticCode.CapsLock;
+                return true;
+            case "NUMLOCK":
+            case "NUM":
+                code = DispatchSemanticCode.NumLock;
+                return true;
+            case "SCROLLLOCK":
+            case "SCROLL":
+                code = DispatchSemanticCode.ScrollLock;
+                return true;
+            case "PRINTSCREEN":
+            case "PRTSC":
+            case "PRTSCN":
+                code = DispatchSemanticCode.PrintScreen;
+                return true;
+            case "PAUSE":
+            case "BREAK":
+                code = DispatchSemanticCode.Pause;
+                return true;
+            case "MENU":
+            case "APPS":
+            case "APPLICATION":
+                code = DispatchSemanticCode.Menu;
+                return true;
             case "INSERT":
             case "INS":
                 code = DispatchSemanticCode.Insert;
@@ -106,9 +132,35 @@ internal static class DispatchSemanticResolver
             case "VOLUMEDOWN":
                 code = DispatchSemanticCode.VolumeDown;
                 return true;
+            case "VOLMUTE":
+            case "MUTE":
+            case "VOLUMEMUTE":
+                code = DispatchSemanticCode.VolumeMute;
+                return true;
             case "VOLUP":
             case "VOLUMEUP":
                 code = DispatchSemanticCode.VolumeUp;
+                return true;
+            case "MEDIAPREV":
+            case "PREVTRACK":
+            case "PREVIOUSSONG":
+            case "MEDIAPREVIOUSTRACK":
+                code = DispatchSemanticCode.MediaPreviousTrack;
+                return true;
+            case "MEDIANEXT":
+            case "NEXTTRACK":
+            case "NEXTSONG":
+            case "MEDIANEXTTRACK":
+                code = DispatchSemanticCode.MediaNextTrack;
+                return true;
+            case "PLAYPAUSE":
+            case "MEDIAPLAYPAUSE":
+                code = DispatchSemanticCode.MediaPlayPause;
+                return true;
+            case "MEDIASTOP":
+            case "STOPMEDIA":
+            case "STOP":
+                code = DispatchSemanticCode.MediaStop;
                 return true;
             case "BRIGHTNESSDOWN":
             case "BRIGHTDOWN":
@@ -124,7 +176,7 @@ internal static class DispatchSemanticResolver
             token[0] is 'F' or 'f' &&
             int.TryParse(token.AsSpan(1), NumberStyles.None, CultureInfo.InvariantCulture, out int functionIndex) &&
             functionIndex >= 1 &&
-            functionIndex <= 12)
+            functionIndex <= 24)
         {
             code = (DispatchSemanticCode)((int)DispatchSemanticCode.F1 + (functionIndex - 1));
             return true;

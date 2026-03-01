@@ -23,6 +23,7 @@ Current repo status on the tested Ubuntu 24.04 host:
 - `run-engine` has been validated end-to-end with live typing through the shared engine and Linux `uinput` output
 - Linux `.atpcap` capture now writes normalized version 3 frame captures for offline summary/replay diagnostics, including physical click state in the shared frame-header flags
 - Linux now also has `.atpcap` fixture generation/check commands for replay regression validation
+- the Linux runtime now supervises bindings by stable ID and can re-open a trackpad stream after device-node churn while the process stays alive
 - force-click parity is still intentionally deferred because Linux pressure is not equivalent to the Windows Apple force/phase path
 
 ## Source event model

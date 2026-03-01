@@ -4,7 +4,7 @@ using GlassToKey.Platform.Linux.Models;
 
 namespace GlassToKey.Linux.Runtime;
 
-internal sealed class LinuxAppRuntime
+public sealed class LinuxAppRuntime
 {
     private readonly LinuxTrackpadEnumerator _enumerator;
     private readonly LinuxSettingsStore _settingsStore;
@@ -120,6 +120,22 @@ internal sealed class LinuxAppRuntime
         return _settingsStore.GetSettingsPath();
     }
 
+    public IReadOnlyList<LinuxInputDeviceDescriptor> EnumerateDevices()
+    {
+        return _enumerator.EnumerateDevices();
+    }
+
+    public LinuxHostSettings LoadSettings()
+    {
+        return _settingsStore.Load();
+    }
+
+    public string SaveSettings(LinuxHostSettings settings)
+    {
+        _settingsStore.Save(settings);
+        return _settingsStore.GetSettingsPath();
+    }
+
     private static List<LinuxTrackpadBinding> ResolveBindings(
         LinuxHostSettings settings,
         IReadOnlyList<LinuxInputDeviceDescriptor> devices,
@@ -165,6 +181,12 @@ internal sealed class LinuxAppRuntime
                     break;
                 }
             }
+
+            if (chosen == null)
+            {
+                warnings.Add($"Configured {side} trackpad '{requestedStableId}' is currently unavailable.");
+                return;
+            }
         }
 
         if (chosen == null)
@@ -178,11 +200,6 @@ internal sealed class LinuxAppRuntime
                 }
 
                 chosen = candidate;
-                if (!string.IsNullOrWhiteSpace(requestedStableId))
-                {
-                    warnings.Add($"Configured {side} trackpad '{requestedStableId}' was unavailable. Falling back to '{candidate.StableId}'.");
-                }
-
                 break;
             }
         }

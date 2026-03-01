@@ -54,6 +54,7 @@ internal static class LinuxEvdevCodes
     public const ushort KeyGrave = 41;
     public const ushort KeyLeftShift = 42;
     public const ushort KeyBackslash = 43;
+    public const ushort KeyCapsLock = 58;
     public const ushort KeyZ = 44;
     public const ushort KeyX = 45;
     public const ushort KeyC = 46;
@@ -77,9 +78,12 @@ internal static class LinuxEvdevCodes
     public const ushort KeyF8 = 66;
     public const ushort KeyF9 = 67;
     public const ushort KeyF10 = 68;
+    public const ushort KeyNumLock = 69;
+    public const ushort KeyScrollLock = 70;
     public const ushort KeyF11 = 87;
     public const ushort KeyF12 = 88;
     public const ushort KeyRightCtrl = 97;
+    public const ushort KeySysRq = 99;
     public const ushort KeyRightAlt = 100;
     public const ushort KeyHome = 102;
     public const ushort KeyUp = 103;
@@ -94,8 +98,26 @@ internal static class LinuxEvdevCodes
     public const ushort KeyMute = 113;
     public const ushort KeyVolumeDown = 114;
     public const ushort KeyVolumeUp = 115;
+    public const ushort KeyPause = 119;
     public const ushort KeyLeftMeta = 125;
     public const ushort KeyRightMeta = 126;
+    public const ushort KeyMenu = 139;
+    public const ushort KeyNextSong = 163;
+    public const ushort KeyPlayPause = 164;
+    public const ushort KeyPreviousSong = 165;
+    public const ushort KeyStopCd = 166;
+    public const ushort KeyF13 = 183;
+    public const ushort KeyF14 = 184;
+    public const ushort KeyF15 = 185;
+    public const ushort KeyF16 = 186;
+    public const ushort KeyF17 = 187;
+    public const ushort KeyF18 = 188;
+    public const ushort KeyF19 = 189;
+    public const ushort KeyF20 = 190;
+    public const ushort KeyF21 = 191;
+    public const ushort KeyF22 = 192;
+    public const ushort KeyF23 = 193;
+    public const ushort KeyF24 = 194;
     public const ushort KeyBrightnessDown = 224;
     public const ushort KeyBrightnessUp = 225;
 

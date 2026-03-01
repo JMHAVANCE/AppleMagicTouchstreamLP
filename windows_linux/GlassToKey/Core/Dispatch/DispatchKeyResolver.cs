@@ -164,6 +164,10 @@ internal static class DispatchKeyResolver
             }
         }
 
+        string upperToken = token.ToUpperInvariant();
+        string compactToken = upperToken.Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal);
+
         if (token.Equals("Space", StringComparison.OrdinalIgnoreCase))
         {
             virtualKey = 0x20;
@@ -205,6 +209,42 @@ internal static class DispatchKeyResolver
         if (token.Equals("Delete", StringComparison.OrdinalIgnoreCase) || token.Equals("Del", StringComparison.OrdinalIgnoreCase))
         {
             virtualKey = 0x2E;
+            return true;
+        }
+
+        if (compactToken is "CAPSLOCK" or "CAPS")
+        {
+            virtualKey = 0x14;
+            return true;
+        }
+
+        if (compactToken is "NUMLOCK" or "NUM")
+        {
+            virtualKey = 0x90;
+            return true;
+        }
+
+        if (compactToken is "SCROLLLOCK" or "SCROLL")
+        {
+            virtualKey = 0x91;
+            return true;
+        }
+
+        if (compactToken is "PRINTSCREEN" or "PRTSC" or "PRTSCN")
+        {
+            virtualKey = 0x2C;
+            return true;
+        }
+
+        if (compactToken is "PAUSE" or "BREAK")
+        {
+            virtualKey = 0x13;
+            return true;
+        }
+
+        if (compactToken is "MENU" or "APPS" or "APPLICATION")
+        {
+            virtualKey = 0x5D;
             return true;
         }
 
@@ -272,17 +312,45 @@ internal static class DispatchKeyResolver
             return true;
         }
 
-        if (token.Equals("VOL_UP", StringComparison.OrdinalIgnoreCase) ||
-            token.Equals("VOLUME_UP", StringComparison.OrdinalIgnoreCase))
+        if (compactToken is "VOLUP" or "VOLUMEUP")
         {
             virtualKey = 0xAF;
             return true;
         }
 
-        if (token.Equals("VOL_DOWN", StringComparison.OrdinalIgnoreCase) ||
-            token.Equals("VOLUME_DOWN", StringComparison.OrdinalIgnoreCase))
+        if (compactToken is "MUTE" or "VOLMUTE" or "VOLUMEMUTE")
+        {
+            virtualKey = 0xAD;
+            return true;
+        }
+
+        if (compactToken is "VOLDOWN" or "VOLUMEDOWN")
         {
             virtualKey = 0xAE;
+            return true;
+        }
+
+        if (compactToken is "NEXTTRACK" or "MEDIANEXT" or "NEXTSONG" or "MEDIANEXTTRACK")
+        {
+            virtualKey = 0xB0;
+            return true;
+        }
+
+        if (compactToken is "PREVTRACK" or "MEDIAPREV" or "PREVIOUSSONG" or "MEDIAPREVIOUSTRACK")
+        {
+            virtualKey = 0xB1;
+            return true;
+        }
+
+        if (compactToken is "STOPMEDIA" or "MEDIASTOP")
+        {
+            virtualKey = 0xB2;
+            return true;
+        }
+
+        if (compactToken is "PLAYPAUSE" or "MEDIAPLAYPAUSE")
+        {
+            virtualKey = 0xB3;
             return true;
         }
 

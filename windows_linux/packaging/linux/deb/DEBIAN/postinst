@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -eu
+
+if command -v udevadm >/dev/null 2>&1; then
+  udevadm control --reload-rules || true
+  udevadm trigger || true
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl daemon-reload || true
+fi
+
+cat <<'EOF'
+GlassToKey Linux install complete.
+
+Recommended next steps:
+  1. Reconnect the trackpads or wait a few seconds for refreshed udev permissions.
+  2. Run 'glasstokey-linux doctor'
+  3. Run 'glasstokey-linux init-config' if this is the first install
+  4. Run 'glasstokey-linux show-config' and verify left/right device bindings
+  5. Run 'glasstokey-linux run-engine 10' for a live smoke test
+
+Optional user service:
+  systemctl --user daemon-reload
+  systemctl --user enable --now glasstokey-linux.service
+
+Optional GUI:
+  glasstokey-linux-gui
+EOF

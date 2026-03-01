@@ -1,0 +1,107 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="GlassToKey.Linux.Gui.MainWindow"
+        Width="980"
+        Height="700"
+        MinWidth="860"
+        MinHeight="620"
+        Title="GlassToKey Linux Setup">
+  <Grid RowDefinitions="Auto,*">
+    <Border Background="#23303A" Padding="24,18">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="4">
+          <TextBlock Text="GlassToKey Linux"
+                     FontSize="28"
+                     FontWeight="Bold"
+                     Foreground="#F7F2EA" />
+          <TextBlock Text="Device binding and runtime settings shell"
+                     FontSize="14"
+                     Foreground="#D9C7B5" />
+        </StackPanel>
+        <Border Background="#E07845"
+                CornerRadius="12"
+                Padding="14,8"
+                VerticalAlignment="Center">
+          <TextBlock x:Name="PhaseBadgeText"
+                     Text="Phase 4 / 6"
+                     FontWeight="SemiBold"
+                     Foreground="#FFF7F0" />
+        </Border>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1"
+          Margin="24"
+          ColumnDefinitions="2*,1.25*">
+      <StackPanel Spacing="18">
+        <Border Classes="panel">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="section" Text="Trackpads" />
+
+            <TextBlock Text="Left trackpad" />
+            <ComboBox x:Name="LeftDeviceCombo" MinWidth="320" />
+
+            <TextBlock Text="Right trackpad" Margin="0,8,0,0" />
+            <ComboBox x:Name="RightDeviceCombo" MinWidth="320" />
+
+            <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,12,0,0">
+              <Button x:Name="RefreshDevicesButton" Classes="action" Content="Refresh Devices" />
+              <Button x:Name="SwapSidesButton" Content="Swap Sides" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="panel">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="section" Text="Runtime" />
+
+            <TextBlock Text="Layout preset" />
+            <ComboBox x:Name="LayoutPresetCombo" MinWidth="240" />
+
+            <TextBlock Text="Keymap path" Margin="0,8,0,0" />
+            <TextBox x:Name="KeymapPathBox" Watermark="Use bundled Linux default when empty" />
+
+            <TextBlock x:Name="SettingsPathText"
+                       Margin="0,10,0,0"
+                       TextWrapping="Wrap"
+                       Foreground="#5A4032" />
+
+            <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,12,0,0">
+              <Button x:Name="SaveSettingsButton" Classes="action" Content="Save Settings" />
+              <Button x:Name="InitializeDefaultsButton" Content="Init Defaults" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <StackPanel Grid.Column="1" Spacing="18" Margin="18,0,0,0">
+        <Border Classes="panel">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="section" Text="Resolved State" />
+            <TextBlock x:Name="ResolvedBindingsText"
+                       TextWrapping="Wrap"
+                       FontFamily="avares://Avalonia.Fonts.Inter/Assets#Inter" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="panel">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="section" Text="Warnings / Notes" />
+            <TextBlock x:Name="WarningsText"
+                       TextWrapping="Wrap"
+                       Foreground="#6A4533" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="panel">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="section" Text="Status" />
+            <TextBlock x:Name="StatusText"
+                       TextWrapping="Wrap"
+                       Foreground="#23303A" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>

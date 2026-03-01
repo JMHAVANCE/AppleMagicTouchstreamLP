@@ -136,6 +136,18 @@ internal static class LinuxKeyCodeMapper
         table[(int)DispatchSemanticCode.F10] = LinuxEvdevCodes.KeyF10;
         table[(int)DispatchSemanticCode.F11] = LinuxEvdevCodes.KeyF11;
         table[(int)DispatchSemanticCode.F12] = LinuxEvdevCodes.KeyF12;
+        table[(int)DispatchSemanticCode.F13] = LinuxEvdevCodes.KeyF13;
+        table[(int)DispatchSemanticCode.F14] = LinuxEvdevCodes.KeyF14;
+        table[(int)DispatchSemanticCode.F15] = LinuxEvdevCodes.KeyF15;
+        table[(int)DispatchSemanticCode.F16] = LinuxEvdevCodes.KeyF16;
+        table[(int)DispatchSemanticCode.F17] = LinuxEvdevCodes.KeyF17;
+        table[(int)DispatchSemanticCode.F18] = LinuxEvdevCodes.KeyF18;
+        table[(int)DispatchSemanticCode.F19] = LinuxEvdevCodes.KeyF19;
+        table[(int)DispatchSemanticCode.F20] = LinuxEvdevCodes.KeyF20;
+        table[(int)DispatchSemanticCode.F21] = LinuxEvdevCodes.KeyF21;
+        table[(int)DispatchSemanticCode.F22] = LinuxEvdevCodes.KeyF22;
+        table[(int)DispatchSemanticCode.F23] = LinuxEvdevCodes.KeyF23;
+        table[(int)DispatchSemanticCode.F24] = LinuxEvdevCodes.KeyF24;
         table[(int)DispatchSemanticCode.Semicolon] = LinuxEvdevCodes.KeySemicolon;
         table[(int)DispatchSemanticCode.Equal] = LinuxEvdevCodes.KeyEqual;
         table[(int)DispatchSemanticCode.Comma] = LinuxEvdevCodes.KeyComma;
@@ -147,8 +159,19 @@ internal static class LinuxKeyCodeMapper
         table[(int)DispatchSemanticCode.Backslash] = LinuxEvdevCodes.KeyBackslash;
         table[(int)DispatchSemanticCode.RightBrace] = LinuxEvdevCodes.KeyRightBrace;
         table[(int)DispatchSemanticCode.Apostrophe] = LinuxEvdevCodes.KeyApostrophe;
+        table[(int)DispatchSemanticCode.CapsLock] = LinuxEvdevCodes.KeyCapsLock;
+        table[(int)DispatchSemanticCode.NumLock] = LinuxEvdevCodes.KeyNumLock;
+        table[(int)DispatchSemanticCode.ScrollLock] = LinuxEvdevCodes.KeyScrollLock;
+        table[(int)DispatchSemanticCode.PrintScreen] = LinuxEvdevCodes.KeySysRq;
+        table[(int)DispatchSemanticCode.Pause] = LinuxEvdevCodes.KeyPause;
+        table[(int)DispatchSemanticCode.Menu] = LinuxEvdevCodes.KeyMenu;
+        table[(int)DispatchSemanticCode.VolumeMute] = LinuxEvdevCodes.KeyMute;
         table[(int)DispatchSemanticCode.VolumeDown] = LinuxEvdevCodes.KeyVolumeDown;
         table[(int)DispatchSemanticCode.VolumeUp] = LinuxEvdevCodes.KeyVolumeUp;
+        table[(int)DispatchSemanticCode.MediaPreviousTrack] = LinuxEvdevCodes.KeyPreviousSong;
+        table[(int)DispatchSemanticCode.MediaNextTrack] = LinuxEvdevCodes.KeyNextSong;
+        table[(int)DispatchSemanticCode.MediaPlayPause] = LinuxEvdevCodes.KeyPlayPause;
+        table[(int)DispatchSemanticCode.MediaStop] = LinuxEvdevCodes.KeyStopCd;
         table[(int)DispatchSemanticCode.BrightnessDown] = LinuxEvdevCodes.KeyBrightnessDown;
         table[(int)DispatchSemanticCode.BrightnessUp] = LinuxEvdevCodes.KeyBrightnessUp;
 
@@ -231,6 +254,20 @@ internal static class LinuxKeyCodeMapper
         table[0x79] = LinuxEvdevCodes.KeyF10;
         table[0x7A] = LinuxEvdevCodes.KeyF11;
         table[0x7B] = LinuxEvdevCodes.KeyF12;
+        table[0x7C] = LinuxEvdevCodes.KeyF13;
+        table[0x7D] = LinuxEvdevCodes.KeyF14;
+        table[0x7E] = LinuxEvdevCodes.KeyF15;
+        table[0x7F] = LinuxEvdevCodes.KeyF16;
+        table[0x80] = LinuxEvdevCodes.KeyF17;
+        table[0x81] = LinuxEvdevCodes.KeyF18;
+        table[0x82] = LinuxEvdevCodes.KeyF19;
+        table[0x83] = LinuxEvdevCodes.KeyF20;
+        table[0x84] = LinuxEvdevCodes.KeyF21;
+        table[0x85] = LinuxEvdevCodes.KeyF22;
+        table[0x86] = LinuxEvdevCodes.KeyF23;
+        table[0x87] = LinuxEvdevCodes.KeyF24;
+        table[0x90] = LinuxEvdevCodes.KeyNumLock;
+        table[0x91] = LinuxEvdevCodes.KeyScrollLock;
 
         table[0xA0] = LinuxEvdevCodes.KeyLeftShift;
         table[0xA1] = LinuxEvdevCodes.KeyRightShift;
@@ -238,8 +275,13 @@ internal static class LinuxKeyCodeMapper
         table[0xA3] = LinuxEvdevCodes.KeyRightCtrl;
         table[0xA4] = LinuxEvdevCodes.KeyLeftAlt;
         table[0xA5] = LinuxEvdevCodes.KeyRightAlt;
+        table[0xAD] = LinuxEvdevCodes.KeyMute;
         table[0xAE] = LinuxEvdevCodes.KeyVolumeDown;
         table[0xAF] = LinuxEvdevCodes.KeyVolumeUp;
+        table[0xB0] = LinuxEvdevCodes.KeyNextSong;
+        table[0xB1] = LinuxEvdevCodes.KeyPreviousSong;
+        table[0xB2] = LinuxEvdevCodes.KeyStopCd;
+        table[0xB3] = LinuxEvdevCodes.KeyPlayPause;
 
         table[0xBA] = LinuxEvdevCodes.KeySemicolon;
         table[0xBB] = LinuxEvdevCodes.KeyEqual;
@@ -252,6 +294,10 @@ internal static class LinuxKeyCodeMapper
         table[0xDC] = LinuxEvdevCodes.KeyBackslash;
         table[0xDD] = LinuxEvdevCodes.KeyRightBrace;
         table[0xDE] = LinuxEvdevCodes.KeyApostrophe;
+        table[0x13] = LinuxEvdevCodes.KeyPause;
+        table[0x14] = LinuxEvdevCodes.KeyCapsLock;
+        table[0x2C] = LinuxEvdevCodes.KeySysRq;
+        table[0x5D] = LinuxEvdevCodes.KeyMenu;
 
         return table;
     }

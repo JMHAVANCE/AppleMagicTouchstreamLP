@@ -4,6 +4,7 @@ Current install artifacts:
 
 - `90-glasstokey.rules`: starter `udev` rule for the tested Apple Magic Trackpad USB and Bluetooth vendor/product pairs plus `/dev/uinput`
 - `install.sh`: install script for a published Linux build with wrapper-vs-service install decisions
+- `deb/`: first Debian package skeleton, including `dpkg-deb` build script, maintainer scripts, user service unit, and optional GUI desktop entry template
 
 Expected workflow:
 
@@ -21,6 +22,14 @@ Example:
 dotnet publish GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -p:PublishProfile=LinuxSelfContained
 sudo ./packaging/linux/install.sh --launcher-mode wrapper --service-mode user
 glasstokey-linux doctor
+```
+
+Debian package example:
+
+```bash
+dotnet publish GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -p:PublishProfile=LinuxSelfContained
+dotnet publish GlassToKey.Linux.Gui/GlassToKey.Linux.Gui.csproj -c Release -p:PublishProfile=LinuxGuiFrameworkDependent
+bash ./packaging/linux/deb/build-deb.sh --version 0.1.0-dev --output-dir /tmp/glasstokey-deb-out
 ```
 
 Notes:

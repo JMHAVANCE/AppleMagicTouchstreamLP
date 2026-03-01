@@ -3,7 +3,7 @@ using GlassToKey.Platform.Linux.Models;
 
 namespace GlassToKey.Linux.Config;
 
-internal sealed class LinuxSettingsStore
+public sealed class LinuxSettingsStore
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {

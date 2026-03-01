@@ -454,6 +454,10 @@ internal static class Program
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(seconds));
         using LinuxAtpCapCaptureWriter writer = new(outputPath);
         LinuxInputRuntimeService runtime = new();
+        LinuxInputRuntimeOptions options = new()
+        {
+            Observer = new ConsoleRuntimeObserver()
+        };
 
         Console.WriteLine($"Capturing .atpcap for {seconds:0.##}s to {outputPath}");
         for (int index = 0; index < bindings.Count; index++)
@@ -463,7 +467,7 @@ internal static class Program
         }
 
         CaptureFrameSink sink = new(writer);
-        await runtime.RunAsync(bindings, sink, cts.Token).ConfigureAwait(false);
+        await runtime.RunAsync(bindings, sink, options, cts.Token).ConfigureAwait(false);
         Console.WriteLine($"Capture written: {outputPath}");
         return 0;
     }
@@ -752,7 +756,11 @@ internal static class Program
         }
 
         ConsoleTrackpadFrameTarget target = new();
-        await runtime.RunAsync(bindings, target, cts.Token).ConfigureAwait(false);
+        LinuxInputRuntimeOptions options = new()
+        {
+            Observer = new ConsoleRuntimeObserver()
+        };
+        await runtime.RunAsync(bindings, target, options, cts.Token).ConfigureAwait(false);
         return 0;
     }
 
@@ -780,6 +788,10 @@ internal static class Program
         using LinuxUinputDispatcher dispatcher = new();
         using TouchProcessorRuntimeHost engine = new(dispatcher, configuration.Keymap, configuration.LayoutPreset);
         LinuxInputRuntimeService runtime = new();
+        LinuxInputRuntimeOptions options = new()
+        {
+            Observer = new ConsoleRuntimeObserver()
+        };
 
         Console.WriteLine($"Running engine for {seconds:0.##}s on {bindings.Count} trackpad(s).");
         Console.WriteLine($"  Settings: {configuration.SettingsPath}");
@@ -796,7 +808,7 @@ internal static class Program
             Console.WriteLine($"  Warning: {configuration.Warnings[index]}");
         }
 
-        await runtime.RunAsync(bindings, engine, cts.Token).ConfigureAwait(false);
+        await runtime.RunAsync(bindings, engine, options, cts.Token).ConfigureAwait(false);
         return 0;
     }
 
@@ -824,6 +836,14 @@ internal static class Program
             cancellationToken.ThrowIfCancellationRequested();
             _writer.WriteFrame(in frame);
             return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class ConsoleRuntimeObserver : ILinuxRuntimeObserver
+    {
+        public void OnBindingStateChanged(LinuxRuntimeBindingState state)
+        {
+            Console.WriteLine($"[{state.Side}] {state.Status}: {state.StableId} ({state.DeviceNode ?? "no-node"}) - {state.Message}");
         }
     }
 }

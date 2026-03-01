@@ -140,8 +140,20 @@ internal static class LinuxSelfTestRunner
     {
         if (!ValidateSemanticAlias("VOL_UP", DispatchSemanticCode.VolumeUp, LinuxEvdevCodes.KeyVolumeUp, out failure) ||
             !ValidateSemanticAlias("VOL_DOWN", DispatchSemanticCode.VolumeDown, LinuxEvdevCodes.KeyVolumeDown, out failure) ||
+            !ValidateSemanticAlias("MUTE", DispatchSemanticCode.VolumeMute, LinuxEvdevCodes.KeyMute, out failure) ||
             !ValidateSemanticAlias("BRIGHT_UP", DispatchSemanticCode.BrightnessUp, LinuxEvdevCodes.KeyBrightnessUp, out failure) ||
-            !ValidateSemanticAlias("BRIGHT_DOWN", DispatchSemanticCode.BrightnessDown, LinuxEvdevCodes.KeyBrightnessDown, out failure))
+            !ValidateSemanticAlias("BRIGHT_DOWN", DispatchSemanticCode.BrightnessDown, LinuxEvdevCodes.KeyBrightnessDown, out failure) ||
+            !ValidateSemanticAlias("PLAY_PAUSE", DispatchSemanticCode.MediaPlayPause, LinuxEvdevCodes.KeyPlayPause, out failure) ||
+            !ValidateSemanticAlias("NEXT_TRACK", DispatchSemanticCode.MediaNextTrack, LinuxEvdevCodes.KeyNextSong, out failure) ||
+            !ValidateSemanticAlias("PREV_TRACK", DispatchSemanticCode.MediaPreviousTrack, LinuxEvdevCodes.KeyPreviousSong, out failure) ||
+            !ValidateSemanticAlias("STOP_MEDIA", DispatchSemanticCode.MediaStop, LinuxEvdevCodes.KeyStopCd, out failure) ||
+            !ValidateSemanticAlias("CAPS_LOCK", DispatchSemanticCode.CapsLock, LinuxEvdevCodes.KeyCapsLock, out failure) ||
+            !ValidateSemanticAlias("NUM_LOCK", DispatchSemanticCode.NumLock, LinuxEvdevCodes.KeyNumLock, out failure) ||
+            !ValidateSemanticAlias("SCROLL_LOCK", DispatchSemanticCode.ScrollLock, LinuxEvdevCodes.KeyScrollLock, out failure) ||
+            !ValidateSemanticAlias("PRINT_SCREEN", DispatchSemanticCode.PrintScreen, LinuxEvdevCodes.KeySysRq, out failure) ||
+            !ValidateSemanticAlias("PAUSE", DispatchSemanticCode.Pause, LinuxEvdevCodes.KeyPause, out failure) ||
+            !ValidateSemanticAlias("MENU", DispatchSemanticCode.Menu, LinuxEvdevCodes.KeyMenu, out failure) ||
+            !ValidateSemanticAlias("F24", DispatchSemanticCode.F24, LinuxEvdevCodes.KeyF24, out failure))
         {
             return false;
         }

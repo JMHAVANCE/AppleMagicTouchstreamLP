@@ -3,7 +3,7 @@ using GlassToKey.Platform.Linux.Models;
 
 namespace GlassToKey.Linux.Runtime;
 
-internal sealed record LinuxRuntimeConfiguration(
+public sealed record LinuxRuntimeConfiguration(
     string SettingsPath,
     LinuxHostSettings Settings,
     TrackpadLayoutPreset LayoutPreset,
