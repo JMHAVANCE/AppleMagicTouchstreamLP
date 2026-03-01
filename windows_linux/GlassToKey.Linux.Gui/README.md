@@ -10,17 +10,17 @@ Current scope:
 - enumerate current trackpad candidates
 - let the user assign left/right trackpads explicitly
 - select the layout preset
-- browse, set, or clear a custom keymap path
 - run the Linux `doctor` check and inspect its report in-app
-- start, stop, and observe the Linux user-service runtime owner without hosting the engine in-process
-- inspect a live evdev preview of bound trackpads for visual debugging
-- expose a first Ubuntu top-bar/tray shell with open, hide, doctor, runtime control, and quit actions
+- host the default desktop runtime in-process from the tray app while keeping the config window off the hotpath
+- inspect a live preview of bound trackpads from that same runtime stream for visual debugging
+- expose a first Ubuntu top-bar/tray shell with open, hide, doctor, and quit actions
 - save back to the same Linux settings file used by the CLI/runtime
 
 Current phase:
 
 - this is still a starting control shell, not the finished Linux GUI
-- the live engine session is expected to stay in the Linux user service, not in this config app
+- the tray app now owns the default desktop runtime in-process
+- the reusable CLI/service path remains the supported headless and engineering host
 - it does not yet provide keymap editing or a finalized tray/product shell
 - the tray/indicator shell now exists, but still needs manual runtime validation on the current Ubuntu desktop
 
@@ -43,5 +43,5 @@ Current note:
 
 - the GUI no longer depends on the CLI executable project; both now share `GlassToKey.Linux.Host`
 - the self-contained GUI publish output now includes the Linux bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`
-- the GUI now controls the Linux user service via `systemctl --user` instead of owning the runtime in-process
+- the GUI now uses a tray-owned in-process desktop runtime by default instead of controlling a user service for normal desktop use
 - the first tray/top-bar shell uses Avalonia `TrayIcon` and a linked placeholder status icon from the repo for now

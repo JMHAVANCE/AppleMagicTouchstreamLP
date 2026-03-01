@@ -21,10 +21,7 @@ public partial class MainWindow : Window
     private const double KeyWidthMm = 18.0;
     private const double KeyHeightMm = 17.0;
     private readonly LinuxAppRuntime _runtime = new();
-    private readonly LinuxRuntimeServiceController _runtimeController = new();
-    private readonly LinuxRuntimeStateStore _runtimeStateStore = new();
-    private readonly LinuxInputPreviewController _previewController = new();
-    private readonly DispatcherTimer _runtimeStatusTimer;
+    private readonly LinuxDesktopRuntimeController _desktopRuntime;
     private KeyLayout _leftRenderedLayout = new(Array.Empty<NormalizedRect[]>(), Array.Empty<string[]>());
     private KeyLayout _rightRenderedLayout = new(Array.Empty<NormalizedRect[]>(), Array.Empty<string[]>());
     private KeymapStore _renderedKeymap = KeymapStore.LoadBundledDefault();
@@ -44,15 +41,20 @@ public partial class MainWindow : Window
     private bool _runtimeOwnedByTray;
     private bool _loadingScreen;
     private bool _settingsApplyPending;
-    private bool _runtimeStatusRefreshPending;
     private LinuxInputPreviewSnapshot _previewSnapshot = new(
         LinuxInputPreviewStatus.Stopped,
-        "Live input preview is stopped.",
+        "The Linux tray runtime is stopped.",
         null,
         Array.Empty<LinuxInputPreviewTrackpadState>());
 
     public MainWindow()
+        : this(LinuxDesktopRuntimeEnvironment.SharedController)
     {
+    }
+
+    public MainWindow(LinuxDesktopRuntimeController desktopRuntime)
+    {
+        _desktopRuntime = desktopRuntime ?? throw new ArgumentNullException(nameof(desktopRuntime));
         InitializeComponent();
         _leftDeviceCombo = RequireControl<ComboBox>("LeftDeviceCombo");
         _rightDeviceCombo = RequireControl<ComboBox>("RightDeviceCombo");
@@ -66,19 +68,14 @@ public partial class MainWindow : Window
         _rightPreviewText = RequireControl<TextBlock>("RightPreviewText");
         _leftPreviewCanvas = RequireControl<Canvas>("LeftPreviewCanvas");
         _rightPreviewCanvas = RequireControl<Canvas>("RightPreviewCanvas");
-        _runtimeStatusTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(400)
-        };
-        _runtimeStatusTimer.Tick += OnRuntimeStatusTimerTick;
-        _previewController.SnapshotChanged += OnPreviewSnapshotChanged;
+        _desktopRuntime.PreviewSnapshotChanged += OnPreviewSnapshotChanged;
+        _desktopRuntime.RuntimeSnapshotChanged += OnRuntimeSnapshotChanged;
         Closing += OnWindowClosing;
         Opened += OnWindowOpened;
         WireEvents();
         LoadScreen();
-        ApplyPreviewSnapshot(_previewSnapshot);
-        _runtimeStatusTimer.Start();
-        _ = RefreshRuntimeStatusAsync();
+        ApplyPreviewSnapshot(_desktopRuntime.PreviewSnapshot);
+        ApplyRuntimeStatus(_desktopRuntime.RuntimeSnapshot);
     }
 
     private void InitializeComponent()
@@ -136,14 +133,12 @@ public partial class MainWindow : Window
     private void OnRefreshDevicesClick(object? sender, RoutedEventArgs e)
     {
         LoadScreen();
-        _ = RestartPreviewAsync();
     }
 
     private void OnSwapSidesClick(object? sender, RoutedEventArgs e)
     {
         _runtime.SwapTrackpadBindings();
         LoadScreen();
-        _ = RestartPreviewAsync();
     }
 
     private async void OnLiveSettingsSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -156,11 +151,11 @@ public partial class MainWindow : Window
         await SaveLiveSettingsAsync();
     }
 
-    private async Task SaveLiveSettingsAsync()
+    private Task SaveLiveSettingsAsync()
     {
         if (_settingsApplyPending)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         _settingsApplyPending = true;
@@ -168,6 +163,7 @@ public partial class MainWindow : Window
         settings.LeftTrackpadStableId = (_leftDeviceCombo.SelectedItem as DeviceChoice)?.StableId;
         settings.RightTrackpadStableId = (_rightDeviceCombo.SelectedItem as DeviceChoice)?.StableId;
         settings.LayoutPresetName = (_layoutPresetCombo.SelectedItem as PresetChoice)?.Name ?? TrackpadLayoutPreset.SixByThree.Name;
+        settings.SharedProfile.LayoutPresetName = settings.LayoutPresetName;
         settings.SharedProfile.FiveFingerSwipeLeftAction = (_fiveFingerSwipeLeftCombo.SelectedItem as GestureActionChoice)?.Value ?? "Typing Toggle";
         settings.SharedProfile.FiveFingerSwipeRightAction = (_fiveFingerSwipeRightCombo.SelectedItem as GestureActionChoice)?.Value ?? "Typing Toggle";
         settings.SharedProfile.FiveFingerSwipeUpAction = (_fiveFingerSwipeUpCombo.SelectedItem as GestureActionChoice)?.Value ?? "None";
@@ -178,12 +174,13 @@ public partial class MainWindow : Window
             settings.Normalize();
             _runtime.SaveSettings(settings);
             LoadScreen();
-            await RestartPreviewAsync();
         }
         finally
         {
             _settingsApplyPending = false;
         }
+
+        return Task.CompletedTask;
     }
 
     private async void OnImportSettingsClick(object? sender, RoutedEventArgs e)
@@ -228,7 +225,6 @@ public partial class MainWindow : Window
         }
 
         LoadScreen();
-        await RestartPreviewAsync();
     }
 
     private async void OnExportSettingsClick(object? sender, RoutedEventArgs e)
@@ -272,7 +268,6 @@ public partial class MainWindow : Window
 
     public void HideToStatusArea()
     {
-        _ = _previewController.StopAsync();
         Hide();
     }
 
@@ -284,15 +279,14 @@ public partial class MainWindow : Window
         }
 
         _runtimeOwnedByTray = true;
-        _ = StartRuntimeAsync();
+        _ = _desktopRuntime.StartAsync();
     }
 
     public async Task RequestExitAsync()
     {
         _runtimeOwnedByTray = false;
-        _runtimeStatusTimer.Stop();
-        await StopRuntimeAsync();
         _allowExit = true;
+        _desktopRuntime.RequestStop();
         if (!Dispatcher.UIThread.CheckAccess())
         {
             await Dispatcher.UIThread.InvokeAsync(Close);
@@ -439,34 +433,10 @@ public partial class MainWindow : Window
             ?? throw new InvalidOperationException($"Required control '{name}' was not found in the Linux GUI.");
     }
 
-    private async Task RestartPreviewAsync()
-    {
-        await _previewController.StopAsync();
-        if (IsVisible)
-        {
-            EnsurePreviewActive();
-        }
-    }
-
-    private async Task StartRuntimeAsync()
-    {
-        LinuxRuntimeServiceSnapshot snapshot = await _runtimeController.StartAsync();
-        HandleRuntimeControlSnapshot(snapshot, "Start Runtime");
-        await RefreshRuntimeStatusAsync();
-    }
-
-    private async Task StopRuntimeAsync()
-    {
-        LinuxRuntimeServiceSnapshot snapshot = await _runtimeController.StopAsync();
-        HandleRuntimeControlSnapshot(snapshot, "Stop Runtime");
-        await RefreshRuntimeStatusAsync();
-    }
-
     private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
     {
         if (_allowExit)
         {
-            _previewController.Dispose();
             return;
         }
 
@@ -479,83 +449,48 @@ public partial class MainWindow : Window
 
     private void OnWindowOpened(object? sender, EventArgs e)
     {
-        EnsurePreviewActive();
-        _ = RefreshRuntimeStatusAsync();
+        ApplyPreviewSnapshot(_desktopRuntime.PreviewSnapshot);
+        ApplyRuntimeStatus(_desktopRuntime.RuntimeSnapshot);
     }
 
     public void EnsurePreviewActive()
     {
-        if (_previewController.TryStart(out _))
-        {
-            return;
-        }
+        ApplyPreviewSnapshot(_desktopRuntime.PreviewSnapshot);
     }
 
-    private async void OnRuntimeStatusTimerTick(object? sender, EventArgs e)
-    {
-        await RefreshRuntimeStatusAsync();
-    }
-
-    private async Task RefreshRuntimeStatusAsync()
-    {
-        if (_runtimeStatusRefreshPending)
-        {
-            return;
-        }
-
-        _runtimeStatusRefreshPending = true;
-        try
-        {
-            LinuxRuntimeServiceSnapshot serviceSnapshot = await _runtimeController.RefreshAsync();
-            LinuxRuntimeStateSnapshot? runtimeState = _runtimeStateStore.Load();
-            ApplyRuntimeStatus(serviceSnapshot, runtimeState);
-        }
-        finally
-        {
-            _runtimeStatusRefreshPending = false;
-        }
-    }
-
-    private void ApplyRuntimeStatus(
-        LinuxRuntimeServiceSnapshot serviceSnapshot,
-        LinuxRuntimeStateSnapshot? runtimeState)
+    private void ApplyRuntimeStatus(LinuxDesktopRuntimeSnapshot runtimeSnapshot)
     {
         string text;
         Color color;
-        bool runtimeFresh = runtimeState != null &&
-                            runtimeState.IsRunning &&
-                            DateTimeOffset.UtcNow - runtimeState.UpdatedUtc <= TimeSpan.FromSeconds(3);
 
-        if (serviceSnapshot.Status == LinuxRuntimeServiceStatus.Running && runtimeFresh)
+        switch (runtimeSnapshot.Status)
         {
-            text = runtimeState!.TypingEnabled
-                ? "Typing: on"
-                : "Typing: off";
-            color = runtimeState.TypingEnabled
-                ? Color.Parse("#CFECCB")
-                : Color.Parse("#FFD1C2");
-        }
-        else if (serviceSnapshot.Status == LinuxRuntimeServiceStatus.Running)
-        {
-            text = "Typing: syncing runtime...";
-            color = Color.Parse("#F7F2EA");
-        }
-        else if (serviceSnapshot.Status is LinuxRuntimeServiceStatus.Starting or LinuxRuntimeServiceStatus.Stopping)
-        {
-            text = serviceSnapshot.Status == LinuxRuntimeServiceStatus.Starting
-                ? "Typing: runtime starting..."
-                : "Typing: runtime stopping...";
-            color = Color.Parse("#F7F2EA");
-        }
-        else if (!serviceSnapshot.IsInstalled)
-        {
-            text = "Typing: runtime unavailable";
-            color = Color.Parse("#FFD1C2");
-        }
-        else
-        {
-            text = "Typing: runtime stopped";
-            color = Color.Parse("#D9C7B5");
+            case LinuxDesktopRuntimeStatus.Running:
+                text = runtimeSnapshot.TypingEnabled ? "Typing: on" : "Typing: off";
+                color = runtimeSnapshot.TypingEnabled
+                    ? Color.Parse("#CFECCB")
+                    : Color.Parse("#FFD1C2");
+                break;
+            case LinuxDesktopRuntimeStatus.Starting:
+                text = "Typing: runtime starting...";
+                color = Color.Parse("#F7F2EA");
+                break;
+            case LinuxDesktopRuntimeStatus.Stopping:
+                text = "Typing: runtime stopping...";
+                color = Color.Parse("#F7F2EA");
+                break;
+            case LinuxDesktopRuntimeStatus.WaitingForBindings:
+                text = "Typing: waiting for bindings";
+                color = Color.Parse("#D9C7B5");
+                break;
+            case LinuxDesktopRuntimeStatus.Faulted:
+                text = "Typing: runtime faulted";
+                color = Color.Parse("#FFD1C2");
+                break;
+            default:
+                text = "Typing: runtime stopped";
+                color = Color.Parse("#D9C7B5");
+                break;
         }
 
         _runtimeTypingStatusText.Text = text;
@@ -668,23 +603,15 @@ public partial class MainWindow : Window
         return root;
     }
 
-    private void HandleRuntimeControlSnapshot(LinuxRuntimeServiceSnapshot snapshot, string actionTitle)
+    private void OnRuntimeSnapshotChanged(LinuxDesktopRuntimeSnapshot snapshot)
     {
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(() => HandleRuntimeControlSnapshot(snapshot, actionTitle));
+            Dispatcher.UIThread.Post(() => OnRuntimeSnapshotChanged(snapshot));
             return;
         }
 
-        if (snapshot.IsInstalled && snapshot.Failure is null)
-        {
-            return;
-        }
-
-        string message = snapshot.Failure is null
-            ? snapshot.Message
-            : $"{snapshot.Message}{Environment.NewLine}{Environment.NewLine}{snapshot.Failure}";
-        ShowNoticeDialog(actionTitle, message);
+        ApplyRuntimeStatus(snapshot);
     }
 
     private void OnPreviewSnapshotChanged(LinuxInputPreviewSnapshot snapshot)

@@ -232,14 +232,13 @@ This is a product requirement, not just an engineering convenience:
 
 Current repo note:
 
-- the current Linux user-service/controller split is now treated as an engineering checkpoint, not the final desktop architecture
-- it validated that the runtime can stay headless and reusable
-- it also exposed the drawbacks of splitting desktop runtime ownership across a service process, a controller GUI, and separate preview/runtime state paths
-- the remaining implementation direction is now chosen:
-  - pivot Linux toward the Windows/macOS shape
-  - make the tray app own the runtime by default
-  - keep the config UI as an on-demand window from that tray app
-  - retain CLI/service flows as engineering and packaging paths, not the primary desktop UX
+- the service/controller split remains an engineering and headless path, not the primary desktop architecture
+- the default desktop source path now runs as a tray-owned runtime app with the config window opened on demand
+- the tray-owned desktop path now exposes live typing state and live preview from the same in-process runtime stream instead of polling a separate service/runtime-state path
+- the remaining implementation work is now mostly productization:
+  - validate and polish the tray-owned desktop host on the real Ubuntu session
+  - keep CLI/service flows supported for headless and packaging use
+  - make the packaged desktop path line up with the new source-level desktop architecture
 
 ### Recorded design decision
 
@@ -445,7 +444,8 @@ The architecture is not considered complete until:
 - [x] GUI has a first tray/top-bar shell via Avalonia `TrayIcon`
 - [x] Tray-owned runtime lifecycle is separate from the config window
 - [x] Normal config changes now flow through the XDG settings file and are reloaded in-process by the runtime owner
-- [x] GUI now has a live evdev input preview surface for visual input diagnostics without moving the runtime owner into the GUI
+- [x] GUI now has a live input preview fed from the same tray-owned runtime stream used for typing
+- [x] desktop source builds now default to an in-process tray-owned runtime instead of a GUI-controlled user service
 - [x] GUI publishes self-contained cleanly
 
 ## Remaining Work
@@ -475,10 +475,10 @@ The current GUI/service split proved useful for validation, but it is no longer 
 - [x] Make normal config changes propagate through the runtime owner without restarting `systemd`
 - [x] Add a first live trackpad visualizer so host debugging can distinguish input ingest from output/dispatch faults
 - [x] Decide that Linux should pivot toward the Windows/macOS product model: tray app owns runtime, config opens on demand, CLI/service stays secondary
-- [ ] Move runtime ownership from the service/controller split into the Linux tray app by default
-- [ ] Replace the current second-reader preview/status hacks with direct runtime state exposed from the tray-owned runtime where practical
-- [ ] Keep the config window off the hotpath even when the tray app owns the runtime process
-- [ ] Preserve the reusable CLI/service runtime host as a supported headless mode while the tray app becomes the default desktop host
+- [x] Move runtime ownership from the service/controller split into the Linux tray app by default
+- [x] Replace the current second-reader preview/status hacks with direct runtime state exposed from the tray-owned runtime where practical
+- [x] Keep the config window off the hotpath even when the tray app owns the runtime process
+- [x] Preserve the reusable CLI/service runtime host as a supported headless mode while the tray app becomes the default desktop host
 - [ ] Decide how much runtime diagnostics should live in the config UI versus remain CLI-only
 - [ ] Decide whether keymap editing is in-scope for the config UI or whether file-based custom keymaps remain the v1 story
 - [ ] Polish the packaged GUI launcher path and desktop entry behavior
@@ -517,10 +517,10 @@ These are intentionally not blocking the current packaging/productization push, 
 
 ## Recommended Immediate Work Order
 
-1. Decide and implement the final Linux runtime-owner/config-UI/tray split.
-2. Validate and polish the GUI tray/runtime control shell on the host.
-3. Validate `.deb` install, upgrade, and uninstall behavior end-to-end.
-4. Check in and keep maintaining the new Linux fixture set as regression coverage.
+1. Validate and polish the tray-owned Linux desktop host on the target Ubuntu session.
+2. Validate `.deb` install, upgrade, and uninstall behavior end-to-end for both desktop and headless stories.
+3. Decide the documented default install mode and tighten post-install guidance.
+4. Keep maintaining the Linux fixture set as regression coverage.
 5. Then return to deeper shared-core cleanup or deferred parity work.
 
 ## Build Commands

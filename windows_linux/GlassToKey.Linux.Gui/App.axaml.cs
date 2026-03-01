@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using GlassToKey.Linux.Runtime;
 
 namespace GlassToKey.Linux.Gui;
 
@@ -18,7 +19,7 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            _mainWindow = new MainWindow();
+            _mainWindow = new MainWindow(LinuxDesktopRuntimeEnvironment.SharedController);
             desktop.MainWindow = _mainWindow;
             _mainWindow.BeginTrayRuntimeOwnership();
         }
@@ -50,8 +51,7 @@ public partial class App : Application
     {
         if (_mainWindow != null)
         {
-            await _mainWindow.RequestExitAsync().ConfigureAwait(false);
-            return;
+            await _mainWindow.RequestExitAsync();
         }
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
