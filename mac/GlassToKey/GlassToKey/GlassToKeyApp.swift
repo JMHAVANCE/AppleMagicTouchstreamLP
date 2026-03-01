@@ -5,6 +5,18 @@ import SwiftUI
 import UniformTypeIdentifiers
 import os
 
+enum InputMonitoringPermission {
+    static func hasListenAccess() -> Bool {
+        CGPreflightListenEventAccess()
+    }
+
+    @discardableResult
+    static func requestListenAccessIfNeeded() -> Bool {
+        guard !hasListenAccess() else { return true }
+        return CGRequestListenEventAccess()
+    }
+}
+
 @main
 struct GlassToKeyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -69,6 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let shouldOpenConfigOnLaunch = !hasSavedConfiguration()
         initializeRunAtStartupPreference()
         controller.start()
+        normalizeKeyboardModePermissionState()
         configureStatusItem()
         observeStatus()
         if shouldOpenConfigOnLaunch {
@@ -77,6 +90,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    private func normalizeKeyboardModePermissionState() {
+        guard controller.viewModel.keyboardModeEnabled else { return }
+        guard !InputMonitoringPermission.hasListenAccess() else { return }
+        UserDefaults.standard.set(false, forKey: GlassToKeyDefaultsKeys.keyboardModeEnabled)
+        controller.viewModel.updateKeyboardModeEnabled(false)
+    }
 
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow,
@@ -614,6 +634,7 @@ private final class MouseEventBlocker {
     }
 
     private func ensureEventTap() {
+        guard InputMonitoringPermission.hasListenAccess() else { return }
         guard eventTap == nil else {
             if let tap = eventTap {
                 CGEvent.tapEnable(tap: tap, enable: true)

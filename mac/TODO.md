@@ -1,5 +1,5 @@
 ## TODO
-- Sign up for developer account so i can sign my app for release??
+- need a logo for glasstokey! Wintermute logo?
 - sometimes Mixed mode ignores taps for typing? frustrating when starting to type having to hit the key multiple times to start typing mode.
 - I think it was because early on i had you build a 2 key buffer before typing in the intent machine and I want to remove it.
 ^ tip switch like on windows?
@@ -20,7 +20,6 @@
 - sometimes tap-click types letters (Lifting fingers after tap)
 
 # Release Build:
-
-# xcodebuild -project mac/GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Release -destination 'platform=macOS' -derivedDataPath /tmp/GlassToKeyReleaseBuild build
-
-# /usr/bin/ditto /tmp/GlassToKeyReleaseBuild/Build/Products/Release/GlassToKey.app /Users/nap/Downloads/GlassToKey.app && ls -ld /Users/nap/Downloads/GlassToKey.app
+./release
+/usr/bin/ditto ~/Documents/AppleMagicTouchstreamLP/mac/release-output/1.0.0-1/GlassToKey-1.0.0.dmg /Users/nap/Downloads/
+# tccutil reset All ink.ranna.glasstokey

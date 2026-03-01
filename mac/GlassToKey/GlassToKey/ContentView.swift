@@ -562,6 +562,10 @@ struct ContentView: View {
                 viewModel.updateChordalShiftEnabled(newValue)
             }
             .onChange(of: keyboardModeEnabled) { newValue in
+                if newValue && !InputMonitoringPermission.requestListenAccessIfNeeded() {
+                    keyboardModeEnabled = false
+                    return
+                }
                 viewModel.updateKeyboardModeEnabled(newValue)
             }
             .onChange(of: runAtStartupEnabled) { newValue in
