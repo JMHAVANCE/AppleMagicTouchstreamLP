@@ -758,7 +758,7 @@ public partial class MainWindow : Window
             double yRatio = state.MaxY > 0 ? contact.Y / (double)state.MaxY : 0.5;
             double centerX = 12 + xRatio * (width - 24);
             double centerY = 12 + yRatio * (height - 24);
-            double radius = 10 + Math.Min(18, contact.Pressure / 12.0);
+            double radius = 18 + Math.Min(24, contact.Pressure / 10.0);
             bool activeTouch = contact.TipSwitch;
 
             Ellipse ellipse = new()
@@ -775,12 +775,12 @@ public partial class MainWindow : Window
 
             TextBlock label = new()
             {
-                Text = contact.Id.ToString(),
+                Text = $"f:{contact.Pressure}",
                 Foreground = new SolidColorBrush(Color.Parse("#1E2328")),
                 FontWeight = FontWeight.SemiBold
             };
             canvas.Children.Add(label);
-            Canvas.SetLeft(label, centerX - 4);
+            Canvas.SetLeft(label, centerX - 16);
             Canvas.SetTop(label, centerY - 8);
         }
     }
