@@ -10,7 +10,7 @@ AMT2 exposes a separate HID interface that identifies as an **Actuator** device.
 
 On at least some firmwares, sending a specific **HID output report** to that actuator interface triggers an immediate haptic pulse.
 
-In this repo, the production implementation is `GlassToKey/Core/Haptics/MagicTrackpadActuatorHaptics.cs`.
+In this repo, the production implementation is `GlassToKey.Windows/WindowsHaptics/MagicTrackpadActuatorHaptics.cs`.
 
 ## HID Interface Identification
 

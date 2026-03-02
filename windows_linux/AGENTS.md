@@ -90,11 +90,11 @@
 - Run overlapping `dotnet build` / `dotnet publish` commands for the same project graph sequentially. Parallel publishes can collide in shared `bin/` / `obj/` paths.
 
 ## Directory Map
-- `GlassToKey/`: Windows runtime, WPF UI, Raw Input, dispatch, replay, diagnostics, tray behavior.
-- `GlassToKey/Core/Engine/`: best first candidates for shared extraction.
-- `GlassToKey/Core/Dispatch/`: shared model seams plus Windows-specific `SendInput` implementation.
-- `GlassToKey/Core/Diagnostics/`: replay, capture, raw analysis, and self-test infrastructure.
-- `GlassToKey.Core/`: future platform-neutral engine/library.
+- `GlassToKey.Windows/`: Windows runtime, WPF UI, Raw Input, dispatch, replay, diagnostics, tray behavior.
+- `GlassToKey.Core/`: platform-neutral shared engine/library used by both Windows and Linux.
+- `GlassToKey.Windows/WindowsDispatch/`: Windows-specific dispatch implementation details.
+- `GlassToKey.Windows/WindowsHaptics/`: Windows-specific haptics integration.
+- `GlassToKey.Windows/WindowsDiagnostics/`: Windows-hosted replay, capture, raw analysis, and self-test infrastructure.
 - `GlassToKey.Platform.Linux/`: Linux device enumeration, evdev/uinput backend in progress.
 - `GlassToKey.Linux.Host/`: shared Linux host/config/runtime and doctor layer used by both CLI and GUI.
 - `GlassToKey.Linux/`: Linux CLI host and early packaging/publish surface.
@@ -102,12 +102,12 @@
 - `LINUX_GOLD.md`: canonical Linux implementation, validation, and remaining-work document.
 
 ## Important Boundaries
-- Keep Windows-only code in `GlassToKey/`: WPF, WinForms, Raw Input, `SendInput`, click suppression, tray/startup UI, Windows haptics.
+- Keep Windows-only code in `GlassToKey.Windows/`: WPF, WinForms, Raw Input, `SendInput`, click suppression, tray/startup UI, Windows haptics.
 - Keep `GlassToKey.Core/` free of WPF, WinForms, Raw Input, `SendInput`, `evdev`, and `uinput`.
 - Prefer moving shared engine, layout, keymap, touch-config, and runtime-profile behavior into `GlassToKey.Core/` when the dependency boundary permits it, instead of creating parallel Linux-specific implementations.
-- Shared code should be physically moved into `GlassToKey.Core/`; do not treat linked source files back into `GlassToKey/` as an acceptable steady state.
-- During the Linux/shared-core buildout, Windows may remain the source of truth for behavior, but extracted shared code should still be moved into `GlassToKey.Core/` rather than linked back to `GlassToKey/`.
-- The Windows rewrite to consume `GlassToKey.Core/` is a later migration step after Linux and shared-core extraction are complete.
+- Shared code should be physically moved into `GlassToKey.Core/`; do not treat linked source files back into `GlassToKey.Windows/` as an acceptable steady state.
+- During the Linux/shared-core buildout, Windows may remain the source of truth for behavior, but extracted shared code should still be moved into `GlassToKey.Core/` rather than linked back to `GlassToKey.Windows/`.
+- `GlassToKey.Windows` now consumes `GlassToKey.Core` through a real project reference; keep that dependency boundary clean.
 - When Linux exposes a missing abstraction, first ask whether it should be extracted into `GlassToKey.Core/` before adding more logic to `GlassToKey.Linux.Host/`, `GlassToKey.Linux.Gui/`, or `GlassToKey.Platform.Linux/`.
 - Linux work should consume platform-neutral models or semantics, not Windows virtual-key assumptions.
 - `DispatchKeyResolver.cs` is a known split point because Linux needs semantic actions or evdev key codes rather than Windows VK mappings. The current engine/dispatch path now carries `DispatchSemanticAction` metadata alongside Windows VK fields, so new Linux output work should build on that semantic payload instead of adding more VK-only assumptions.
@@ -136,12 +136,12 @@
 - Dispatch tracing for `run-engine` is optional diagnostic tooling, not a product requirement. It can help debug bindings or timing issues, but future `.atpcap` capture remains the better long-form artifact for deeper offline analysis.
 
 ## Key Files
-- `GlassToKey/TouchRuntimeService.cs`: current Windows hot path and runtime host.
-- `GlassToKey/RawInputInterop.cs`: Windows input ingestion.
-- `GlassToKey/Core/Dispatch/SendInputDispatcher.cs`: Windows output injection.
-- `GlassToKey/Core/Engine/TouchProcessorCore.cs`: likely shared extraction target.
-- `GlassToKey/Core/Diagnostics/SelfTestRunner.cs`: local deterministic Windows-side self-tests.
-- `GlassToKey/KeymapStore.cs`, `GlassToKey/LayoutBuilder.cs`, `GlassToKey/KeyLayout.cs`: likely shared-model candidates.
+- `GlassToKey.Windows/TouchRuntimeService.cs`: current Windows hot path and runtime host.
+- `GlassToKey.Windows/RawInputInterop.cs`: Windows input ingestion.
+- `GlassToKey.Windows/WindowsDispatch/SendInputDispatcher.cs`: Windows output injection.
+- `GlassToKey.Core/Engine/TouchProcessorCore.cs`: shared touch engine.
+- `GlassToKey.Windows/WindowsDiagnostics/SelfTestRunner.cs`: local deterministic Windows-side self-tests.
+- `GlassToKey.Core/Keymap/KeymapStore.cs`, `GlassToKey.Core/Layout/LayoutBuilder.cs`, `GlassToKey.Core/Layout/KeyLayout.cs`: shared model and layout path.
 
 ## Working Rules
 - Preserve current Windows behavior while extracting shared code.

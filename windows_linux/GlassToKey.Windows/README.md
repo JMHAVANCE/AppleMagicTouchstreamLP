@@ -88,7 +88,7 @@ dotnet build GlassToKey.Windows\GlassToKey.Windows.csproj -c Release
 ### Generate Replay Fixture From Capture
 1. Capture or choose a replay file (`.atpcap`).
 2. Generate fixture JSON:
-   - `powershell -ExecutionPolicy Bypass -File GlassToKey\fixtures\replay\New-ReplayFixture.ps1 -CapturePath GlassToKey\fixtures\replay\your_capture.atpcap -RelativeCapturePath`
+   - `powershell -ExecutionPolicy Bypass -File GlassToKey.Windows\fixtures\replay\New-ReplayFixture.ps1 -CapturePath GlassToKey.Windows\fixtures\replay\your_capture.atpcap -RelativeCapturePath`
 3. Validate replay against the generated fixture:
    - `dotnet run --project GlassToKey.Windows\GlassToKey.Windows.csproj -c Release -- --replay GlassToKey.Windows\fixtures\replay\your_capture.atpcap --fixture GlassToKey.Windows\fixtures\replay\your_capture.fixture.json`
 

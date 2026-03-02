@@ -168,7 +168,7 @@ The important distinction is:
 #### 6. Thin shipped apps
 
 - Windows desktop app:
-  - target shape: `GlassToKey.Windows` or the current `GlassToKey` renamed later
+  - `GlassToKey.Windows`
 - Linux runtime app:
   - `GlassToKey.Linux`
 - Linux GUI app:
