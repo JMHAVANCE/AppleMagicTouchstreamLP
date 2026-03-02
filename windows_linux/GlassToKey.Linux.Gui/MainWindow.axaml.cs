@@ -70,6 +70,8 @@ public partial class MainWindow : Window
         null,
         Array.Empty<LinuxInputPreviewTrackpadState>());
 
+    public event Action<bool>? CaptureStateChanged;
+
     public MainWindow()
         : this(LinuxDesktopRuntimeEnvironment.SharedController)
     {
@@ -347,7 +349,11 @@ public partial class MainWindow : Window
         if (_desktopRuntime.IsCapturingAtpCap)
         {
             LinuxDesktopAtpCapCaptureResult existingCapture = await _desktopRuntime.StopAtpCapCaptureAsync();
-            ShowNoticeDialog(existingCapture.Success ? "Capture Complete" : "Capture Failed", existingCapture.Summary);
+            NotifyCaptureStateChanged();
+            if (!existingCapture.Success)
+            {
+                ShowNoticeDialog("Capture Failed", existingCapture.Summary);
+            }
             return;
         }
 
@@ -380,7 +386,11 @@ public partial class MainWindow : Window
         if (!result.Success)
         {
             ShowNoticeDialog("Capture Failed", result.Summary);
+            NotifyCaptureStateChanged();
+            return;
         }
+
+        NotifyCaptureStateChanged();
     }
 
     public async Task ReplayAtpCapFromStatusAreaAsync()
@@ -388,6 +398,7 @@ public partial class MainWindow : Window
         if (_desktopRuntime.IsCapturingAtpCap)
         {
             LinuxDesktopAtpCapCaptureResult captureResult = await _desktopRuntime.StopAtpCapCaptureAsync();
+            NotifyCaptureStateChanged();
             if (!captureResult.Success)
             {
                 ShowNoticeDialog("Capture Failed", captureResult.Summary);
@@ -489,8 +500,8 @@ public partial class MainWindow : Window
         {
             if (_desktopRuntime.IsCapturingAtpCap)
             {
-                LinuxDesktopAtpCapCaptureResult result = await _desktopRuntime.StopAtpCapCaptureAsync();
-                ShowNoticeDialog(result.Success ? "Capture Complete" : "Capture Failed", result.Summary);
+                await _desktopRuntime.StopAtpCapCaptureAsync();
+                NotifyCaptureStateChanged();
             }
 
             Hide();
@@ -519,6 +530,7 @@ public partial class MainWindow : Window
         if (_desktopRuntime.IsCapturingAtpCap)
         {
             await _desktopRuntime.StopAtpCapCaptureAsync(canceled: true);
+            NotifyCaptureStateChanged();
         }
         _desktopRuntime.RequestStop();
         if (!Dispatcher.UIThread.CheckAccess())
@@ -1077,6 +1089,11 @@ public partial class MainWindow : Window
         }
 
         Activate();
+    }
+
+    private void NotifyCaptureStateChanged()
+    {
+        CaptureStateChanged?.Invoke(_desktopRuntime.IsCapturingAtpCap);
     }
 
     private void HideNoticeDialog()

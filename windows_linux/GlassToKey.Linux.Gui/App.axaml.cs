@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using System.Linq;
 using GlassToKey.Linux.Runtime;
 
 namespace GlassToKey.Linux.Gui;
@@ -9,10 +10,13 @@ namespace GlassToKey.Linux.Gui;
 public partial class App : Application
 {
     private MainWindow? _mainWindow;
+    private NativeMenuItem? _captureAtpCapMenuItem;
+    private NativeMenuItem? _replayAtpCapMenuItem;
 
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+        ResolveTrayMenuItems();
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -20,8 +24,10 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             _mainWindow = new MainWindow(LinuxDesktopRuntimeEnvironment.SharedController);
+            _mainWindow.CaptureStateChanged += OnMainWindowCaptureStateChanged;
             desktop.MainWindow = _mainWindow;
             _mainWindow.BeginTrayRuntimeOwnership();
+            UpdateTrayCaptureState(_mainWindow.IsCapturingAtpCap);
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -48,6 +54,7 @@ public partial class App : Application
         {
             ShowMainWindow();
             await _mainWindow.CaptureAtpCapFromStatusAreaAsync();
+            UpdateTrayCaptureState(_mainWindow.IsCapturingAtpCap);
         }
     }
 
@@ -55,6 +62,11 @@ public partial class App : Application
     {
         if (_mainWindow != null)
         {
+            if (_mainWindow.IsCapturingAtpCap)
+            {
+                return;
+            }
+
             ShowMainWindow();
             await _mainWindow.ReplayAtpCapFromStatusAreaAsync();
         }
@@ -88,5 +100,44 @@ public partial class App : Application
         _mainWindow.WindowState = WindowState.Normal;
         _mainWindow.EnsurePreviewActive();
         _mainWindow.Activate();
+    }
+
+    private void OnMainWindowCaptureStateChanged(bool isCapturing)
+    {
+        UpdateTrayCaptureState(isCapturing);
+    }
+
+    private void UpdateTrayCaptureState(bool isCapturing)
+    {
+        ResolveTrayMenuItems();
+        if (_captureAtpCapMenuItem != null)
+        {
+            _captureAtpCapMenuItem.Header = isCapturing ? "Stop Capture" : "Capture .atpcap";
+        }
+
+        if (_replayAtpCapMenuItem != null)
+        {
+            _replayAtpCapMenuItem.IsEnabled = !isCapturing;
+        }
+    }
+
+    private void ResolveTrayMenuItems()
+    {
+        if (_captureAtpCapMenuItem != null && _replayAtpCapMenuItem != null)
+        {
+            return;
+        }
+
+        TrayIcons? icons = TrayIcon.GetIcons(this);
+        if (icons == null || icons.Count == 0 || icons[0] is not TrayIcon trayIcon || trayIcon.Menu is not NativeMenu menu)
+        {
+            return;
+        }
+
+        _captureAtpCapMenuItem = menu.Items.OfType<NativeMenuItem>().FirstOrDefault(item =>
+            string.Equals(item.Header?.ToString(), "Capture .atpcap", StringComparison.Ordinal) ||
+            string.Equals(item.Header?.ToString(), "Stop Capture", StringComparison.Ordinal));
+        _replayAtpCapMenuItem = menu.Items.OfType<NativeMenuItem>().FirstOrDefault(item =>
+            string.Equals(item.Header?.ToString(), "Replay .atpcap", StringComparison.Ordinal));
     }
 }
