@@ -14,6 +14,7 @@ Current scope:
 - host the default desktop runtime in-process from the tray app while keeping the config window off the hotpath
 - inspect a live preview of bound trackpads from that same runtime stream for visual debugging
 - expose a first Ubuntu top-bar/tray shell with open, hide, doctor, capture/replay/summarize `.atpcap`, and quit actions
+- open `.atpcap` replay directly inside the config visualizer with play/pause and a time scrubber instead of only producing offline output
 - save back to the same Linux settings file used by the CLI/runtime
 
 Current phase:

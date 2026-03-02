@@ -24,11 +24,40 @@
                      Text="Typing: checking runtime..." />
         </StackPanel>
         <StackPanel Grid.Column="1"
-                    Orientation="Horizontal"
                     Spacing="10"
                     VerticalAlignment="Center">
-          <Button x:Name="ImportSettingsButton" Classes="headerAction" Content="Import Settings" />
-          <Button x:Name="ExportSettingsButton" Classes="headerAction" Content="Export Settings" />
+          <StackPanel Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="10">
+            <Button x:Name="ImportSettingsButton" Classes="headerAction" Content="Import Settings" />
+            <Button x:Name="ExportSettingsButton" Classes="headerAction" Content="Export Settings" />
+          </StackPanel>
+          <StackPanel x:Name="ReplayPanel"
+                      IsVisible="False"
+                      Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="10">
+            <Button x:Name="ReplayToggleButton"
+                    Classes="headerAction"
+                    Content="Play" />
+            <TextBlock Text="Speed"
+                       VerticalAlignment="Center"
+                       Foreground="#F7F2EA" />
+            <ComboBox x:Name="ReplaySpeedCombo"
+                      Width="90"
+                      MinWidth="90" />
+            <Slider x:Name="ReplayTimelineSlider"
+                    Width="320"
+                    Minimum="0"
+                    Maximum="1000"
+                    VerticalAlignment="Center" />
+            <TextBlock x:Name="ReplayTimeText"
+                       VerticalAlignment="Center"
+                       Foreground="#F7F2EA"
+                       Text="0.00s / 0.00s" />
+            <Button x:Name="ReplayCloseButton"
+                    Content="Close Replay" />
+          </StackPanel>
         </StackPanel>
       </Grid>
     </Border>

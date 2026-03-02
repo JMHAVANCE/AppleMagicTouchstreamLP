@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -7,6 +8,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.Media;
+using System.Diagnostics;
 using System.Text.Json;
 using GlassToKey.Linux.Config;
 using GlassToKey.Linux.Runtime;
@@ -32,15 +34,31 @@ public partial class MainWindow : Window
     private readonly ComboBox _fiveFingerSwipeRightCombo;
     private readonly ComboBox _fiveFingerSwipeUpCombo;
     private readonly ComboBox _fiveFingerSwipeDownCombo;
+    private readonly StackPanel _replayPanel;
+    private readonly Button _replayToggleButton;
+    private readonly Button _replayCloseButton;
+    private readonly ComboBox _replaySpeedCombo;
+    private readonly Slider _replayTimelineSlider;
+    private readonly TextBlock _replayTimeText;
     private readonly TextBlock _runtimeTypingStatusText;
     private readonly TextBlock _leftPreviewText;
     private readonly TextBlock _rightPreviewText;
     private readonly Canvas _leftPreviewCanvas;
     private readonly Canvas _rightPreviewCanvas;
+    private readonly DispatcherTimer _replayTimer;
     private bool _allowExit;
     private bool _runtimeOwnedByTray;
     private bool _loadingScreen;
     private bool _settingsApplyPending;
+    private bool _suppressReplayTimelineEvents;
+    private bool _suppressReplaySpeedEvents;
+    private bool _replayRunning;
+    private bool _replayCompleted;
+    private int _replayFrameIndex;
+    private long _replayPlayStartTicks;
+    private double _replayAccumulatedTicks;
+    private double _replaySpeed = 1.0;
+    private LinuxAtpCapReplayVisualData? _replayData;
     private LinuxInputPreviewSnapshot _previewSnapshot = new(
         LinuxInputPreviewStatus.Stopped,
         "The Linux tray runtime is stopped.",
@@ -63,11 +81,21 @@ public partial class MainWindow : Window
         _fiveFingerSwipeRightCombo = RequireControl<ComboBox>("FiveFingerSwipeRightCombo");
         _fiveFingerSwipeUpCombo = RequireControl<ComboBox>("FiveFingerSwipeUpCombo");
         _fiveFingerSwipeDownCombo = RequireControl<ComboBox>("FiveFingerSwipeDownCombo");
+        _replayPanel = RequireControl<StackPanel>("ReplayPanel");
+        _replayToggleButton = RequireControl<Button>("ReplayToggleButton");
+        _replayCloseButton = RequireControl<Button>("ReplayCloseButton");
+        _replaySpeedCombo = RequireControl<ComboBox>("ReplaySpeedCombo");
+        _replayTimelineSlider = RequireControl<Slider>("ReplayTimelineSlider");
+        _replayTimeText = RequireControl<TextBlock>("ReplayTimeText");
         _runtimeTypingStatusText = RequireControl<TextBlock>("RuntimeTypingStatusText");
         _leftPreviewText = RequireControl<TextBlock>("LeftPreviewText");
         _rightPreviewText = RequireControl<TextBlock>("RightPreviewText");
         _leftPreviewCanvas = RequireControl<Canvas>("LeftPreviewCanvas");
         _rightPreviewCanvas = RequireControl<Canvas>("RightPreviewCanvas");
+        _replayTimer = new DispatcherTimer(DispatcherPriority.Render)
+        {
+            Interval = TimeSpan.FromMilliseconds(8)
+        };
         _desktopRuntime.PreviewSnapshotChanged += OnPreviewSnapshotChanged;
         _desktopRuntime.RuntimeSnapshotChanged += OnRuntimeSnapshotChanged;
         Closing += OnWindowClosing;
@@ -96,6 +124,32 @@ public partial class MainWindow : Window
         _fiveFingerSwipeRightCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _fiveFingerSwipeUpCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _fiveFingerSwipeDownCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        _replayToggleButton.Click += OnReplayToggleClick;
+        _replayCloseButton.Click += OnReplayCloseClick;
+        _replaySpeedCombo.SelectionChanged += OnReplaySpeedChanged;
+        _replayTimelineSlider.PropertyChanged += OnReplayTimelinePropertyChanged;
+        _replayTimer.Tick += OnReplayTick;
+        InitializeReplayControls();
+    }
+
+    private void InitializeReplayControls()
+    {
+        _suppressReplaySpeedEvents = true;
+        ReplaySpeedOption[] options =
+        [
+            new(0.25, "0.25x"),
+            new(0.50, "0.5x"),
+            new(1.00, "1x"),
+            new(2.00, "2x"),
+            new(4.00, "4x")
+        ];
+        _replaySpeedCombo.ItemsSource = options;
+        _replaySpeedCombo.SelectedIndex = 2;
+        _suppressReplaySpeedEvents = false;
+        _replayTimelineSlider.Minimum = 0;
+        _replayTimelineSlider.Maximum = 1000;
+        _replayTimelineSlider.Value = 0;
+        UpdateReplayControls();
     }
 
     private void LoadScreen()
@@ -125,7 +179,14 @@ public partial class MainWindow : Window
         _fiveFingerSwipeUpCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeUpAction, "None");
         _fiveFingerSwipeDownCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeDownAction, "None");
         RenderKeymapPreview(configuration);
-        ApplyPreviewSnapshot(_previewSnapshot);
+        if (IsReplayMode)
+        {
+            ReloadReplayMode(configuration);
+        }
+        else
+        {
+            ApplyPreviewSnapshot(_previewSnapshot);
+        }
 
         _loadingScreen = false;
     }
@@ -336,12 +397,8 @@ public partial class MainWindow : Window
         try
         {
             LinuxRuntimeConfiguration configuration = _runtime.LoadReplayConfiguration();
-            string traceOutputPath = System.IO.Path.ChangeExtension(localPath, ".trace.json");
-            LinuxAtpCapReplayResult result = LinuxAtpCapTools.Replay(localPath, configuration, traceOutputPath);
-            string message = result.Success
-                ? $"{result.Summary}\nReplay trace written: {traceOutputPath}"
-                : result.Summary;
-            ShowNoticeDialog(result.Success ? "Replay Complete" : "Replay Failed", message);
+            LinuxAtpCapReplayVisualData replayData = LinuxAtpCapReplayVisualLoader.Load(localPath, configuration);
+            EnterReplayMode(replayData);
         }
         catch (Exception ex)
         {
@@ -585,12 +642,24 @@ public partial class MainWindow : Window
 
     private void OnWindowOpened(object? sender, EventArgs e)
     {
+        if (IsReplayMode)
+        {
+            ApplyReplayVisualState();
+            return;
+        }
+
         ApplyPreviewSnapshot(_desktopRuntime.PreviewSnapshot);
         ApplyRuntimeStatus(_desktopRuntime.RuntimeSnapshot);
     }
 
     public void EnsurePreviewActive()
     {
+        if (IsReplayMode)
+        {
+            ApplyReplayVisualState();
+            return;
+        }
+
         ApplyPreviewSnapshot(_desktopRuntime.PreviewSnapshot);
     }
 
@@ -631,6 +700,318 @@ public partial class MainWindow : Window
 
         _runtimeTypingStatusText.Text = text;
         _runtimeTypingStatusText.Foreground = new SolidColorBrush(color);
+    }
+
+    private bool IsReplayMode => _replayData != null;
+
+    private void EnterReplayMode(LinuxAtpCapReplayVisualData replayData)
+    {
+        PauseReplay();
+        _replayData = replayData;
+        _replayFrameIndex = 0;
+        _replayAccumulatedTicks = 0;
+        _replayCompleted = false;
+        _replayPanel.IsVisible = true;
+        _replayToggleButton.Content = "Play";
+        UpdateReplayControls();
+        ApplyReplayVisualState();
+        Activate();
+    }
+
+    private void ReloadReplayMode(LinuxRuntimeConfiguration configuration)
+    {
+        if (_replayData == null)
+        {
+            return;
+        }
+
+        double progressTicks = _replayRunning
+            ? ClampReplayProgress(GetReplayProgressTicks(Stopwatch.GetTimestamp()))
+            : ClampReplayProgress(_replayAccumulatedTicks);
+        bool wasRunning = _replayRunning;
+        string sourcePath = _replayData.SourcePath;
+        PauseReplay();
+        LinuxAtpCapReplayVisualData refreshed = LinuxAtpCapReplayVisualLoader.Load(sourcePath, configuration);
+        _replayData = refreshed;
+        _replayCompleted = false;
+        SeekToProgressTicks(progressTicks);
+        if (wasRunning)
+        {
+            StartReplay();
+        }
+        else
+        {
+            ApplyReplayVisualState();
+        }
+    }
+
+    private void ExitReplayMode()
+    {
+        PauseReplay();
+        _replayData = null;
+        _replayFrameIndex = 0;
+        _replayAccumulatedTicks = 0;
+        _replayCompleted = false;
+        _replayPanel.IsVisible = false;
+        UpdateReplayControls();
+        ApplyRuntimeStatus(_desktopRuntime.RuntimeSnapshot);
+        ApplyPreviewSnapshot(_desktopRuntime.PreviewSnapshot);
+    }
+
+    private void ApplyReplayVisualState()
+    {
+        if (_replayData == null)
+        {
+            return;
+        }
+
+        LinuxAtpCapReplayVisualFrame? current = GetCurrentReplayFrame();
+        if (current is null)
+        {
+            _leftPreviewCanvas.Children.Clear();
+            _rightPreviewCanvas.Children.Clear();
+            ApplyReplayStatus(null);
+            UpdateReplayControls();
+            return;
+        }
+
+        ApplyReplayStatus(current.Value);
+        ApplyPreviewSnapshot(current.Value.PreviewSnapshot);
+        UpdateReplayControls();
+    }
+
+    private void ApplyReplayStatus(LinuxAtpCapReplayVisualFrame? frame)
+    {
+        if (frame is null)
+        {
+            _runtimeTypingStatusText.Text = "Replay: empty capture";
+            _runtimeTypingStatusText.Foreground = new SolidColorBrush(Color.Parse("#D9C7B5"));
+            return;
+        }
+
+        LinuxDesktopRuntimeSnapshot runtimeSnapshot = frame.Value.RuntimeSnapshot;
+        string typing = runtimeSnapshot.TypingEnabled ? "on" : "off";
+        string state = _replayRunning ? "playing" : (_replayCompleted ? "complete" : "paused");
+        _runtimeTypingStatusText.Text = $"Replay: {state} | Typing: {typing} | Layer: {runtimeSnapshot.ActiveLayer}";
+        _runtimeTypingStatusText.Foreground = new SolidColorBrush(Color.Parse("#F7F2EA"));
+    }
+
+    private LinuxAtpCapReplayVisualFrame? GetCurrentReplayFrame()
+    {
+        if (_replayData == null || _replayData.Frames.Length == 0)
+        {
+            return null;
+        }
+
+        if (_replayFrameIndex <= 0)
+        {
+            return _replayData.Frames[0];
+        }
+
+        int index = Math.Min(_replayFrameIndex - 1, _replayData.Frames.Length - 1);
+        return _replayData.Frames[index];
+    }
+
+    private void OnReplayToggleClick(object? sender, RoutedEventArgs e)
+    {
+        if (!IsReplayMode)
+        {
+            return;
+        }
+
+        if (_replayRunning)
+        {
+            PauseReplay();
+            return;
+        }
+
+        StartReplay();
+    }
+
+    private void OnReplayCloseClick(object? sender, RoutedEventArgs e)
+    {
+        ExitReplayMode();
+    }
+
+    private void OnReplaySpeedChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (!IsReplayMode || _suppressReplaySpeedEvents || _replaySpeedCombo.SelectedItem is not ReplaySpeedOption option)
+        {
+            return;
+        }
+
+        long now = Stopwatch.GetTimestamp();
+        if (_replayRunning)
+        {
+            _replayAccumulatedTicks = ClampReplayProgress(GetReplayProgressTicks(now));
+            _replayPlayStartTicks = now;
+        }
+
+        _replaySpeed = option.Speed;
+        UpdateReplayControls();
+    }
+
+    private void OnReplayTimelinePropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property != RangeBase.ValueProperty || !IsReplayMode || _suppressReplayTimelineEvents)
+        {
+            return;
+        }
+
+        bool wasRunning = _replayRunning;
+        PauseReplay();
+        double ratio = _replayTimelineSlider.Maximum <= 0 ? 0 : _replayTimelineSlider.Value / _replayTimelineSlider.Maximum;
+        double targetTicks = ratio * (_replayData?.DurationStopwatchTicks ?? 0);
+        SeekToProgressTicks(targetTicks);
+        if (wasRunning)
+        {
+            StartReplay();
+        }
+    }
+
+    private void StartReplay()
+    {
+        if (_replayData == null || _replayData.Frames.Length == 0)
+        {
+            return;
+        }
+
+        if (_replayCompleted)
+        {
+            _replayFrameIndex = 0;
+            _replayAccumulatedTicks = 0;
+            _replayCompleted = false;
+        }
+
+        _replayRunning = true;
+        _replayPlayStartTicks = Stopwatch.GetTimestamp();
+        _replayTimer.Start();
+        _replayToggleButton.Content = "Pause";
+        UpdateReplayControls();
+    }
+
+    private void PauseReplay()
+    {
+        if (!_replayRunning)
+        {
+            return;
+        }
+
+        _replayAccumulatedTicks = ClampReplayProgress(GetReplayProgressTicks(Stopwatch.GetTimestamp()));
+        _replayRunning = false;
+        _replayTimer.Stop();
+        _replayToggleButton.Content = _replayCompleted ? "Replay" : "Play";
+        UpdateReplayControls();
+    }
+
+    private void OnReplayTick(object? sender, EventArgs e)
+    {
+        if (_replayData == null || !_replayRunning)
+        {
+            return;
+        }
+
+        double progressTicks = GetReplayProgressTicks(Stopwatch.GetTimestamp());
+        if (progressTicks >= _replayData.DurationStopwatchTicks)
+        {
+            SeekToProgressTicks(_replayData.DurationStopwatchTicks);
+            _replayCompleted = true;
+            PauseReplay();
+            return;
+        }
+
+        SeekToProgressTicks(progressTicks);
+    }
+
+    private double GetReplayProgressTicks(long nowTicks)
+    {
+        double progress = _replayAccumulatedTicks;
+        if (_replayRunning)
+        {
+            progress += (nowTicks - _replayPlayStartTicks) * _replaySpeed;
+        }
+
+        return progress;
+    }
+
+    private double ClampReplayProgress(double progressTicks)
+    {
+        if (_replayData == null)
+        {
+            return 0;
+        }
+
+        if (progressTicks < 0)
+        {
+            return 0;
+        }
+
+        if (progressTicks > _replayData.DurationStopwatchTicks)
+        {
+            return _replayData.DurationStopwatchTicks;
+        }
+
+        return progressTicks;
+    }
+
+    private void SeekToProgressTicks(double progressTicks)
+    {
+        if (_replayData == null)
+        {
+            return;
+        }
+
+        double clamped = ClampReplayProgress(progressTicks);
+        _replayAccumulatedTicks = clamped;
+        _replayFrameIndex = ResolveReplayFrameIndexForProgress(clamped);
+        _replayCompleted = _replayFrameIndex >= _replayData.Frames.Length && _replayData.Frames.Length > 0;
+        _replayToggleButton.Content = _replayCompleted ? "Replay" : (_replayRunning ? "Pause" : "Play");
+        ApplyReplayVisualState();
+    }
+
+    private int ResolveReplayFrameIndexForProgress(double progressTicks)
+    {
+        if (_replayData == null || _replayData.Frames.Length == 0)
+        {
+            return 0;
+        }
+
+        int lo = 0;
+        int hi = _replayData.Frames.Length;
+        while (lo < hi)
+        {
+            int mid = lo + ((hi - lo) >> 1);
+            if (_replayData.Frames[mid].OffsetStopwatchTicks <= progressTicks)
+            {
+                lo = mid + 1;
+            }
+            else
+            {
+                hi = mid;
+            }
+        }
+
+        return lo;
+    }
+
+    private void UpdateReplayControls()
+    {
+        bool hasFrames = _replayData != null && _replayData.Frames.Length > 0;
+        _replayPanel.IsVisible = IsReplayMode;
+        _replayToggleButton.IsEnabled = hasFrames;
+        _replayCloseButton.IsEnabled = IsReplayMode;
+        _replayTimelineSlider.IsEnabled = hasFrames;
+        _replaySpeedCombo.IsEnabled = hasFrames;
+
+        double durationTicks = _replayData?.DurationStopwatchTicks ?? 0;
+        double progressTicks = _replayRunning
+            ? ClampReplayProgress(GetReplayProgressTicks(Stopwatch.GetTimestamp()))
+            : ClampReplayProgress(_replayAccumulatedTicks);
+        double ratio = durationTicks <= 0 ? 0 : progressTicks / durationTicks;
+        _suppressReplayTimelineEvents = true;
+        _replayTimelineSlider.Value = ratio * _replayTimelineSlider.Maximum;
+        _suppressReplayTimelineEvents = false;
+        _replayTimeText.Text = $"{progressTicks / Stopwatch.Frequency:0.00}s / {durationTicks / Stopwatch.Frequency:0.00}s";
     }
 
     private void ShowNoticeDialog(string title, string message)
@@ -747,12 +1128,22 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (IsReplayMode)
+        {
+            return;
+        }
+
         ApplyRuntimeStatus(snapshot);
         ApplyPreviewSnapshot(_previewSnapshot);
     }
 
     private void OnPreviewSnapshotChanged(LinuxInputPreviewSnapshot snapshot)
     {
+        if (IsReplayMode)
+        {
+            return;
+        }
+
         ApplyPreviewSnapshot(snapshot);
     }
 
@@ -765,7 +1156,9 @@ public partial class MainWindow : Window
         }
 
         _previewSnapshot = snapshot;
-        int activeLayer = Math.Clamp(_desktopRuntime.RuntimeSnapshot.ActiveLayer, 0, 7);
+        int activeLayer = IsReplayMode
+            ? Math.Clamp(GetCurrentReplayFrame()?.RuntimeSnapshot.ActiveLayer ?? 0, 0, 7)
+            : Math.Clamp(_desktopRuntime.RuntimeSnapshot.ActiveLayer, 0, 7);
         LinuxInputPreviewTrackpadState? left = GetPreviewState(snapshot, TrackpadSide.Left);
         LinuxInputPreviewTrackpadState? right = GetPreviewState(snapshot, TrackpadSide.Right);
         _leftPreviewText.Text = BuildPreviewDetails(left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer);
@@ -1146,6 +1539,14 @@ public partial class MainWindow : Window
     }
 
     private sealed record GestureActionChoice(string Label, string Value)
+    {
+        public override string ToString()
+        {
+            return Label;
+        }
+    }
+
+    private sealed record ReplaySpeedOption(double Speed, string Label)
     {
         public override string ToString()
         {

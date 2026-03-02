@@ -63,6 +63,7 @@ public partial class App : Application
     {
         if (_mainWindow != null)
         {
+            ShowMainWindow();
             await _mainWindow.ReplayAtpCapFromStatusAreaAsync();
         }
     }

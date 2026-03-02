@@ -445,7 +445,7 @@ The architecture is not considered complete until:
 - [x] Tray-owned runtime lifecycle is separate from the config window
 - [x] Normal config changes now flow through the XDG settings file and are reloaded in-process by the runtime owner
 - [x] GUI now has a live input preview fed from the same tray-owned runtime stream used for typing
-- [x] Tray now exposes `.atpcap` capture, replay, and summarize actions for desktop debugging
+- [x] Tray now exposes `.atpcap` capture, replay, and summarize actions for desktop debugging, and replay now opens in the config visualizer with time-based playback controls
 - [x] desktop source builds now default to an in-process tray-owned runtime instead of a GUI-controlled user service
 - [x] GUI publishes self-contained cleanly
 
