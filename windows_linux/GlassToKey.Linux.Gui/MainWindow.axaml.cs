@@ -54,6 +54,7 @@ public partial class MainWindow : Window
     private bool _runtimeOwnedByTray;
     private bool _loadingScreen;
     private bool _settingsApplyPending;
+    private bool _hideInProgress;
     private bool _suppressReplayTimelineEvents;
     private bool _suppressReplaySpeedEvents;
     private bool _replayRunning;
@@ -471,6 +472,12 @@ public partial class MainWindow : Window
 
     public void HideToStatusArea()
     {
+        if (_hideInProgress)
+        {
+            return;
+        }
+
+        _hideInProgress = true;
         _ = HideToStatusAreaAsync();
     }
 
@@ -478,13 +485,20 @@ public partial class MainWindow : Window
 
     private async Task HideToStatusAreaAsync()
     {
-        if (_desktopRuntime.IsCapturingAtpCap)
+        try
         {
-            LinuxDesktopAtpCapCaptureResult result = await _desktopRuntime.StopAtpCapCaptureAsync();
-            ShowNoticeDialog(result.Success ? "Capture Complete" : "Capture Failed", result.Summary);
-        }
+            if (_desktopRuntime.IsCapturingAtpCap)
+            {
+                LinuxDesktopAtpCapCaptureResult result = await _desktopRuntime.StopAtpCapCaptureAsync();
+                ShowNoticeDialog(result.Success ? "Capture Complete" : "Capture Failed", result.Summary);
+            }
 
-        Hide();
+            Hide();
+        }
+        finally
+        {
+            _hideInProgress = false;
+        }
     }
 
     public void BeginTrayRuntimeOwnership()
@@ -663,7 +677,13 @@ public partial class MainWindow : Window
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime)
         {
             e.Cancel = true;
-            HideToStatusArea();
+            if (_hideInProgress)
+            {
+                return;
+            }
+
+            _hideInProgress = true;
+            _ = HideToStatusAreaAsync();
         }
     }
 
