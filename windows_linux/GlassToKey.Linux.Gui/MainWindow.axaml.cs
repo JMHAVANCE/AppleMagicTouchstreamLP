@@ -612,6 +612,7 @@ public partial class MainWindow : Window
         }
 
         ApplyRuntimeStatus(snapshot);
+        ApplyPreviewSnapshot(_previewSnapshot);
     }
 
     private void OnPreviewSnapshotChanged(LinuxInputPreviewSnapshot snapshot)
@@ -660,6 +661,7 @@ public partial class MainWindow : Window
             return "No bound trackpad on this side.";
         }
 
+        LinuxInputPreviewContact[] visibleContacts = GetVisibleContacts(state);
         LinuxInputPreviewContact[] activeContacts = GetTipContacts(state);
         int activeTipContacts = activeContacts.Length;
 
@@ -669,15 +671,15 @@ public partial class MainWindow : Window
             $"Node: {state.DeviceNode ?? "no-node"}",
             $"Frame: {state.FrameSequence}",
             $"Layer: {activeLayer}",
-            $"Contacts: {state.ContactCount} ({activeTipContacts} active tip)",
+            $"Contacts: {visibleContacts.Length} ({activeTipContacts} active tip)",
             $"Button: {(state.IsButtonPressed ? "down" : "up")}",
             $"Range: {state.MaxX} x {state.MaxY}",
             state.BindingMessage
         ];
 
-        if (activeContacts.Length > 0)
+        if (visibleContacts.Length > 0)
         {
-            LinuxInputPreviewContact contact = activeContacts[0];
+            LinuxInputPreviewContact contact = visibleContacts[0];
             lines.Add($"First contact: id {contact.Id} @ ({contact.X},{contact.Y}) pressure {contact.Pressure} tip={(contact.TipSwitch ? "down" : "up")}");
             string[] hits = ResolveTouchedLabels(state, layout, keymap, side, activeLayer);
             if (hits.Length > 0)
@@ -713,6 +715,9 @@ public partial class MainWindow : Window
         });
 
         RenderPreviewKeymapOverlay(canvas, layout, keymap, side, activeLayer, width, height, accentHex);
+        LinuxInputPreviewContact[] visibleContacts = state == null
+            ? Array.Empty<LinuxInputPreviewContact>()
+            : GetVisibleContacts(state);
         LinuxInputPreviewContact[] activeContacts = state == null
             ? Array.Empty<LinuxInputPreviewContact>()
             : GetTipContacts(state);
@@ -729,7 +734,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (activeContacts.Length == 0)
+        if (visibleContacts.Length == 0)
         {
             canvas.Children.Add(new TextBlock
             {
@@ -746,9 +751,9 @@ public partial class MainWindow : Window
         }
 
         Color accent = Color.Parse(accentHex);
-        for (int index = 0; index < activeContacts.Length; index++)
+        for (int index = 0; index < visibleContacts.Length; index++)
         {
-            LinuxInputPreviewContact contact = activeContacts[index];
+            LinuxInputPreviewContact contact = visibleContacts[index];
             double xRatio = state.MaxX > 0 ? contact.X / (double)state.MaxX : 0.5;
             double yRatio = state.MaxY > 0 ? contact.Y / (double)state.MaxY : 0.5;
             double centerX = 12 + xRatio * (width - 24);
@@ -778,6 +783,26 @@ public partial class MainWindow : Window
             Canvas.SetLeft(label, centerX - 4);
             Canvas.SetTop(label, centerY - 8);
         }
+    }
+
+    private static LinuxInputPreviewContact[] GetVisibleContacts(LinuxInputPreviewTrackpadState state)
+    {
+        if (state.Contacts.Count == 0)
+        {
+            return Array.Empty<LinuxInputPreviewContact>();
+        }
+
+        List<LinuxInputPreviewContact> visibleContacts = [];
+        for (int index = 0; index < state.Contacts.Count; index++)
+        {
+            LinuxInputPreviewContact contact = state.Contacts[index];
+            if (contact.TipSwitch || contact.Confidence || contact.Pressure > 0)
+            {
+                visibleContacts.Add(contact);
+            }
+        }
+
+        return visibleContacts.Count == 0 ? [.. state.Contacts] : [.. visibleContacts];
     }
 
     private static LinuxInputPreviewContact[] GetTipContacts(LinuxInputPreviewTrackpadState state)

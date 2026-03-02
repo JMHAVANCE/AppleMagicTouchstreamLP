@@ -12,6 +12,7 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
 {
     private static readonly TimeSpan SettingsPollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan PreviewPublishInterval = TimeSpan.FromMilliseconds(33);
+    private const int RuntimeSnapshotSyncTimeoutMs = 4;
     private static readonly JsonSerializerOptions SignatureSerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -156,7 +157,6 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
             frame.Snapshot.MaxX,
             frame.Snapshot.MaxY,
             frame.Snapshot.Frame.ArrivalQpcTicks);
-        session.Engine.Post(in envelope);
 
         bool publishPreviewImmediately;
         lock (_gate)
@@ -200,9 +200,19 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
             };
         }
 
+        bool posted = session.Engine.Post(in envelope);
         PublishPreviewIfDue(publishPreviewImmediately);
 
-        if (session.Engine.TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot))
+        if (!posted)
+        {
+            return;
+        }
+
+        TouchProcessorRuntimeSnapshot snapshot;
+        bool snapshotReady = publishPreviewImmediately
+            ? session.Engine.TryGetSynchronizedSnapshot(RuntimeSnapshotSyncTimeoutMs, out snapshot)
+            : session.Engine.TryGetSnapshot(out snapshot);
+        if (snapshotReady)
         {
             PublishRuntimeSnapshot(new LinuxDesktopRuntimeSnapshot(
                 LinuxDesktopRuntimeStatus.Running,

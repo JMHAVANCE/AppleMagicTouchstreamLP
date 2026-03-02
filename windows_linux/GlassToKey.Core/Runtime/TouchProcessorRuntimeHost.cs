@@ -55,6 +55,22 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         return true;
     }
 
+    public bool TryGetSynchronizedSnapshot(int timeoutMs, out TouchProcessorRuntimeSnapshot snapshot)
+    {
+        if (_disposed)
+        {
+            snapshot = default;
+            return false;
+        }
+
+        if (timeoutMs > 0)
+        {
+            _actor.WaitForIdle(timeoutMs);
+        }
+
+        return TryGetSnapshot(out snapshot);
+    }
+
     public void Dispose()
     {
         if (_disposed)
