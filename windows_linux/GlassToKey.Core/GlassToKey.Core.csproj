@@ -5,17 +5,4 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
-  <ItemGroup>
-    <Compile Include="..\GlassToKey\Core\Dispatch\DispatchModels.cs" Link="Dispatch\DispatchModels.cs" />
-    <Compile Include="..\GlassToKey\Core\Dispatch\DispatchSemanticResolver.cs" Link="Dispatch\DispatchSemanticResolver.cs" />
-    <Compile Include="..\GlassToKey\Core\Dispatch\DispatchKeyResolver.cs" Link="Dispatch\DispatchKeyResolver.cs" />
-    <Compile Include="..\GlassToKey\Core\Dispatch\DispatchEventQueue.cs" Link="Dispatch\DispatchEventQueue.cs" />
-    <Compile Include="..\GlassToKey\Core\Dispatch\DispatchEventPump.cs" Link="Dispatch\DispatchEventPump.cs" />
-    <Compile Include="..\GlassToKey\Core\Dispatch\IInputDispatcher.cs" Link="Dispatch\IInputDispatcher.cs" />
-    <Compile Include="..\GlassToKey\Core\Engine\TouchTable.cs" Link="Engine\TouchTable.cs" />
-    <Compile Include="..\GlassToKey\Core\Engine\EngineModels.cs" Link="Engine\EngineModels.cs" />
-    <Compile Include="..\GlassToKey\Core\Engine\BindingIndex.cs" Link="Engine\BindingIndex.cs" />
-    <Compile Include="..\GlassToKey\Core\Engine\TouchProcessorCore.cs" Link="Engine\TouchProcessorCore.cs" />
-    <Compile Include="..\GlassToKey\Core\Engine\TouchProcessorFactory.cs" Link="Engine\TouchProcessorFactory.cs" />
-  </ItemGroup>
 </Project>

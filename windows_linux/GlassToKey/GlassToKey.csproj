@@ -26,6 +26,17 @@
     <Compile Include="..\GlassToKey.Core\Input\InputFrame.cs" Link="Core\Input\InputFrame.cs" />
     <Compile Include="..\GlassToKey.Core\Input\ForceNormalizer.cs" Link="Core\Input\ForceNormalizer.cs" />
     <Compile Include="..\GlassToKey.Core\Input\ButtonEdgeTracker.cs" Link="Core\Input\ButtonEdgeTracker.cs" />
+    <Compile Include="..\GlassToKey.Core\Dispatch\DispatchModels.cs" Link="Core\Dispatch\DispatchModels.cs" />
+    <Compile Include="..\GlassToKey.Core\Dispatch\DispatchSemanticResolver.cs" Link="Core\Dispatch\DispatchSemanticResolver.cs" />
+    <Compile Include="..\GlassToKey.Core\Dispatch\DispatchKeyResolver.cs" Link="Core\Dispatch\DispatchKeyResolver.cs" />
+    <Compile Include="..\GlassToKey.Core\Dispatch\DispatchEventQueue.cs" Link="Core\Dispatch\DispatchEventQueue.cs" />
+    <Compile Include="..\GlassToKey.Core\Dispatch\DispatchEventPump.cs" Link="Core\Dispatch\DispatchEventPump.cs" />
+    <Compile Include="..\GlassToKey.Core\Dispatch\IInputDispatcher.cs" Link="Core\Dispatch\IInputDispatcher.cs" />
+    <Compile Include="..\GlassToKey.Core\Engine\TouchTable.cs" Link="Core\Engine\TouchTable.cs" />
+    <Compile Include="..\GlassToKey.Core\Engine\EngineModels.cs" Link="Core\Engine\EngineModels.cs" />
+    <Compile Include="..\GlassToKey.Core\Engine\BindingIndex.cs" Link="Core\Engine\BindingIndex.cs" />
+    <Compile Include="..\GlassToKey.Core\Engine\TouchProcessorCore.cs" Link="Core\Engine\TouchProcessorCore.cs" />
+    <Compile Include="..\GlassToKey.Core\Engine\TouchProcessorFactory.cs" Link="Core\Engine\TouchProcessorFactory.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Update="GLASSTOKEY_DEFAULT_KEYMAP.json">
