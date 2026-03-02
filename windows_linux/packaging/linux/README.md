@@ -20,8 +20,9 @@ Expected workflow:
 6. Run `init-config`
 7. Run `show-config`
 8. Use `bind-left` / `bind-right` if the defaults need correction
-9. Start the user service as the runtime owner
-10. Use the GUI as an optional config/doctor surface
+9. For direct CLI validation, run `glasstokey-linux run-engine` and stop it with `Ctrl+C`
+10. For desktop use, launch `glasstokey-linux-gui`; the tray app owns the default desktop runtime
+11. Only enable the user service if you want the optional headless/background runtime path
 
 Example:
 
@@ -43,8 +44,8 @@ bash ./packaging/linux/deb/build-deb.sh --version 0.1.0-dev --output-dir /tmp/gl
 Notes:
 
 - `install.sh` writes to `/opt`, `/usr/local/bin`, and `/etc/udev/rules.d`, so run it with `sudo`
-- `install.sh` now installs the GUI too when a matching self-contained GUI publish is present, giving you a fresh runtime service and config UI from one install pass
-- `--service-mode user` installs a user `systemd` unit but does not force-enable it; the script prints the exact `systemctl --user` commands to run next
+- `install.sh` now installs the GUI too when a matching self-contained GUI publish is present, giving you the tray-owned desktop app and the CLI/headless tools from one install pass
+- `--service-mode user` installs a user `systemd` unit for the optional headless/background runtime path; it does not force-enable it
 - reconnect the trackpads after install if the refreshed `udev` permissions have not applied yet
 - `deb/build-deb.sh` now expects the self-contained GUI publish output by default, so the `.deb` can carry a runnable GUI without a separate `.NET 10` GUI runtime dependency
 - current host finding: the packaged rule tags the older Bluetooth trackpad node with `uaccess`, but this Ubuntu session still did not receive a live ACL on the recreated node. Because of that, the checked-in packaging strategy now prefers the dedicated `glasstokey` group model instead of relying on `uaccess` alone.
