@@ -5,10 +5,7 @@
     "RightDevicePath": null,
     "ActiveLayer": 0,
     "LayoutPresetName": "6x3",
-    "DecoderProfilesByDevicePath": {
-      "\\\\?\\HID#VID_05AC&PID_0265&MI_01&Col01#a&383dcf5e&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}": "legacy",
-      "\\\\?\\HID#VID_05AC&PID_0265&MI_01&Col01#7&2c275592&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}": "legacy"
-    },
+    "DecoderProfilesByDevicePath": {},
     "VisualizerEnabled": true,
     "KeyboardModeEnabled": false,
     "AutocorrectEnabled": true,

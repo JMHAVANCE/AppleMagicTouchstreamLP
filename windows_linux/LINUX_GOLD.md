@@ -442,7 +442,7 @@ The architecture is not considered complete until:
 - [x] Avalonia GUI shell exists
 - [x] GUI can enumerate candidates and assign left/right devices
 - [x] GUI can select layout preset
-- [x] GUI can import/export Linux settings
+- [x] GUI can import/export the shared GlassToKey profile bundle shape (`Version` + `Settings` + `KeymapJson`)
 - [x] GUI can run and display `doctor`
 - [x] GUI has a first tray/top-bar shell via Avalonia `TrayIcon`
 - [x] Tray-owned runtime lifecycle is separate from the config window

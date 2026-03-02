@@ -16,6 +16,7 @@ Current scope:
 - expose a first Ubuntu top-bar/tray shell with open, hide, doctor, capture/replay/summarize `.atpcap`, and quit actions
 - open `.atpcap` replay directly inside the config visualizer with play/pause and a time scrubber instead of only producing offline output
 - save back to the same Linux settings file used by the CLI/runtime
+- import/export the same shared GlassToKey profile bundle shape used by Windows (`Version` + `Settings` + `KeymapJson`)
 
 Current phase:
 

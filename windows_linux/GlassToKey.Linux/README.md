@@ -20,7 +20,7 @@ Current CLI/runtime features:
 - `doctor` checks XDG config health, bundled keymap presence, live evdev bindings, and `/dev/uinput` readiness
 - `print-udev-rules` emits a packaging-oriented rule template for the currently detected Apple trackpads and `/dev/uinput`
 - `bind-left`, `bind-right`, and `swap-sides` manage explicit left/right assignment without editing settings by hand
-- `load-keymap` validates and saves a JSON keymap path into Linux host settings
+- `load-keymap` imports a full GlassToKey profile bundle when present (`Version` + `Settings` + `KeymapJson`), while still accepting raw keymap JSON as a fallback
 - `selftest` validates the bundled Linux keymap import path, rejects stray Windows-only bundled labels, and verifies semantic-to-evdev coverage for the current Linux action surface
 - `capture-atpcap` writes Linux `.atpcap` version 3 normalized frame captures for offline analysis
 - `summarize-atpcap` prints a quick summary of a Linux `.atpcap` capture
@@ -64,6 +64,7 @@ Quick start:
   - `glasstokey start`
 - stop the background CLI runtime with `glasstokey stop`
 - the documented default desktop path is `glasstokey-gui`; the tray app owns the runtime in normal desktop use
+- profile import/export is now shared with Windows: both sides use the same `Version` + `Settings` + `KeymapJson` bundle shape
 - if you want a bounded foreground smoke test instead of a background session, use `run-engine 10`
 - if you installed the optional headless user service, control it with:
   - `systemctl --user start glasstokey.service`

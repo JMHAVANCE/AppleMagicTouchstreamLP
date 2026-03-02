@@ -175,8 +175,6 @@ public sealed class LinuxAppRuntime
         }
 
         string? windowsBundleError = null;
-        string? linuxBundleError = null;
-        string? directSettingsError = null;
 
         if (LooksLikeWindowsSettingsBundle(json) &&
             TryImportWindowsSettingsBundle(json, fullPath, out LinuxHostSettings importedWindowsSettings, out windowsBundleError))
@@ -187,27 +185,10 @@ public sealed class LinuxAppRuntime
             return true;
         }
 
-        if (LooksLikeLinuxSettingsBundle(json) &&
-            TryImportLinuxSettingsBundle(json, fullPath, out LinuxHostSettings importedLinuxSettings, out linuxBundleError))
-        {
-            importedLinuxSettings.Normalize();
-            _settingsStore.Save(importedLinuxSettings);
-            message = $"Linux profile imported from '{fullPath}'.";
-            return true;
-        }
-
-        if (TryImportDirectLinuxSettings(json, out LinuxHostSettings directSettings, out directSettingsError))
-        {
-            directSettings.Normalize();
-            _settingsStore.Save(directSettings);
-            message = $"Linux settings imported from '{fullPath}'.";
-            return true;
-        }
-
         KeymapStore keymap = KeymapStore.LoadBundledDefault();
         if (!keymap.TryImportFromJson(json, out string error))
         {
-            message = $"Import '{fullPath}' could not be loaded: {windowsBundleError ?? linuxBundleError ?? directSettingsError ?? error}";
+            message = $"Import '{fullPath}' could not be loaded: {windowsBundleError ?? error}";
             return false;
         }
 
@@ -237,10 +218,10 @@ public sealed class LinuxAppRuntime
                 keymap = KeymapStore.LoadBundledDefault();
             }
 
-            LinuxSettingsBundleFile bundle = new()
+            WindowsSettingsBundleFile bundle = new()
             {
                 Version = 1,
-                Settings = settings,
+                Settings = settings.GetSharedProfile().Clone(),
                 KeymapJson = keymap.SerializeToJson(writeIndented: false)
             };
 
@@ -256,7 +237,7 @@ public sealed class LinuxAppRuntime
                 WriteIndented = true
             });
             File.WriteAllText(path, json);
-            message = $"Exported Linux profile to '{path}'.";
+            message = $"Exported GlassToKey profile to '{path}'.";
             return true;
         }
         catch (Exception ex)
@@ -264,53 +245,6 @@ public sealed class LinuxAppRuntime
             message = $"Failed to export Linux profile to '{path}': {ex.Message}";
             return false;
         }
-    }
-
-    private bool TryImportLinuxSettingsBundle(
-        string json,
-        string sourcePath,
-        out LinuxHostSettings settings,
-        out string? error)
-    {
-        settings = new LinuxHostSettings();
-        error = null;
-
-        LinuxSettingsBundleFile? bundle;
-        try
-        {
-            bundle = JsonSerializer.Deserialize<LinuxSettingsBundleFile>(
-                json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        }
-        catch (Exception ex)
-        {
-            error = ex.Message;
-            return false;
-        }
-
-        if (bundle?.Settings == null || string.IsNullOrWhiteSpace(bundle.KeymapJson))
-        {
-            error = "Expected a Linux settings export with both settings and keymap data.";
-            return false;
-        }
-
-        KeymapStore keymap = KeymapStore.LoadBundledDefault();
-        if (!keymap.TryImportFromJson(bundle.KeymapJson, out string keymapError))
-        {
-            error = $"Keymap section is invalid: {keymapError}";
-            return false;
-        }
-
-        string importedKeymapPath = GetImportedKeymapPath(sourcePath);
-        if (!keymap.TryExportToFile(importedKeymapPath, out string exportError))
-        {
-            error = $"Imported keymap could not be persisted: {exportError}";
-            return false;
-        }
-
-        settings = bundle.Settings;
-        settings.KeymapPath = importedKeymapPath;
-        return true;
     }
 
     private bool TryImportWindowsSettingsBundle(
@@ -363,32 +297,6 @@ public sealed class LinuxAppRuntime
         return true;
     }
 
-    private bool TryImportDirectLinuxSettings(string json, out LinuxHostSettings settings, out string? error)
-    {
-        error = null;
-        settings = new LinuxHostSettings();
-
-        try
-        {
-            LinuxHostSettings? imported = JsonSerializer.Deserialize<LinuxHostSettings>(
-                json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            if (imported == null)
-            {
-                error = "Linux settings JSON did not deserialize.";
-                return false;
-            }
-
-            settings = imported;
-            return true;
-        }
-        catch (Exception ex)
-        {
-            error = ex.Message;
-            return false;
-        }
-    }
-
     private string GetImportedKeymapPath(string sourcePath)
     {
         string settingsPath = _settingsStore.GetSettingsPath();
@@ -407,13 +315,6 @@ public sealed class LinuxAppRuntime
         return TryDetectSettingsProperty(json, "ActiveLayer") ||
                TryDetectSettingsProperty(json, "ColumnSettingsByLayout") ||
                TryDetectSettingsProperty(json, "LeftDevicePath");
-    }
-
-    private static bool LooksLikeLinuxSettingsBundle(string json)
-    {
-        return TryDetectSettingsProperty(json, "SharedProfile") ||
-               TryDetectSettingsProperty(json, "LeftTrackpadStableId") ||
-               TryDetectSettingsProperty(json, "RightTrackpadStableId");
     }
 
     private static bool TryDetectSettingsProperty(string json, string propertyName)
@@ -559,13 +460,6 @@ public sealed class LinuxAppRuntime
         }
 
         return null;
-    }
-
-    private sealed class LinuxSettingsBundleFile
-    {
-        public int Version { get; set; } = 1;
-        public LinuxHostSettings Settings { get; set; } = new();
-        public string KeymapJson { get; set; } = string.Empty;
     }
 
     private sealed class WindowsSettingsBundleFile
