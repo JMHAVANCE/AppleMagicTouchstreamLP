@@ -19,14 +19,19 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
     };
 
     private readonly object _gate = new();
+    private readonly object _captureGate = new();
     private readonly LinuxAppRuntime _appRuntime;
     private readonly LinuxInputRuntimeService _runtime;
     private readonly Dictionary<TrackpadSide, LinuxInputPreviewTrackpadState> _trackpads = new();
     private CancellationTokenSource? _ownerCts;
+    private CancellationTokenSource? _captureCts;
     private Task? _ownerTask;
+    private TaskCompletionSource<LinuxDesktopAtpCapCaptureResult>? _captureCompletion;
     private RuntimeSession? _session;
     private long _lastPreviewPublishTicks;
+    private int _captureFrameCount;
     private bool _disposed;
+    private LinuxAtpCapCaptureWriter? _captureWriter;
     private LinuxDesktopRuntimeSnapshot _runtimeSnapshot = LinuxDesktopRuntimeSnapshot.Stopped;
     private LinuxInputPreviewSnapshot _previewSnapshot = new(
         LinuxInputPreviewStatus.Stopped,
@@ -66,6 +71,63 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                 return _previewSnapshot;
             }
         }
+    }
+
+    public async Task<LinuxDesktopAtpCapCaptureResult> CaptureAtpCapAsync(
+        string outputPath,
+        TimeSpan duration,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(outputPath))
+        {
+            return new LinuxDesktopAtpCapCaptureResult(false, string.Empty, 0, "Capture path is empty.");
+        }
+
+        if (duration <= TimeSpan.Zero)
+        {
+            return new LinuxDesktopAtpCapCaptureResult(false, Path.GetFullPath(outputPath), 0, "Capture duration must be positive.");
+        }
+
+        lock (_gate)
+        {
+            if (_runtimeSnapshot.Status != LinuxDesktopRuntimeStatus.Running)
+            {
+                return new LinuxDesktopAtpCapCaptureResult(false, Path.GetFullPath(outputPath), 0, "The Linux tray runtime must be running before capture can start.");
+            }
+        }
+
+        TaskCompletionSource<LinuxDesktopAtpCapCaptureResult> completion;
+        CancellationTokenSource captureCts;
+        string fullPath = Path.GetFullPath(outputPath);
+        lock (_captureGate)
+        {
+            if (_captureWriter != null)
+            {
+                return new LinuxDesktopAtpCapCaptureResult(false, fullPath, 0, "An .atpcap capture is already running.");
+            }
+
+            _captureFrameCount = 0;
+            _captureWriter = new LinuxAtpCapCaptureWriter(fullPath);
+            _captureCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _captureCompletion = new TaskCompletionSource<LinuxDesktopAtpCapCaptureResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            completion = _captureCompletion;
+            captureCts = _captureCts;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(duration, captureCts.Token).ConfigureAwait(false);
+                CompleteCapture(success: true, path: fullPath, failure: null);
+            }
+            catch (OperationCanceledException)
+            {
+                CompleteCapture(success: false, path: fullPath, failure: "Capture canceled.");
+            }
+        });
+
+        return await completion.Task.ConfigureAwait(false);
     }
 
     public Task StartAsync(CancellationToken cancellationToken = default)
@@ -201,6 +263,14 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
         }
 
         bool posted = session.Engine.Post(in envelope);
+        lock (_captureGate)
+        {
+            _captureWriter?.WriteFrame(in frame);
+            if (_captureWriter != null)
+            {
+                _captureFrameCount++;
+            }
+        }
         PublishPreviewIfDue(publishPreviewImmediately);
 
         if (!posted)
@@ -266,6 +336,8 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
             _ownerTask = null;
             _trackpads.Clear();
         }
+
+        CompleteCapture(success: false, path: null, failure: "Capture stopped because the Linux tray runtime shut down.");
     }
 
     private async Task RunOwnerAsync(CancellationToken cancellationToken)
@@ -570,6 +642,47 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
         ObjectDisposedException.ThrowIf(_disposed, this);
     }
 
+    private void CompleteCapture(bool success, string? path, string? failure)
+    {
+        TaskCompletionSource<LinuxDesktopAtpCapCaptureResult>? completion;
+        LinuxAtpCapCaptureWriter? writer;
+        CancellationTokenSource? captureCts;
+        int frameCount;
+        string resolvedPath;
+        lock (_captureGate)
+        {
+            completion = _captureCompletion;
+            writer = _captureWriter;
+            captureCts = _captureCts;
+            frameCount = _captureFrameCount;
+            resolvedPath = path ?? string.Empty;
+            _captureCompletion = null;
+            _captureWriter = null;
+            _captureCts = null;
+            _captureFrameCount = 0;
+        }
+
+        if (completion == null)
+        {
+            return;
+        }
+
+        try
+        {
+            writer?.Dispose();
+        }
+        finally
+        {
+            captureCts?.Cancel();
+            captureCts?.Dispose();
+        }
+
+        string summary = success
+            ? $"Capture written: {resolvedPath} ({frameCount} frames)"
+            : failure ?? "Capture did not complete.";
+        completion.TrySetResult(new LinuxDesktopAtpCapCaptureResult(success, resolvedPath, frameCount, summary));
+    }
+
     private sealed class RuntimeSession : IDisposable
     {
         private readonly CancellationTokenSource _cts;
@@ -624,3 +737,9 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
         }
     }
 }
+
+public readonly record struct LinuxDesktopAtpCapCaptureResult(
+    bool Success,
+    string OutputPath,
+    int FrameCount,
+    string Summary);

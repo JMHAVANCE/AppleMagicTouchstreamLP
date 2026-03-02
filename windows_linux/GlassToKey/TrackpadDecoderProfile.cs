@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace GlassToKey;
 
-internal enum TrackpadDecoderProfile
+public enum TrackpadDecoderProfile
 {
     Legacy = 1,
     Official = 2

@@ -42,6 +42,30 @@ public partial class App : Application
         _mainWindow?.RunDoctorFromStatusArea();
     }
 
+    private async void OnTrayCaptureAtpCapClick(object? sender, EventArgs e)
+    {
+        if (_mainWindow != null)
+        {
+            await _mainWindow.CaptureAtpCapFromStatusAreaAsync();
+        }
+    }
+
+    private async void OnTrayReplayAtpCapClick(object? sender, EventArgs e)
+    {
+        if (_mainWindow != null)
+        {
+            await _mainWindow.ReplayAtpCapFromStatusAreaAsync();
+        }
+    }
+
+    private async void OnTraySummarizeAtpCapClick(object? sender, EventArgs e)
+    {
+        if (_mainWindow != null)
+        {
+            await _mainWindow.SummarizeAtpCapFromStatusAreaAsync();
+        }
+    }
+
     private void OnTrayHideClick(object? sender, EventArgs e)
     {
         _mainWindow?.HideToStatusArea();

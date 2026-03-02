@@ -14,11 +14,6 @@
     <ProjectReference Include="..\GlassToKey.Linux.Host\GlassToKey.Linux.Host.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\GlassToKey\Core\Diagnostics\InputCaptureFile.cs" Link="Diagnostics\InputCaptureFile.cs" />
-    <Compile Include="..\GlassToKey\Core\Diagnostics\AtpCapV3Payload.cs" Link="Diagnostics\AtpCapV3Payload.cs" />
-    <Compile Include="..\GlassToKey\Core\Diagnostics\FrameMetrics.cs" Link="Diagnostics\FrameMetrics.cs" />
-  </ItemGroup>
-  <ItemGroup>
     <None Update="GLASSTOKEY_DEFAULT_KEYMAP.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

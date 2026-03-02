@@ -16,6 +16,7 @@ namespace GlassToKey.Linux.Gui;
 
 public partial class MainWindow : Window
 {
+    private static readonly TimeSpan TrayAtpCapCaptureDuration = TimeSpan.FromSeconds(20);
     private const double TrackpadWidthMm = 160.0;
     private const double TrackpadHeightMm = 114.9;
     private const double KeyWidthMm = 18.0;
@@ -264,6 +265,107 @@ public partial class MainWindow : Window
     {
         LinuxDoctorResult result = LinuxDoctorRunner.Run();
         ShowDoctorReportWindow(result);
+    }
+
+    public async Task CaptureAtpCapFromStatusAreaAsync()
+    {
+        if (!StorageProvider.CanSave)
+        {
+            ShowNoticeDialog(
+                "Capture Unavailable",
+                "This Linux GUI session cannot open a save picker on the current platform backend.");
+            return;
+        }
+
+        IStorageFile? file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Capture GlassToKey Linux .atpcap",
+            SuggestedFileName = $"glasstokey-linux-{DateTime.Now:yyyyMMdd-HHmmss}.atpcap",
+            DefaultExtension = "atpcap",
+            FileTypeChoices =
+            [
+                new FilePickerFileType("ATPCAP") { Patterns = ["*.atpcap"] }
+            ]
+        });
+
+        string? localPath = file?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(localPath))
+        {
+            return;
+        }
+
+        ShowNoticeDialog(
+            "Capture Started",
+            $"Capturing the live Linux tray runtime for {TrayAtpCapCaptureDuration.TotalSeconds:0} seconds to:\n{localPath}");
+        LinuxDesktopAtpCapCaptureResult result = await _desktopRuntime.CaptureAtpCapAsync(localPath, TrayAtpCapCaptureDuration);
+        ShowNoticeDialog(result.Success ? "Capture Complete" : "Capture Failed", result.Summary);
+    }
+
+    public async Task ReplayAtpCapFromStatusAreaAsync()
+    {
+        if (!StorageProvider.CanOpen)
+        {
+            ShowNoticeDialog(
+                "Replay Unavailable",
+                "This Linux GUI session cannot open a file picker on the current platform backend.");
+            return;
+        }
+
+        IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Replay GlassToKey Linux .atpcap",
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("ATPCAP") { Patterns = ["*.atpcap"] },
+                new FilePickerFileType("All Files") { Patterns = ["*"] }
+            ]
+        });
+
+        string? localPath = files.Count > 0 ? files[0].TryGetLocalPath() : null;
+        if (string.IsNullOrWhiteSpace(localPath))
+        {
+            return;
+        }
+
+        LinuxRuntimeConfiguration configuration = _runtime.LoadReplayConfiguration();
+        string traceOutputPath = System.IO.Path.ChangeExtension(localPath, ".trace.json");
+        LinuxAtpCapReplayResult result = LinuxAtpCapTools.Replay(localPath, configuration, traceOutputPath);
+        string message = result.Success
+            ? $"{result.Summary}\nReplay trace written: {traceOutputPath}"
+            : result.Summary;
+        ShowNoticeDialog(result.Success ? "Replay Complete" : "Replay Failed", message);
+    }
+
+    public async Task SummarizeAtpCapFromStatusAreaAsync()
+    {
+        if (!StorageProvider.CanOpen)
+        {
+            ShowNoticeDialog(
+                "Summary Unavailable",
+                "This Linux GUI session cannot open a file picker on the current platform backend.");
+            return;
+        }
+
+        IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Summarize GlassToKey Linux .atpcap",
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("ATPCAP") { Patterns = ["*.atpcap"] },
+                new FilePickerFileType("All Files") { Patterns = ["*"] }
+            ]
+        });
+
+        string? localPath = files.Count > 0 ? files[0].TryGetLocalPath() : null;
+        if (string.IsNullOrWhiteSpace(localPath))
+        {
+            return;
+        }
+
+        LinuxAtpCapSummaryResult result = LinuxAtpCapTools.Summarize(localPath);
+        ShowNoticeDialog(result.Success ? "Capture Summary" : "Summary Failed", result.Summary);
     }
 
     public void HideToStatusArea()
