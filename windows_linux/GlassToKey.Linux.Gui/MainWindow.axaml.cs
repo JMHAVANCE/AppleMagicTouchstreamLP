@@ -628,12 +628,13 @@ public partial class MainWindow : Window
         }
 
         _previewSnapshot = snapshot;
+        int activeLayer = Math.Clamp(_desktopRuntime.RuntimeSnapshot.ActiveLayer, 0, 7);
         LinuxInputPreviewTrackpadState? left = GetPreviewState(snapshot, TrackpadSide.Left);
         LinuxInputPreviewTrackpadState? right = GetPreviewState(snapshot, TrackpadSide.Right);
-        _leftPreviewText.Text = BuildPreviewDetails(left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left);
-        _rightPreviewText.Text = BuildPreviewDetails(right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right);
-        RenderPreviewCanvas(_leftPreviewCanvas, left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, "#D05A2A");
-        RenderPreviewCanvas(_rightPreviewCanvas, right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, "#246A73");
+        _leftPreviewText.Text = BuildPreviewDetails(left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer);
+        _rightPreviewText.Text = BuildPreviewDetails(right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, activeLayer);
+        RenderPreviewCanvas(_leftPreviewCanvas, left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer, "#D05A2A");
+        RenderPreviewCanvas(_rightPreviewCanvas, right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, activeLayer, "#246A73");
 
     }
 
@@ -652,7 +653,7 @@ public partial class MainWindow : Window
         return null;
     }
 
-    private static string BuildPreviewDetails(LinuxInputPreviewTrackpadState? state, KeyLayout layout, KeymapStore keymap, TrackpadSide side)
+    private static string BuildPreviewDetails(LinuxInputPreviewTrackpadState? state, KeyLayout layout, KeymapStore keymap, TrackpadSide side, int activeLayer)
     {
         if (state == null)
         {
@@ -667,6 +668,7 @@ public partial class MainWindow : Window
             $"Binding: {state.BindingStatus}",
             $"Node: {state.DeviceNode ?? "no-node"}",
             $"Frame: {state.FrameSequence}",
+            $"Layer: {activeLayer}",
             $"Contacts: {state.ContactCount} ({activeTipContacts} active tip)",
             $"Button: {(state.IsButtonPressed ? "down" : "up")}",
             $"Range: {state.MaxX} x {state.MaxY}",
@@ -677,7 +679,7 @@ public partial class MainWindow : Window
         {
             LinuxInputPreviewContact contact = activeContacts[0];
             lines.Add($"First contact: id {contact.Id} @ ({contact.X},{contact.Y}) pressure {contact.Pressure} tip={(contact.TipSwitch ? "down" : "up")}");
-            string[] hits = ResolveTouchedLabels(state, layout, keymap, side);
+            string[] hits = ResolveTouchedLabels(state, layout, keymap, side, activeLayer);
             if (hits.Length > 0)
             {
                 lines.Add($"Touched keys: {string.Join(", ", hits)}");
@@ -693,6 +695,7 @@ public partial class MainWindow : Window
         KeyLayout layout,
         KeymapStore keymap,
         TrackpadSide side,
+        int activeLayer,
         string accentHex)
     {
         canvas.Children.Clear();
@@ -709,7 +712,7 @@ public partial class MainWindow : Window
             StrokeThickness = 1
         });
 
-        RenderPreviewKeymapOverlay(canvas, layout, keymap, side, width, height, accentHex);
+        RenderPreviewKeymapOverlay(canvas, layout, keymap, side, activeLayer, width, height, accentHex);
         LinuxInputPreviewContact[] activeContacts = state == null
             ? Array.Empty<LinuxInputPreviewContact>()
             : GetTipContacts(state);
@@ -819,6 +822,7 @@ public partial class MainWindow : Window
         KeyLayout layout,
         KeymapStore keymap,
         TrackpadSide side,
+        int activeLayer,
         double width,
         double height,
         string accentHex)
@@ -835,7 +839,7 @@ public partial class MainWindow : Window
             {
                 NormalizedRect rect = layout.Rects[row][col];
                 string storageKey = GridKeyPosition.StorageKey(side, row, col);
-                string label = keymap.ResolveMapping(0, storageKey, layout.Labels[row][col]).Primary.Label;
+                string label = keymap.ResolveMapping(activeLayer, storageKey, layout.Labels[row][col]).Primary.Label;
 
                 Border keyBorder = new()
                 {
@@ -870,7 +874,7 @@ public partial class MainWindow : Window
             }
         }
 
-        IReadOnlyList<CustomButton> customButtons = keymap.ResolveCustomButtons(0, side);
+        IReadOnlyList<CustomButton> customButtons = keymap.ResolveCustomButtons(activeLayer, side);
         for (int index = 0; index < customButtons.Count; index++)
         {
             CustomButton button = customButtons[index];
@@ -906,7 +910,8 @@ public partial class MainWindow : Window
         LinuxInputPreviewTrackpadState state,
         KeyLayout layout,
         KeymapStore keymap,
-        TrackpadSide side)
+        TrackpadSide side,
+        int activeLayer)
     {
         if (layout.HitGeometries.Length == 0 || state.Contacts.Count == 0 || state.MaxX == 0 || state.MaxY == 0)
         {
@@ -934,12 +939,12 @@ public partial class MainWindow : Window
                     }
 
                     string storageKey = GridKeyPosition.StorageKey(side, row, col);
-                    labels.Add(keymap.ResolveMapping(0, storageKey, layout.Labels[row][col]).Primary.Label);
+                    labels.Add(keymap.ResolveMapping(activeLayer, storageKey, layout.Labels[row][col]).Primary.Label);
                 }
             }
         }
 
-        IReadOnlyList<CustomButton> customButtons = keymap.ResolveCustomButtons(0, side);
+        IReadOnlyList<CustomButton> customButtons = keymap.ResolveCustomButtons(activeLayer, side);
         for (int index = 0; index < state.Contacts.Count; index++)
         {
             LinuxInputPreviewContact contact = state.Contacts[index];
