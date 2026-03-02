@@ -329,6 +329,18 @@ public partial class MainWindow : Window
 
     public async Task CaptureAtpCapFromStatusAreaAsync()
     {
+        if (IsReplayMode)
+        {
+            ExitReplayMode();
+        }
+
+        if (_desktopRuntime.IsCapturingAtpCap)
+        {
+            LinuxDesktopAtpCapCaptureResult existingCapture = await _desktopRuntime.StopAtpCapCaptureAsync();
+            ShowNoticeDialog(existingCapture.Success ? "Capture Complete" : "Capture Failed", existingCapture.Summary);
+            return;
+        }
+
         if (!StorageProvider.CanSave)
         {
             ShowNoticeDialog(
@@ -361,14 +373,18 @@ public partial class MainWindow : Window
         }
     }
 
-    public async Task StopAtpCapFromStatusAreaAsync()
-    {
-        LinuxDesktopAtpCapCaptureResult result = await _desktopRuntime.StopAtpCapCaptureAsync();
-        ShowNoticeDialog(result.Success ? "Capture Complete" : "Capture Failed", result.Summary);
-    }
-
     public async Task ReplayAtpCapFromStatusAreaAsync()
     {
+        if (_desktopRuntime.IsCapturingAtpCap)
+        {
+            LinuxDesktopAtpCapCaptureResult captureResult = await _desktopRuntime.StopAtpCapCaptureAsync();
+            if (!captureResult.Success)
+            {
+                ShowNoticeDialog("Capture Failed", captureResult.Summary);
+                return;
+            }
+        }
+
         if (!StorageProvider.CanOpen)
         {
             ShowNoticeDialog(
@@ -448,6 +464,8 @@ public partial class MainWindow : Window
     {
         _ = HideToStatusAreaAsync();
     }
+
+    public bool IsCapturingAtpCap => _desktopRuntime.IsCapturingAtpCap;
 
     private async Task HideToStatusAreaAsync()
     {
@@ -963,6 +981,11 @@ public partial class MainWindow : Window
 
         double clamped = ClampReplayProgress(progressTicks);
         _replayAccumulatedTicks = clamped;
+        if (_replayRunning)
+        {
+            _replayPlayStartTicks = Stopwatch.GetTimestamp();
+        }
+
         _replayFrameIndex = ResolveReplayFrameIndexForProgress(clamped);
         _replayCompleted = _replayFrameIndex >= _replayData.Frames.Length && _replayData.Frames.Length > 0;
         _replayToggleButton.Content = _replayCompleted ? "Replay" : (_replayRunning ? "Pause" : "Play");

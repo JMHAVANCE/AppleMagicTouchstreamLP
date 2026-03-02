@@ -51,14 +51,6 @@ public partial class App : Application
         }
     }
 
-    private async void OnTrayStopAtpCapClick(object? sender, EventArgs e)
-    {
-        if (_mainWindow != null)
-        {
-            await _mainWindow.StopAtpCapFromStatusAreaAsync();
-        }
-    }
-
     private async void OnTrayReplayAtpCapClick(object? sender, EventArgs e)
     {
         if (_mainWindow != null)
@@ -66,19 +58,6 @@ public partial class App : Application
             ShowMainWindow();
             await _mainWindow.ReplayAtpCapFromStatusAreaAsync();
         }
-    }
-
-    private async void OnTraySummarizeAtpCapClick(object? sender, EventArgs e)
-    {
-        if (_mainWindow != null)
-        {
-            await _mainWindow.SummarizeAtpCapFromStatusAreaAsync();
-        }
-    }
-
-    private void OnTrayHideClick(object? sender, EventArgs e)
-    {
-        _mainWindow?.HideToStatusArea();
     }
 
     private async void OnTrayQuitClick(object? sender, EventArgs e)
