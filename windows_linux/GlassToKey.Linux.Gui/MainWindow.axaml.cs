@@ -368,7 +368,7 @@ public partial class MainWindow : Window
         IStorageFile? file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Capture GlassToKey Linux .atpcap",
-            SuggestedFileName = $"glasstokey-linux-{DateTime.Now:yyyyMMdd-HHmmss}.atpcap",
+            SuggestedFileName = $"glasstokey-{DateTime.Now:yyyyMMdd-HHmmss}.atpcap",
             DefaultExtension = "atpcap",
             FileTypeChoices =
             [

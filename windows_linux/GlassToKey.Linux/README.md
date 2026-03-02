@@ -15,17 +15,20 @@ Responsibilities:
 
 Current CLI/runtime features:
 
-- `show-config` prints the resolved XDG-backed host settings, selected trackpads, preset, and keymap path
+- `show-config` opens the config GUI in graphical sessions when available, and `show-config --print` prints the resolved XDG-backed host settings, selected trackpads, preset, and keymap path
 - `init-config` writes default Linux host settings using detected stable IDs
 - `doctor` checks XDG config health, bundled keymap presence, live evdev bindings, and `/dev/uinput` readiness
 - `print-udev-rules` emits a packaging-oriented rule template for the currently detected Apple trackpads and `/dev/uinput`
 - `bind-left`, `bind-right`, and `swap-sides` manage explicit left/right assignment without editing settings by hand
+- `load-keymap` validates and saves a JSON keymap path into Linux host settings
 - `selftest` validates the bundled Linux keymap import path, rejects stray Windows-only bundled labels, and verifies semantic-to-evdev coverage for the current Linux action surface
 - `capture-atpcap` writes Linux `.atpcap` version 3 normalized frame captures for offline analysis
 - `summarize-atpcap` prints a quick summary of a Linux `.atpcap` capture
 - `replay-atpcap` replays a Linux `.atpcap` capture through the shared engine path and can emit a replay trace JSON
 - `write-atpcap-fixture` writes a replay expectation fixture from an existing Linux `.atpcap` capture
 - `check-atpcap-fixture` replays a Linux `.atpcap` capture and validates it against an expectation fixture
+- `start` launches the headless runtime in the background and returns the shell prompt
+- `stop` stops that background runtime
 - `run-engine` now consumes the resolved settings so stable-id selection, preset choice, and optional keymap override are part of the live runtime path
 - `watch-runtime`, `capture-atpcap`, and `run-engine` now report binding-state transitions so disconnect/rebind churn is visible during live Linux runs
 - the Linux host now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, and the embedded bundled keymap payload has been translated away from Windows-only defaults like `EMOJI`, `LWin`, and `Win+H`
@@ -42,6 +45,28 @@ Current phase:
 - early usable alpha
 - the live Linux typing path is working on the tested Ubuntu 24.04 host
 - packaging and GUI productization are the main remaining gaps
+
+Quick start:
+
+- source run:
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- doctor`
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- init-config`
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- show-config --print`
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- load-keymap /path/to/keymap.json`
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- start`
+- installed wrapper run:
+  - `glasstokey doctor`
+  - `glasstokey init-config`
+  - `glasstokey show-config`
+  - `glasstokey load-keymap /path/to/keymap.json`
+  - `glasstokey start`
+- stop the background CLI runtime with `glasstokey stop`
+- if you want a bounded foreground smoke test instead of a background session, use `run-engine 10`
+- if you installed the optional headless user service, control it with:
+  - `systemctl --user start glasstokey.service`
+  - `systemctl --user stop glasstokey.service`
+  - `systemctl --user restart glasstokey.service`
+  - `journalctl --user -u glasstokey.service -f`
 
 Publish commands:
 

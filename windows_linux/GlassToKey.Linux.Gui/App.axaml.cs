@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using System.Linq;
 using GlassToKey.Linux.Runtime;
 
@@ -12,6 +13,8 @@ public partial class App : Application
     private MainWindow? _mainWindow;
     private NativeMenuItem? _captureAtpCapMenuItem;
     private NativeMenuItem? _replayAtpCapMenuItem;
+    private readonly LinuxGuiActivationSignalStore _activationSignalStore = new();
+    private DispatcherTimer? _activationTimer;
 
     public override void Initialize()
     {
@@ -28,6 +31,7 @@ public partial class App : Application
             desktop.MainWindow = _mainWindow;
             _mainWindow.BeginTrayRuntimeOwnership();
             UpdateTrayCaptureState(_mainWindow.IsCapturingAtpCap);
+            StartActivationPolling();
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -139,5 +143,31 @@ public partial class App : Application
             string.Equals(item.Header?.ToString(), "Stop Capture", StringComparison.Ordinal));
         _replayAtpCapMenuItem = menu.Items.OfType<NativeMenuItem>().FirstOrDefault(item =>
             string.Equals(item.Header?.ToString(), "Replay .atpcap", StringComparison.Ordinal));
+    }
+
+    private void StartActivationPolling()
+    {
+        if (_activationTimer != null)
+        {
+            return;
+        }
+
+        _activationTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(500)
+        };
+        _activationTimer.Tick += (_, _) =>
+        {
+            if (_activationSignalStore.TryConsumeShowRequest())
+            {
+                ShowMainWindow();
+            }
+        };
+        _activationTimer.Start();
+
+        if (_activationSignalStore.TryConsumeShowRequest())
+        {
+            ShowMainWindow();
+        }
     }
 }

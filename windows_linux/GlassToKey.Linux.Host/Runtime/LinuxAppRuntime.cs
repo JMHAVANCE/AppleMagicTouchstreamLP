@@ -142,6 +142,35 @@ public sealed class LinuxAppRuntime
         return _settingsStore.GetSettingsPath();
     }
 
+    public bool TryLoadKeymap(string keymapPath, out string message)
+    {
+        if (string.IsNullOrWhiteSpace(keymapPath))
+        {
+            message = "Keymap path is empty.";
+            return false;
+        }
+
+        string fullPath = Path.GetFullPath(keymapPath);
+        if (!File.Exists(fullPath))
+        {
+            message = $"Keymap file '{fullPath}' was not found.";
+            return false;
+        }
+
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        if (!keymap.TryImportFromFile(fullPath, out string error))
+        {
+            message = $"Keymap '{fullPath}' could not be loaded: {error}";
+            return false;
+        }
+
+        LinuxHostSettings settings = _settingsStore.Load();
+        settings.KeymapPath = fullPath;
+        _settingsStore.Save(settings);
+        message = $"Linux host keymap set to '{fullPath}'.";
+        return true;
+    }
+
     private static List<LinuxTrackpadBinding> ResolveBindings(
         LinuxHostSettings settings,
         IReadOnlyList<LinuxInputDeviceDescriptor> devices,

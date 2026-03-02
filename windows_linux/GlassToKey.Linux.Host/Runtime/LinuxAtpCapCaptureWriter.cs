@@ -5,7 +5,7 @@ using GlassToKey.Platform.Linux.Models;
 
 namespace GlassToKey.Linux.Runtime;
 
-internal sealed class LinuxAtpCapCaptureWriter : IDisposable
+public sealed class LinuxAtpCapCaptureWriter : IDisposable
 {
     private const ushort UsagePageDigitizer = 0x0D;
     private const ushort UsageTouchpad = 0x05;
@@ -70,7 +70,7 @@ internal sealed class LinuxAtpCapCaptureWriter : IDisposable
             schema = "g2k-replay-v1",
             capturedAt = DateTimeOffset.UtcNow.ToString("O"),
             platform = "linux",
-            source = "glasstokey-linux-tray-runtime"
+            source = "glasstokey-tray-runtime"
         });
 
         WriteRecord(

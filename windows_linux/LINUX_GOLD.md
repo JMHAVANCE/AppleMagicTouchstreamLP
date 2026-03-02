@@ -516,13 +516,47 @@ These are intentionally not blocking the current packaging/productization push, 
 - [ ] Decide whether Linux force-click parity remains disabled or whether a Linux-specific calibrated pressure path is worth building later
 - [ ] Investigate Magic Trackpad haptics only after the typing/runtime path is productized
 
-## Recommended Immediate Work Order
+## Next Milestone Checklist
 
-1. Validate and polish the tray-owned Linux desktop host on the target Ubuntu session.
-2. Validate `.deb` install, upgrade, and uninstall behavior end-to-end for both desktop and headless stories.
-3. Decide the documented default install mode and tighten post-install guidance.
-4. Keep maintaining the Linux fixture set as regression coverage.
-5. Then return to deeper shared-core cleanup or deferred parity work.
+### Milestone A: desktop product validation
+
+- [ ] Manually validate the tray/top-bar desktop path on the target Ubuntu session
+- [ ] Confirm the packaged GUI launcher and desktop entry behave the same way as the current source-level tray runtime
+- [ ] Decide how much runtime diagnostics belong in the GUI versus staying CLI-only
+- [ ] Decide whether keymap editing is in-scope for the GUI or remains file-based for v1
+
+Exit criteria:
+
+- the tray-owned desktop runtime is the clearly documented default Linux desktop story
+- packaged GUI behavior matches current source behavior closely enough to stop treating it as provisional
+
+### Milestone B: packaging closure
+
+- [ ] Validate `.deb` install, upgrade, and uninstall behavior
+- [ ] Decide the documented default install mode for first users: tray desktop, headless service, or both
+- [ ] Tighten post-install guidance around `doctor`, `init-config`, `show-config`, direct `run-engine` smoke tests, and optional service enablement
+- [ ] Keep a documented and validated headless launch path as part of the final packaged Linux story
+
+Exit criteria:
+
+- a fresh install path is documented and validated for both desktop and headless use
+- the `.deb` flow is proven, not just the raw install script
+
+### Milestone C: cleanup after product closure
+
+- [ ] Keep extending the Linux fixture set as regression coverage
+- [ ] Continue moving shared engine/layout/keymap/runtime pieces into `GlassToKey.Core`
+- [ ] Remove the linked-source bridge from `GlassToKey.Core` back into `GlassToKey/`
+- [ ] Reduce remaining shared-flow dependence on Windows virtual-key compatibility where semantic actions should be authoritative
+- [ ] Only then return to deferred Linux parity work like keyboard suppression, force-click parity, or haptics
+
+## README Follow-Ups
+
+- `packaging/linux/README.md`: keep desktop packaging guidance centered on the tray-owned GUI runtime, with the user service described as the optional headless/background path
+- `GlassToKey.Linux/README.md`: keep a short direct-run section covering `doctor`, `init-config`, `show-config`, `load-keymap`, `start`, `stop`, and `run-engine`
+- `GlassToKey.Linux.Gui/README.md`: update when packaged GUI launcher/desktop-entry validation is complete or when keymap editing scope is decided
+- `GlassToKey.Core/README.md`: update when the linked-source bridge starts shrinking materially, not just when Linux adds features
+- `AGENTS.md`: update after Linux packaging defaults or desktop/headless workflow expectations change
 
 ## Build Commands
 

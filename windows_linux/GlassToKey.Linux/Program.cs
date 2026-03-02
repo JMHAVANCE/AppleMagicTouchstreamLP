@@ -14,6 +14,11 @@ internal static class Program
 {
     private static int Main(string[] args)
     {
+        if (string.Equals(GetCommand(args), "__background-run", StringComparison.OrdinalIgnoreCase))
+        {
+            return RunBackgroundAsync().GetAwaiter().GetResult();
+        }
+
         if (args.Length == 0 || string.Equals(args[0], "list-devices", StringComparison.OrdinalIgnoreCase))
         {
             return ListDevices();
@@ -54,7 +59,7 @@ internal static class Program
 
         if (string.Equals(args[0], "show-config", StringComparison.OrdinalIgnoreCase))
         {
-            return ShowConfig();
+            return ShowConfig(args);
         }
 
         if (string.Equals(args[0], "init-config", StringComparison.OrdinalIgnoreCase))
@@ -80,6 +85,11 @@ internal static class Program
         if (string.Equals(args[0], "print-udev-rules", StringComparison.OrdinalIgnoreCase))
         {
             return PrintUdevRules();
+        }
+
+        if (string.Equals(args[0], "load-keymap", StringComparison.OrdinalIgnoreCase))
+        {
+            return LoadKeymap(args);
         }
 
         if (string.Equals(args[0], "selftest", StringComparison.OrdinalIgnoreCase))
@@ -120,6 +130,16 @@ internal static class Program
         if (string.Equals(args[0], "watch-runtime", StringComparison.OrdinalIgnoreCase))
         {
             return WatchRuntimeAsync(args).GetAwaiter().GetResult();
+        }
+
+        if (string.Equals(args[0], "start", StringComparison.OrdinalIgnoreCase))
+        {
+            return StartBackgroundRuntimeAsync().GetAwaiter().GetResult();
+        }
+
+        if (string.Equals(args[0], "stop", StringComparison.OrdinalIgnoreCase))
+        {
+            return StopBackgroundRuntimeAsync().GetAwaiter().GetResult();
         }
 
         if (string.Equals(args[0], "run-engine", StringComparison.OrdinalIgnoreCase))
@@ -167,12 +187,13 @@ internal static class Program
         Console.WriteLine("  GlassToKey.Linux probe-axes [device-node-or-stable-id]");
         Console.WriteLine("  GlassToKey.Linux probe-uinput");
         Console.WriteLine("  GlassToKey.Linux doctor");
-        Console.WriteLine("  GlassToKey.Linux show-config");
+        Console.WriteLine("  GlassToKey.Linux show-config [--print]");
         Console.WriteLine("  GlassToKey.Linux init-config");
         Console.WriteLine("  GlassToKey.Linux bind-left [device-node-or-stable-id]");
         Console.WriteLine("  GlassToKey.Linux bind-right [device-node-or-stable-id]");
         Console.WriteLine("  GlassToKey.Linux swap-sides");
         Console.WriteLine("  GlassToKey.Linux print-udev-rules");
+        Console.WriteLine("  GlassToKey.Linux load-keymap [path-to-keymap.json]");
         Console.WriteLine("  GlassToKey.Linux selftest");
         Console.WriteLine("  GlassToKey.Linux capture-atpcap [output-path] [seconds]");
         Console.WriteLine("  GlassToKey.Linux replay-atpcap [capture-path] [trace-output]");
@@ -181,7 +202,14 @@ internal static class Program
         Console.WriteLine("  GlassToKey.Linux check-atpcap-fixture [capture-path] [fixture-path] [trace-output]");
         Console.WriteLine("  GlassToKey.Linux uinput-smoke [token]");
         Console.WriteLine("  GlassToKey.Linux watch-runtime [seconds]");
+        Console.WriteLine("  GlassToKey.Linux start");
+        Console.WriteLine("  GlassToKey.Linux stop");
         Console.WriteLine("  GlassToKey.Linux run-engine [seconds]");
+    }
+
+    private static string? GetCommand(string[] args)
+    {
+        return args.Length == 0 ? null : args[0];
     }
 
     private static async Task<int> ReadFramesAsync(string[] args)
@@ -345,8 +373,17 @@ internal static class Program
         return result.Success ? 0 : 1;
     }
 
-    private static int ShowConfig()
+    private static int ShowConfig(string[] args)
     {
+        bool forceConsole = args.Any(arg =>
+            string.Equals(arg, "--print", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(arg, "--cli", StringComparison.OrdinalIgnoreCase));
+        if (!forceConsole && LinuxGuiLauncher.IsGraphicalSession() && LinuxGuiLauncher.TryLaunch())
+        {
+            Console.WriteLine("Launching GlassToKey config UI.");
+            return 0;
+        }
+
         LinuxAppRuntime appRuntime = new();
         LinuxRuntimeConfiguration configuration = appRuntime.LoadConfiguration();
 
@@ -412,6 +449,25 @@ internal static class Program
         LinuxTrackpadEnumerator enumerator = new();
         IReadOnlyList<LinuxInputDeviceDescriptor> devices = enumerator.EnumerateDevices();
         Console.Write(LinuxUdevRuleTemplate.BuildRules(devices));
+        return 0;
+    }
+
+    private static int LoadKeymap(string[] args)
+    {
+        if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
+        {
+            Console.Error.WriteLine("Usage: GlassToKey.Linux load-keymap [path-to-keymap.json]");
+            return 1;
+        }
+
+        LinuxAppRuntime appRuntime = new();
+        if (!appRuntime.TryLoadKeymap(args[1], out string message))
+        {
+            Console.Error.WriteLine(message);
+            return 1;
+        }
+
+        Console.WriteLine(message);
         return 0;
     }
 
@@ -804,6 +860,34 @@ internal static class Program
 
         await runtimeOwner.RunAsync(new ConsoleRuntimeObserver(), Console.WriteLine, cts.Token).ConfigureAwait(false);
         return 0;
+    }
+
+    private static async Task<int> StartBackgroundRuntimeAsync()
+    {
+        LinuxBackgroundRuntimeController controller = new();
+        LinuxBackgroundRuntimeStatus status = await controller.StartAsync().ConfigureAwait(false);
+        Console.WriteLine(status.Message);
+        if (status.IsRunning)
+        {
+            Console.WriteLine($"  MarkerPath: {status.MarkerPath}");
+        }
+
+        return status.IsRunning ? 0 : 1;
+    }
+
+    private static async Task<int> StopBackgroundRuntimeAsync()
+    {
+        LinuxBackgroundRuntimeController controller = new();
+        LinuxBackgroundRuntimeStatus status = await controller.StopAsync().ConfigureAwait(false);
+        Console.WriteLine(status.Message);
+        return status.IsRunning ? 1 : 0;
+    }
+
+    private static async Task<int> RunBackgroundAsync()
+    {
+        LinuxBackgroundRuntimeController controller = new();
+        LinuxRuntimeOwner runtimeOwner = new();
+        return await controller.RunBackgroundAsync(runtimeOwner).ConfigureAwait(false);
     }
 
     private sealed class ConsoleTrackpadFrameTarget : ITrackpadFrameTarget
