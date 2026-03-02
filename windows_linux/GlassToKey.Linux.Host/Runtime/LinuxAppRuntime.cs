@@ -174,15 +174,12 @@ public sealed class LinuxAppRuntime
             return false;
         }
 
-        if (TryImportLinuxSettingsBundle(json, fullPath, out LinuxHostSettings importedLinuxSettings, out string? linuxBundleError))
-        {
-            importedLinuxSettings.Normalize();
-            _settingsStore.Save(importedLinuxSettings);
-            message = $"Linux profile imported from '{fullPath}'.";
-            return true;
-        }
+        string? windowsBundleError = null;
+        string? linuxBundleError = null;
+        string? directSettingsError = null;
 
-        if (TryImportWindowsSettingsBundle(json, fullPath, out LinuxHostSettings importedWindowsSettings, out string? windowsBundleError))
+        if (LooksLikeWindowsSettingsBundle(json) &&
+            TryImportWindowsSettingsBundle(json, fullPath, out LinuxHostSettings importedWindowsSettings, out windowsBundleError))
         {
             importedWindowsSettings.Normalize();
             _settingsStore.Save(importedWindowsSettings);
@@ -190,7 +187,16 @@ public sealed class LinuxAppRuntime
             return true;
         }
 
-        if (TryImportDirectLinuxSettings(json, out LinuxHostSettings directSettings, out string? directSettingsError))
+        if (LooksLikeLinuxSettingsBundle(json) &&
+            TryImportLinuxSettingsBundle(json, fullPath, out LinuxHostSettings importedLinuxSettings, out linuxBundleError))
+        {
+            importedLinuxSettings.Normalize();
+            _settingsStore.Save(importedLinuxSettings);
+            message = $"Linux profile imported from '{fullPath}'.";
+            return true;
+        }
+
+        if (TryImportDirectLinuxSettings(json, out LinuxHostSettings directSettings, out directSettingsError))
         {
             directSettings.Normalize();
             _settingsStore.Save(directSettings);
@@ -201,7 +207,7 @@ public sealed class LinuxAppRuntime
         KeymapStore keymap = KeymapStore.LoadBundledDefault();
         if (!keymap.TryImportFromJson(json, out string error))
         {
-            message = $"Import '{fullPath}' could not be loaded: {linuxBundleError ?? windowsBundleError ?? directSettingsError ?? error}";
+            message = $"Import '{fullPath}' could not be loaded: {windowsBundleError ?? linuxBundleError ?? directSettingsError ?? error}";
             return false;
         }
 
@@ -394,6 +400,55 @@ public sealed class LinuxAppRuntime
         }
 
         return Path.Combine(settingsDirectory, $"{fileName}.keymap.json");
+    }
+
+    private static bool LooksLikeWindowsSettingsBundle(string json)
+    {
+        return TryDetectSettingsProperty(json, "ActiveLayer") ||
+               TryDetectSettingsProperty(json, "ColumnSettingsByLayout") ||
+               TryDetectSettingsProperty(json, "LeftDevicePath");
+    }
+
+    private static bool LooksLikeLinuxSettingsBundle(string json)
+    {
+        return TryDetectSettingsProperty(json, "SharedProfile") ||
+               TryDetectSettingsProperty(json, "LeftTrackpadStableId") ||
+               TryDetectSettingsProperty(json, "RightTrackpadStableId");
+    }
+
+    private static bool TryDetectSettingsProperty(string json, string propertyName)
+    {
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(json);
+            JsonElement root = document.RootElement;
+            if (!TryGetPropertyIgnoreCase(root, "Settings", out JsonElement settingsElement) ||
+                settingsElement.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            return TryGetPropertyIgnoreCase(settingsElement, propertyName, out _);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)
+    {
+        foreach (JsonProperty property in element.EnumerateObject())
+        {
+            if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                value = property.Value;
+                return true;
+            }
+        }
+
+        value = default;
+        return false;
     }
 
     private static List<LinuxTrackpadBinding> ResolveBindings(
