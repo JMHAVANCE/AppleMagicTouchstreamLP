@@ -34,6 +34,10 @@ public partial class MainWindow : Window
     private readonly ComboBox _fiveFingerSwipeRightCombo;
     private readonly ComboBox _fiveFingerSwipeUpCombo;
     private readonly ComboBox _fiveFingerSwipeDownCombo;
+    private readonly Border _noticeOverlay;
+    private readonly TextBlock _noticeTitleText;
+    private readonly TextBlock _noticeMessageText;
+    private readonly Button _noticeCloseButton;
     private readonly StackPanel _replayPanel;
     private readonly Button _replayToggleButton;
     private readonly Button _replayCloseButton;
@@ -81,6 +85,10 @@ public partial class MainWindow : Window
         _fiveFingerSwipeRightCombo = RequireControl<ComboBox>("FiveFingerSwipeRightCombo");
         _fiveFingerSwipeUpCombo = RequireControl<ComboBox>("FiveFingerSwipeUpCombo");
         _fiveFingerSwipeDownCombo = RequireControl<ComboBox>("FiveFingerSwipeDownCombo");
+        _noticeOverlay = RequireControl<Border>("NoticeOverlay");
+        _noticeTitleText = RequireControl<TextBlock>("NoticeTitleText");
+        _noticeMessageText = RequireControl<TextBlock>("NoticeMessageText");
+        _noticeCloseButton = RequireControl<Button>("NoticeCloseButton");
         _replayPanel = RequireControl<StackPanel>("ReplayPanel");
         _replayToggleButton = RequireControl<Button>("ReplayToggleButton");
         _replayCloseButton = RequireControl<Button>("ReplayCloseButton");
@@ -124,6 +132,7 @@ public partial class MainWindow : Window
         _fiveFingerSwipeRightCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _fiveFingerSwipeUpCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _fiveFingerSwipeDownCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        _noticeCloseButton.Click += (_, _) => HideNoticeDialog();
         _replayToggleButton.Click += OnReplayToggleClick;
         _replayCloseButton.Click += OnReplayCloseClick;
         _replaySpeedCombo.SelectionChanged += OnReplaySpeedChanged;
@@ -1039,47 +1048,20 @@ public partial class MainWindow : Window
 
     private void ShowNoticeDialog(string title, string message)
     {
-        Window dialog = new()
+        _noticeTitleText.Text = title;
+        _noticeMessageText.Text = message;
+        _noticeOverlay.IsVisible = true;
+        if (!IsVisible)
         {
-            Width = 520,
-            Height = 220,
-            MinWidth = 420,
-            MinHeight = 180,
-            Title = title
-        };
-
-        TextBlock messageBlock = new()
-        {
-            Text = message,
-            TextWrapping = TextWrapping.Wrap
-        };
-
-        Button closeButton = new()
-        {
-            Content = "Close",
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right
-        };
-
-        StackPanel root = new()
-        {
-            Spacing = 12,
-            Margin = new Thickness(18)
-        };
-        root.Children.Add(messageBlock);
-        root.Children.Add(closeButton);
-        closeButton.Click += (_, _) => dialog.Close();
-        dialog.Content = root;
-
-        if (IsVisible)
-        {
-            dialog.Show(this);
-        }
-        else
-        {
-            dialog.Show();
+            Show();
         }
 
-        dialog.Activate();
+        Activate();
+    }
+
+    private void HideNoticeDialog()
+    {
+        _noticeOverlay.IsVisible = false;
     }
 
     private void ShowDoctorReportWindow(LinuxDoctorResult result)

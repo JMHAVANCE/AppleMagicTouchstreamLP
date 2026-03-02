@@ -190,5 +190,35 @@
         </Grid>
       </StackPanel>
     </ScrollViewer>
+
+    <Border x:Name="NoticeOverlay"
+            Grid.RowSpan="2"
+            IsVisible="False"
+            Background="#660C0F12">
+      <Grid HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+        <Border Background="#FFF9F1"
+                BorderBrush="#D9C7B5"
+                BorderThickness="1"
+                CornerRadius="14"
+                Padding="18"
+                Width="620"
+                MaxWidth="620">
+          <StackPanel Spacing="14">
+            <TextBlock x:Name="NoticeTitleText"
+                       FontSize="18"
+                       FontWeight="SemiBold"
+                       Foreground="#1E2328" />
+            <TextBlock x:Name="NoticeMessageText"
+                       TextWrapping="Wrap"
+                       Foreground="#1E2328" />
+            <Button x:Name="NoticeCloseButton"
+                    HorizontalAlignment="Right"
+                    Classes="action"
+                    Content="Close" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Border>
   </Grid>
 </Window>
