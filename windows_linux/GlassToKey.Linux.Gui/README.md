@@ -22,8 +22,9 @@ Current phase:
 - this is still a starting control shell, not the finished Linux GUI
 - the tray app now owns the default desktop runtime in-process
 - the reusable CLI/service path remains the supported headless and engineering host
-- it does not yet provide keymap editing or a finalized tray/product shell
-- the tray/indicator shell now exists, but still needs manual runtime validation on the current Ubuntu desktop
+- keymap editing is now in scope for the GUI rather than being deferred out of v1
+- rich diagnostics should remain primarily CLI/operator tooling; the GUI should stay focused on config, live preview, and lightweight doctor visibility
+- the tray/indicator shell has been manually validated on the current Ubuntu desktop, but packaged behavior should keep being checked as the GUI evolves
 
 Build:
 

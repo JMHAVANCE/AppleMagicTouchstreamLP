@@ -45,7 +45,10 @@ Notes:
 
 - `install.sh` writes to `/opt`, `/usr/local/bin`, and `/etc/udev/rules.d`, so run it with `sudo`
 - `install.sh` now installs the GUI too when a matching self-contained GUI publish is present, giving you the tray-owned desktop app and the CLI/headless tools from one install pass
+- the documented default install story is tray desktop first: launch `glasstokey-gui` for normal desktop use
+- the documented direct headless path is `glasstokey start` / `glasstokey stop`
 - `--service-mode user` installs a user `systemd` unit for the optional headless/background runtime path; it does not force-enable it
 - reconnect the trackpads after install if the refreshed `udev` permissions have not applied yet
 - `deb/build-deb.sh` now expects the self-contained GUI publish output by default, so the `.deb` can carry a runnable GUI without a separate `.NET 10` GUI runtime dependency
 - current host finding: the packaged rule tags the older Bluetooth trackpad node with `uaccess`, but this Ubuntu session still did not receive a live ACL on the recreated node. Because of that, the checked-in packaging strategy now prefers the dedicated `glasstokey` group model instead of relying on `uaccess` alone.
+- the next distro-expansion checkpoint is validating the same install/runtime story on Arch packaging or an equivalent Arch test environment

@@ -465,10 +465,11 @@ These are the highest-priority productization tasks because they determine wheth
 - [x] Validate the checked-in `90-glasstokey.rules` against the currently supported Apple vendor/product pairs on the host and in packaged installs
 - [x] Validate wrapper-only install flow from `packaging/linux/install.sh`
 - [x] Validate user-service install flow from `packaging/linux/install.sh`
-- [ ] Validate `.deb` install, upgrade, and uninstall behavior
-- [ ] Decide whether wrapper mode, user service mode, or both should be the documented default for first users
-- [ ] Tighten post-install guidance once the real packaged flow is proven on host
-- [ ] Keep a documented and validated headless launch path as part of the final packaged Linux story
+- [x] Validate `.deb` install, upgrade, and uninstall behavior
+- [x] Decide the documented default install story: tray desktop by default, with `glasstokey start` / `glasstokey stop` as the documented headless path
+- [x] Tighten post-install guidance once the real packaged flow is proven on host
+- [x] Keep a documented and validated headless launch path as part of the final packaged Linux story
+- [ ] Validate the same install/runtime story on Arch packaging or an equivalent Arch test environment
 
 ### 2. GUI/product surface
 
@@ -484,8 +485,8 @@ The current GUI/service split proved useful for validation, but it is no longer 
 - [x] Replace the current second-reader preview/status hacks with direct runtime state exposed from the tray-owned runtime where practical
 - [x] Keep the config window off the hotpath even when the tray app owns the runtime process
 - [x] Preserve the reusable CLI/service runtime host as a supported headless mode while the tray app becomes the default desktop host
-- [ ] Decide how much runtime diagnostics should live in the config UI versus remain CLI-only
-- [ ] Decide whether keymap editing is in-scope for the config UI or whether file-based custom keymaps remain the v1 story
+- [x] Keep rich runtime diagnostics CLI-first; the GUI should stay focused on settings, live preview, lightweight doctor visibility, and operator-facing actions
+- [x] Put keymap editing in-scope for the Linux GUI now rather than deferring it out of v1
 - [x] Polish the packaged GUI launcher path and desktop entry behavior enough for the current desktop packaging story
 - [ ] Keep packaged GUI validation aligned with current source behavior during iteration
 
@@ -496,7 +497,7 @@ The live path works. The next gap is broader validation under the ways users wil
 - [x] Add more Linux replay fixtures from real host captures covering both tested trackpad families and both USB/Bluetooth transport paths
 - [x] Validate unplug/replug churn while `run-engine` is active for longer sessions
 - [x] Validate the same churn under packaged wrapper/service execution, not just ad hoc runs
-- [ ] Decide whether optional dispatch tracing should be added as targeted diagnostics for runtime misbehavior
+- [ ] Decide whether optional dispatch tracing is still worth adding as narrow CLI diagnostics for runtime misbehavior
 - [x] Keep `.atpcap` as the primary long-form offline diagnostic artifact
 
 ### 4. Shared-core and semantic cleanup
@@ -553,8 +554,8 @@ These are intentionally not blocking the current packaging/productization push, 
 
 - [x] Manually validate the tray/top-bar desktop path on the target Ubuntu session
 - [x] Confirm the packaged GUI launcher and desktop entry behave the same way as the current source-level tray runtime
-- [ ] Decide how much runtime diagnostics belong in the GUI versus staying CLI-only
-- [ ] Decide whether keymap editing is in-scope for the GUI or remains file-based for v1
+- [x] Keep rich runtime diagnostics in the CLI; leave the GUI focused on config, live preview, doctor visibility, and operator-facing actions
+- [x] Confirm keymap editing is in-scope for the GUI now
 
 Exit criteria:
 
@@ -564,9 +565,10 @@ Exit criteria:
 ### Milestone B: packaging closure
 
 - [x] Validate `.deb` install, upgrade, and uninstall behavior
-- [ ] Decide the documented default install mode for first users: tray desktop, headless service, or both
-- [ ] Tighten post-install guidance around `doctor`, `init-config`, `show-config`, direct `run-engine` smoke tests, and optional service enablement
-- [ ] Keep a documented and validated headless launch path as part of the final packaged Linux story
+- [x] Decide the documented default install mode for first users: tray desktop by default, with CLI `start` / `stop` documented for headless runs
+- [x] Tighten post-install guidance around `doctor`, `init-config`, `show-config`, `load-keymap`, `start`, `stop`, direct `run-engine` smoke tests, and optional service enablement
+- [x] Keep a documented and validated headless launch path as part of the final packaged Linux story
+- [ ] Validate and document the first Arch install/package flow
 
 Exit criteria:
 
@@ -579,14 +581,14 @@ Exit criteria:
 - [x] Continue moving shared engine/layout/keymap/runtime pieces into `GlassToKey.Core`
 - [x] Remove the linked-source bridge from the Windows app into `GlassToKey.Core`
 - [ ] Reduce remaining shared-flow dependence on Windows virtual-key compatibility where semantic actions should be authoritative
-- [ ] Decide whether Windows stays as one top-level app project or gets split further into explicit platform/host layers
+- [x] Keep Windows as one top-level `GlassToKey.Windows` app project; do not split further unless a future need justifies it
 - [ ] Only then return to deferred Linux parity work like keyboard suppression, force-click parity, or haptics
 
 ## README Follow-Ups
 
-- `packaging/linux/README.md`: keep desktop packaging guidance centered on the tray-owned GUI runtime, with the user service described as the optional headless/background path
+- `packaging/linux/README.md`: keep desktop packaging guidance centered on the tray-owned GUI runtime, with the user service described as the optional headless/background path and `glasstokey start` / `stop` documented as the direct headless path
 - `GlassToKey.Linux/README.md`: keep a short direct-run section covering `doctor`, `init-config`, `show-config`, `load-keymap`, `start`, `stop`, and `run-engine`
-- `GlassToKey.Linux.Gui/README.md`: update when packaged GUI launcher/desktop-entry validation is complete or when keymap editing scope is decided
+- `GlassToKey.Linux.Gui/README.md`: keep the current scope aligned with the tray-owned desktop runtime, GUI keymap editing being in scope, and rich diagnostics remaining CLI-first
 - `GlassToKey.Core/README.md`: update when the linked-source bridge starts shrinking materially, not just when Linux adds features
 - `AGENTS.md`: update after Linux packaging defaults or desktop/headless workflow expectations change
 

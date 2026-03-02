@@ -44,7 +44,9 @@ Current phase:
 
 - early usable alpha
 - the live Linux typing path is working on the tested Ubuntu 24.04 host
-- packaging and GUI productization are the main remaining gaps
+- tray-desktop packaging is the default user story
+- direct headless CLI operation remains supported through `glasstokey start` / `glasstokey stop`
+- Arch packaging/install validation is the next distro-expansion checkpoint
 
 Quick start:
 
@@ -61,6 +63,7 @@ Quick start:
   - `glasstokey load-keymap /path/to/keymap.json`
   - `glasstokey start`
 - stop the background CLI runtime with `glasstokey stop`
+- the documented default desktop path is `glasstokey-gui`; the tray app owns the runtime in normal desktop use
 - if you want a bounded foreground smoke test instead of a background session, use `run-engine 10`
 - if you installed the optional headless user service, control it with:
   - `systemctl --user start glasstokey.service`
@@ -84,12 +87,13 @@ Packaging notes:
 - run overlapping `dotnet build` / `dotnet publish` commands for the same project graph sequentially; parallel publishes can collide in shared output paths
 - `packaging/linux/install.sh` and `packaging/linux/90-glasstokey.rules` are the checked-in install artifacts
 - `packaging/linux/deb/build-deb.sh` now produces a first Debian package skeleton from the current publish outputs
-- `packaging/linux/install.sh` now supports wrapper-vs-service install decisions and prints explicit post-install commands for `doctor`, `init-config`, `show-config`, and `run-engine`
+- `packaging/linux/install.sh` now supports wrapper-vs-service install decisions and prints explicit post-install commands for `doctor`, `init-config`, `show-config`, `load-keymap`, `start`, `stop`, and `run-engine`
 
 Current diagnostics status:
 
 - Linux `.atpcap` version 3 capture now preserves normalized contact frames and physical click state for replay, summary, and trace analysis
 - `summarize-atpcap` now reports button-pressed and button-edge counts
 - fixture generation/check commands now make Linux `.atpcap` captures useful for regression checking, not just manual replay
+- rich diagnostics remain primarily CLI/operator tooling; the GUI should stay focused on config, live preview, and lightweight doctor visibility
 
 This project should remain thin. Most logic belongs in the shared core or the Linux platform backend.
