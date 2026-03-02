@@ -2011,6 +2011,50 @@ internal static class SelfTestRunner
             return false;
         }
 
+        KeymapStore winChordKeymap = KeymapStore.LoadBundledDefault();
+        winChordKeymap.Mappings[0][storageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "Win+H" },
+            Hold = null
+        };
+
+        TouchProcessorCore winChordCore = TouchProcessorFactory.CreateDefault(winChordKeymap);
+        using DispatchEventQueue winChordQueue = new();
+        using TouchProcessorActor winChordActor = new(winChordCore, dispatchQueue: winChordQueue);
+
+        now = 0;
+        InputFrame winChordDown = MakeFrame(contactCount: 1, id0: 45, x0: keyX, y0: keyY);
+        InputFrame winChordUp = MakeFrame(contactCount: 0);
+        winChordActor.Post(TrackpadSide.Left, in winChordDown, maxX, maxY, now);
+        now += MsToTicks(20);
+        winChordActor.Post(TrackpadSide.Left, in winChordUp, maxX, maxY, now);
+        winChordActor.WaitForIdle();
+
+        bool sawWinChordModifierDown = false;
+        bool sawWinChordKeyTap = false;
+        bool sawWinChordModifierUp = false;
+        while (winChordQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.ModifierDown && dispatchEvent.VirtualKey == 0x5B)
+            {
+                sawWinChordModifierDown = true;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x48)
+            {
+                sawWinChordKeyTap = true;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.ModifierUp && dispatchEvent.VirtualKey == 0x5B)
+            {
+                sawWinChordModifierUp = true;
+            }
+        }
+
+        if (!sawWinChordModifierDown || !sawWinChordKeyTap || !sawWinChordModifierUp)
+        {
+            failure = "Win+H chord dispatch sequence missing expected modifier/key events";
+            return false;
+        }
+
         // Chordal shift: 4 fingers on left should shift key taps on right.
         // Also validate stale-source timeout: if left side stops reporting, shift should clear.
         KeymapStore chordShiftKeymap = KeymapStore.LoadBundledDefault();
