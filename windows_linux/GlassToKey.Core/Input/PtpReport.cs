@@ -77,7 +77,11 @@ public struct PtpReport
 
     public static PtpReport FromBuffer(byte[] buffer)
     {
-        if (buffer == null) throw new ArgumentNullException(nameof(buffer));
+        if (buffer == null)
+        {
+            throw new ArgumentNullException(nameof(buffer));
+        }
+
         return FromBuffer(buffer.AsSpan());
     }
 

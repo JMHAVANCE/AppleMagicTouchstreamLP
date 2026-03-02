@@ -18,6 +18,13 @@
     <Compile Include="..\GlassToKey.Core\Layout\TrackpadLayoutPreset.cs" Link="TrackpadLayoutPreset.cs" />
     <Compile Include="..\GlassToKey.Core\Layout\ColumnLayoutSettings.cs" Link="ColumnLayoutSettings.cs" />
     <Compile Include="..\GlassToKey.Core\Layout\LayoutBuilder.cs" Link="LayoutBuilder.cs" />
+    <Compile Include="..\GlassToKey.Core\Runtime\TrackpadDecoderProfile.cs" Link="TrackpadDecoderProfile.cs" />
+    <Compile Include="..\GlassToKey.Core\Runtime\UserSettings.cs" Link="UserSettings.cs" />
+    <Compile Include="..\GlassToKey.Core\Runtime\RuntimeConfigurationFactory.cs" Link="RuntimeConfigurationFactory.cs" />
+    <Compile Include="..\GlassToKey.Core\Input\PtpReport.cs" Link="PtpReport.cs" />
+    <Compile Include="..\GlassToKey.Core\Input\InputFrame.cs" Link="Core\Input\InputFrame.cs" />
+    <Compile Include="..\GlassToKey.Core\Input\ForceNormalizer.cs" Link="Core\Input\ForceNormalizer.cs" />
+    <Compile Include="..\GlassToKey.Core\Input\ButtonEdgeTracker.cs" Link="Core\Input\ButtonEdgeTracker.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Update="GLASSTOKEY_DEFAULT_KEYMAP.json">
