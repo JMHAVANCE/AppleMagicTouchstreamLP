@@ -1,19 +1,6 @@
 #!/usr/bin/env bash
 set -eu
 
-remove_legacy_local_gui_wrapper() {
-  local local_wrapper="/usr/local/bin/glasstokey-gui"
-  if [ ! -f "${local_wrapper}" ]; then
-    return
-  fi
-
-  if grep -Fq 'exec "/opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui" "$@"' "${local_wrapper}" ||
-     grep -Fq 'exec /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "$@"' "${local_wrapper}" ||
-     grep -Fq 'GlassToKey compatibility shim for legacy /usr/local PATH precedence.' "${local_wrapper}"; then
-    rm -f "${local_wrapper}" || true
-  fi
-}
-
 if ! getent group glasstokey >/dev/null 2>&1; then
   groupadd --system glasstokey || true
 fi
@@ -27,8 +14,6 @@ if command -v systemctl >/dev/null 2>&1; then
   systemctl daemon-reload || true
 fi
 
-remove_legacy_local_gui_wrapper
-
 cat <<'EOF'
 GlassToKey Linux install complete.
 
@@ -37,17 +22,18 @@ Recommended next steps:
   2. Add the desktop user to the 'glasstokey' group:
      sudo usermod -aG glasstokey $USER
   3. Log out and back in so the new group membership applies.
-  4. Run 'glasstokey doctor'
-  5. Run 'glasstokey show-config --print' and verify left/right device bindings
-  6. Run 'glasstokey start' to launch the background runtime
-  7. Run 'glasstokey stop' to stop the background runtime
-  8. Run 'glasstokey run-engine 10' for a direct foreground smoke test when needed
+  4. Run `glasstokey doctor`
 
-Optional user service:
-  systemctl --user daemon-reload
-  systemctl --user enable --now glasstokey.service
 
-Optional GUI:
-  glasstokey-gui            # start tray host in background
-  glasstokey-gui --show     # open config window
+  # Usage:
+  glasstokey            # start tray host in background
+  glasstokey start      # start in headless mode
+  glasstokey stop       # to stop the background runtime
+
+
+  # Other commands:
+  glasstokey list-devices
+  glasstokey bind-left  <stable-id-left>
+  glasstokey bind-right <stable-id-right>
+  glasstokey show-config --print
 EOF

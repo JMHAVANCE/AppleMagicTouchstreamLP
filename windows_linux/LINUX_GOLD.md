@@ -340,7 +340,7 @@ The architecture is not considered complete until:
   - `/dev/uinput` and matched `/dev/input/event*` nodes came up as `root:glasstokey`
   - `doctor` reported `Summary: ok` after session refresh
   - stable-id bindings survived event-node renumbering across reboot/reconnect
-- The checked-in wrapper install flow and user-service flow were both validated on the host.
+- The checked-in package-manager install flow and user-service flow were validated on the host.
 - The Linux user service now runs `run-engine` until interrupted rather than timing out after 10 seconds.
 - Packaged reconnect validation is now proven on the host for both:
   - Bluetooth power off/on churn
@@ -427,14 +427,12 @@ The architecture is not considered complete until:
 - [x] checked-in framework-dependent GUI publish profile exists
 - [x] checked-in self-contained GUI publish profile exists
 - [x] checked-in `udev` rules template exists
-- [x] checked-in install script exists
-- [x] install script supports wrapper-vs-service decisions
 - [x] Debian package skeleton exists
 - [x] Arch local `PKGBUILD` skeleton exists
 - [x] Debian package build script can produce a `.deb` from current publish outputs
-- [x] wrapper install flow validated on the host
-- [x] user-service install flow validated on the host
-- [x] renamed `glasstokey` / `glasstokey-gui` wrapper flow validated on the host
+- [x] package-manager install flow validated on the host
+- [x] user-service flow validated on the host
+- [x] packaged `glasstokey` / `glasstokey-gui` launcher flow validated on the host
 - [x] dedicated `glasstokey` group permission flow validated on the host after relogin
 - [x] packaged runtime survives reboot/session refresh with working evdev + `uinput` access
 

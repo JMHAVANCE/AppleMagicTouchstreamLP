@@ -18,8 +18,6 @@ post_remove() {
 }
 
 _glasstokey_post_message() {
-  _glasstokey_remove_legacy_local_gui_wrapper
-
   if command -v systemd-sysusers >/dev/null 2>&1; then
     systemd-sysusers /usr/lib/sysusers.d/glasstokey.conf >/dev/null 2>&1 || true
   fi
@@ -34,34 +32,26 @@ _glasstokey_post_message() {
   fi
 
   cat <<'EOF'
-GlassToKey Linux Arch package install complete.
+GlassToKey Linux install complete.
 
 Recommended next steps:
-  1. Add your desktop user to the 'glasstokey' group:
+  1. Reconnect the trackpads or wait a few seconds for refreshed udev permissions.
+  2. Add the desktop user to the 'glasstokey' group:
      sudo usermod -aG glasstokey $USER
-  2. Log out and back in so group membership applies.
-  3. Reconnect the trackpads or wait a few seconds for refreshed udev permissions.
-  4. Run 'glasstokey doctor'
-  5. Run 'glasstokey show-config --print' and verify left/right bindings
-  6. Run 'glasstokey start' then 'glasstokey stop' for headless runtime checks
-  7. Run 'glasstokey-gui' to start the tray host in background
-  8. Run 'glasstokey-gui --show' to open the config window
+  3. Log out and back in so the new group membership applies.
+  4. Run `glasstokey doctor`
 
-Optional user service:
-  systemctl --user daemon-reload
-  systemctl --user enable --now glasstokey.service
+
+  # Usage:
+  glasstokey            # start tray host in background
+  glasstokey start      # start in headless mode
+  glasstokey stop       # to stop the background runtime
+
+
+  # Other commands:
+  glasstokey list-devices
+  glasstokey bind-left  <stable-id-left>
+  glasstokey bind-right <stable-id-right>
+  glasstokey show-config --print
 EOF
-}
-
-_glasstokey_remove_legacy_local_gui_wrapper() {
-  local local_wrapper="/usr/local/bin/glasstokey-gui"
-  if [[ ! -f "${local_wrapper}" ]]; then
-    return
-  fi
-
-  if grep -Fq 'exec "/opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui" "$@"' "${local_wrapper}" ||
-     grep -Fq 'exec /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "$@"' "${local_wrapper}" ||
-     grep -Fq 'GlassToKey compatibility shim for legacy /usr/local PATH precedence.' "${local_wrapper}"; then
-    rm -f "${local_wrapper}" >/dev/null 2>&1 || true
-  fi
 }
