@@ -42,11 +42,10 @@ Recommended next steps:
   2. Log out and back in so group membership applies.
   3. Reconnect the trackpads or wait a few seconds for refreshed udev permissions.
   4. Run 'glasstokey doctor'
-  5. Run 'glasstokey init-config' if this is the first install
-  6. Run 'glasstokey show-config --print' and verify left/right bindings
-  7. Run 'glasstokey start' then 'glasstokey stop' for headless runtime checks
-  8. Run 'glasstokey-gui' to start the tray host in background
-  9. Run 'glasstokey-gui --show' to open the config window
+  5. Run 'glasstokey show-config --print' and verify left/right bindings
+  6. Run 'glasstokey start' then 'glasstokey stop' for headless runtime checks
+  7. Run 'glasstokey-gui' to start the tray host in background
+  8. Run 'glasstokey-gui --show' to open the config window
 
 Optional user service:
   systemctl --user daemon-reload

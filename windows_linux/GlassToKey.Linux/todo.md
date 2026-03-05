@@ -1,8 +1,10 @@
 # TODO:
 
-[0] So I noticed that glasstokey-gui does not run in the background. When you launch the "GUI" with this command you are really launching the Tray process that should RUN ENTIRELY IN THE BACKGROUND. Not like "nohup glasstokey-gui &" Like legitimately at startup it should run in the background. if this is a service in linux, I dont know the terminology but this needs to be resolved.
+1. Can `glasstokey` call `glasstokey-gui`?
+2. If `glasstokey` tray is already running, if you run glasstokey show-config it shouldn't open a new instance but should open the config window. (If the tray is not running, IT CAN start it's own instance.)
+3. If `glasstokey` tray is already running, `glasstokey start` should say something like "Glasstokey is already running in the tray.
+4. If `glasstokey` tray is running, `glasstokey stop` should also try to stop the tray, instead of just saying "The background runtime is not running.
 
-[1] If I close the program from command-line it gets stuck in the tray until I kill the process.
 
 [2] Import button crashes program.
 
