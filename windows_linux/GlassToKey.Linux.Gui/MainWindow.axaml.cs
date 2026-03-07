@@ -244,17 +244,12 @@ public partial class MainWindow : Window
         _layoutPresetCombo.ItemsSource = presetChoices;
         _layoutPresetCombo.SelectedItem = SelectPresetChoice(presetChoices, settings.LayoutPresetName) ?? presetChoices[0];
 
-        List<GestureActionChoice> gestureChoices = BuildGestureActionChoices();
-        _fiveFingerSwipeLeftCombo.ItemsSource = gestureChoices;
-        _fiveFingerSwipeRightCombo.ItemsSource = gestureChoices;
-        _fiveFingerSwipeUpCombo.ItemsSource = gestureChoices;
-        _fiveFingerSwipeDownCombo.ItemsSource = gestureChoices;
-        _fiveFingerSwipeLeftCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeLeftAction, "Typing Toggle");
-        _fiveFingerSwipeRightCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeRightAction, "Typing Toggle");
-        _fiveFingerSwipeUpCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeUpAction, "None");
-        _fiveFingerSwipeDownCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeDownAction, "None");
         RenderKeymapPreview(configuration);
-        ReloadKeymapActionChoices(configuration.Keymap);
+        ReloadKeymapActionChoices(configuration.Keymap, EnumerateGestureActions(settings.SharedProfile));
+        SetActionComboSelection(_fiveFingerSwipeLeftCombo, settings.SharedProfile.FiveFingerSwipeLeftAction ?? "Typing Toggle");
+        SetActionComboSelection(_fiveFingerSwipeRightCombo, settings.SharedProfile.FiveFingerSwipeRightAction ?? "Typing Toggle");
+        SetActionComboSelection(_fiveFingerSwipeUpCombo, settings.SharedProfile.FiveFingerSwipeUpAction ?? "None");
+        SetActionComboSelection(_fiveFingerSwipeDownCombo, settings.SharedProfile.FiveFingerSwipeDownAction ?? "None");
         int fallbackLayer = Math.Clamp(settings.SharedProfile.ActiveLayer, 0, MaxSupportedLayer);
         List<LayerChoice> layerChoices = BuildLayerChoices();
         _suppressKeymapEditorEvents = true;
@@ -285,7 +280,7 @@ public partial class MainWindow : Window
 
     private async void OnLiveSettingsSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (_loadingScreen)
+        if (_loadingScreen || _suppressKeymapEditorEvents)
         {
             return;
         }
@@ -306,10 +301,14 @@ public partial class MainWindow : Window
         settings.RightTrackpadStableId = (_rightDeviceCombo.SelectedItem as DeviceChoice)?.StableId;
         settings.LayoutPresetName = (_layoutPresetCombo.SelectedItem as PresetChoice)?.Name ?? TrackpadLayoutPreset.SixByThree.Name;
         settings.SharedProfile.LayoutPresetName = settings.LayoutPresetName;
-        settings.SharedProfile.FiveFingerSwipeLeftAction = (_fiveFingerSwipeLeftCombo.SelectedItem as GestureActionChoice)?.Value ?? "Typing Toggle";
-        settings.SharedProfile.FiveFingerSwipeRightAction = (_fiveFingerSwipeRightCombo.SelectedItem as GestureActionChoice)?.Value ?? "Typing Toggle";
-        settings.SharedProfile.FiveFingerSwipeUpAction = (_fiveFingerSwipeUpCombo.SelectedItem as GestureActionChoice)?.Value ?? "None";
-        settings.SharedProfile.FiveFingerSwipeDownAction = (_fiveFingerSwipeDownCombo.SelectedItem as GestureActionChoice)?.Value ?? "None";
+        settings.SharedProfile.FiveFingerSwipeLeftAction = ReadActionSelection(_fiveFingerSwipeLeftCombo, "Typing Toggle");
+        settings.SharedProfile.FiveFingerSwipeRightAction = ReadActionSelection(_fiveFingerSwipeRightCombo, "Typing Toggle");
+        settings.SharedProfile.FiveFingerSwipeUpAction = ReadActionSelection(_fiveFingerSwipeUpCombo, "None");
+        settings.SharedProfile.FiveFingerSwipeDownAction = ReadActionSelection(_fiveFingerSwipeDownCombo, "None");
+        EnsureActionChoice(settings.SharedProfile.FiveFingerSwipeLeftAction);
+        EnsureActionChoice(settings.SharedProfile.FiveFingerSwipeRightAction);
+        EnsureActionChoice(settings.SharedProfile.FiveFingerSwipeUpAction);
+        EnsureActionChoice(settings.SharedProfile.FiveFingerSwipeDownAction);
         settings.SharedProfile.TypingEnabled = true;
         try
         {
@@ -329,11 +328,18 @@ public partial class MainWindow : Window
     {
         for (int index = 0; index < _keyActionChoices.Count; index++)
         {
-            _keyActionChoiceLookup.Add(_keyActionChoices[index].Value);
+            if (!_keyActionChoices[index].IsSeparator)
+            {
+                _keyActionChoiceLookup.Add(_keyActionChoices[index].Value);
+            }
         }
 
         _keymapPrimaryCombo.ItemsSource = _keyActionChoices;
         _keymapHoldCombo.ItemsSource = _keyActionChoices;
+        _fiveFingerSwipeLeftCombo.ItemsSource = _keyActionChoices;
+        _fiveFingerSwipeRightCombo.ItemsSource = _keyActionChoices;
+        _fiveFingerSwipeUpCombo.ItemsSource = _keyActionChoices;
+        _fiveFingerSwipeDownCombo.ItemsSource = _keyActionChoices;
         _keymapSelectionText.Text = "Selection: none";
         _keymapPrimaryCombo.IsEnabled = false;
         _keymapHoldCombo.IsEnabled = false;
@@ -343,10 +349,14 @@ public partial class MainWindow : Window
         ClearCustomButtonGeometryEditorValues();
     }
 
-    private void ReloadKeymapActionChoices(KeymapStore keymap)
+    private void ReloadKeymapActionChoices(KeymapStore keymap, IEnumerable<string>? additionalActions = null)
     {
-        string? previousPrimary = (_keymapPrimaryCombo.SelectedItem as KeyActionChoice)?.Value;
-        string? previousHold = (_keymapHoldCombo.SelectedItem as KeyActionChoice)?.Value;
+        string previousPrimary = ReadSelectedActionValue(_keymapPrimaryCombo, "None");
+        string previousHold = ReadSelectedActionValue(_keymapHoldCombo, "None");
+        string previousSwipeLeft = ReadSelectedActionValue(_fiveFingerSwipeLeftCombo, "Typing Toggle");
+        string previousSwipeRight = ReadSelectedActionValue(_fiveFingerSwipeRightCombo, "Typing Toggle");
+        string previousSwipeUp = ReadSelectedActionValue(_fiveFingerSwipeUpCombo, "None");
+        string previousSwipeDown = ReadSelectedActionValue(_fiveFingerSwipeDownCombo, "None");
 
         _keyActionChoices.Clear();
         _keyActionChoiceLookup.Clear();
@@ -354,7 +364,10 @@ public partial class MainWindow : Window
         for (int index = 0; index < defaults.Count; index++)
         {
             _keyActionChoices.Add(defaults[index]);
-            _keyActionChoiceLookup.Add(defaults[index].Value);
+            if (!defaults[index].IsSeparator)
+            {
+                _keyActionChoiceLookup.Add(defaults[index].Value);
+            }
         }
 
         foreach (KeyValuePair<int, Dictionary<string, KeyMapping>> layer in keymap.Mappings)
@@ -376,13 +389,33 @@ public partial class MainWindow : Window
             }
         }
 
+        if (additionalActions != null)
+        {
+            foreach (string action in additionalActions)
+            {
+                EnsureActionChoice(action);
+            }
+        }
+
         _suppressKeymapEditorEvents = true;
         _keymapPrimaryCombo.ItemsSource = null;
         _keymapHoldCombo.ItemsSource = null;
+        _fiveFingerSwipeLeftCombo.ItemsSource = null;
+        _fiveFingerSwipeRightCombo.ItemsSource = null;
+        _fiveFingerSwipeUpCombo.ItemsSource = null;
+        _fiveFingerSwipeDownCombo.ItemsSource = null;
         _keymapPrimaryCombo.ItemsSource = _keyActionChoices;
         _keymapHoldCombo.ItemsSource = _keyActionChoices;
-        SetActionComboSelection(_keymapPrimaryCombo, previousPrimary ?? "None");
-        SetActionComboSelection(_keymapHoldCombo, previousHold ?? "None");
+        _fiveFingerSwipeLeftCombo.ItemsSource = _keyActionChoices;
+        _fiveFingerSwipeRightCombo.ItemsSource = _keyActionChoices;
+        _fiveFingerSwipeUpCombo.ItemsSource = _keyActionChoices;
+        _fiveFingerSwipeDownCombo.ItemsSource = _keyActionChoices;
+        SetActionComboSelection(_keymapPrimaryCombo, previousPrimary);
+        SetActionComboSelection(_keymapHoldCombo, previousHold);
+        SetActionComboSelection(_fiveFingerSwipeLeftCombo, previousSwipeLeft);
+        SetActionComboSelection(_fiveFingerSwipeRightCombo, previousSwipeRight);
+        SetActionComboSelection(_fiveFingerSwipeUpCombo, previousSwipeUp);
+        SetActionComboSelection(_fiveFingerSwipeDownCombo, previousSwipeDown);
         _suppressKeymapEditorEvents = false;
     }
 
@@ -404,28 +437,32 @@ public partial class MainWindow : Window
             return;
         }
 
-        _keyActionChoices.Add(new KeyActionChoice(value, value));
+        _keyActionChoices.Add(KeyActionChoice.Action(value));
     }
 
     private static List<KeyActionChoice> BuildKeyActionChoices()
     {
         List<KeyActionChoice> options = [];
+        AddActionSection(options, "Core");
         AddKeyActionChoice(options, "None");
         AddKeyActionChoice(options, "Left Click");
         AddKeyActionChoice(options, "Double Click");
         AddKeyActionChoice(options, "Right Click");
         AddKeyActionChoice(options, "Middle Click");
 
+        AddActionSection(options, "Letters A-Z");
         for (char ch = 'A'; ch <= 'Z'; ch++)
         {
             AddKeyActionChoice(options, ch.ToString());
         }
 
+        AddActionSection(options, "Digits 0-9");
         for (char ch = '0'; ch <= '9'; ch++)
         {
             AddKeyActionChoice(options, ch.ToString());
         }
 
+        AddActionSection(options, "Navigation and Editing");
         string[] navigationAndEditing =
         {
             "Space",
@@ -451,6 +488,7 @@ public partial class MainWindow : Window
             AddKeyActionChoice(options, navigationAndEditing[i]);
         }
 
+        AddActionSection(options, "Modifiers and Modes");
         string[] modifiersAndModes =
         {
             "Shift",
@@ -467,6 +505,7 @@ public partial class MainWindow : Window
             AddKeyActionChoice(options, modifiersAndModes[i]);
         }
 
+        AddActionSection(options, "Symbols");
         string[] symbols =
         {
             "!",
@@ -508,11 +547,13 @@ public partial class MainWindow : Window
             AddKeyActionChoice(options, symbols[i]);
         }
 
+        AddActionSection(options, "Function Keys");
         for (int i = 1; i <= 12; i++)
         {
             AddKeyActionChoice(options, $"F{i}");
         }
 
+        AddActionSection(options, "System and Media");
         string[] systemAndMedia =
         {
             "EMOJI",
@@ -527,6 +568,7 @@ public partial class MainWindow : Window
             AddKeyActionChoice(options, systemAndMedia[i]);
         }
 
+        AddActionSection(options, "Shortcuts");
         string[] shortcuts =
         {
             "Ctrl+C",
@@ -543,6 +585,7 @@ public partial class MainWindow : Window
             AddKeyActionChoice(options, shortcuts[i]);
         }
 
+        AddActionSection(options, "Layer Controls");
         AddKeyActionChoice(options, "TO(0)");
         for (int layer = 1; layer <= MaxSupportedLayer; layer++)
         {
@@ -556,7 +599,12 @@ public partial class MainWindow : Window
 
     private static void AddKeyActionChoice(List<KeyActionChoice> choices, string value)
     {
-        choices.Add(new KeyActionChoice(value, value));
+        choices.Add(KeyActionChoice.Action(value));
+    }
+
+    private static void AddActionSection(List<KeyActionChoice> choices, string title)
+    {
+        choices.Add(KeyActionChoice.Section(title));
     }
 
     private static bool IsUnsupportedLayerActionChoice(string value)
@@ -590,6 +638,14 @@ public partial class MainWindow : Window
             NumberStyles.Integer,
             CultureInfo.InvariantCulture,
             out layer);
+    }
+
+    private static IEnumerable<string> EnumerateGestureActions(UserSettings profile)
+    {
+        yield return profile.FiveFingerSwipeLeftAction ?? "Typing Toggle";
+        yield return profile.FiveFingerSwipeRightAction ?? "Typing Toggle";
+        yield return profile.FiveFingerSwipeUpAction ?? "None";
+        yield return profile.FiveFingerSwipeDownAction ?? "None";
     }
 
     private static List<LayerChoice> BuildLayerChoices()
@@ -936,6 +992,11 @@ public partial class MainWindow : Window
         string target = string.IsNullOrWhiteSpace(value) ? "None" : value.Trim();
         foreach (KeyActionChoice choice in choices)
         {
+            if (choice.IsSeparator)
+            {
+                continue;
+            }
+
             if (string.Equals(choice.Value, target, StringComparison.OrdinalIgnoreCase))
             {
                 return choice;
@@ -1255,11 +1316,29 @@ public partial class MainWindow : Window
         _rightRenderedLayout = rightLayout;
     }
 
-    private static string ReadActionSelection(ComboBox combo, string fallback)
+    private string ReadActionSelection(ComboBox combo, string fallback)
     {
-        if (combo.SelectedItem is KeyActionChoice choice && !string.IsNullOrWhiteSpace(choice.Value))
+        string resolved = ReadSelectedActionValue(combo, fallback);
+        if (combo.SelectedItem is KeyActionChoice choice && choice.IsSeparator)
+        {
+            SetActionComboSelection(combo, fallback);
+        }
+
+        return resolved;
+    }
+
+    private static string ReadSelectedActionValue(ComboBox combo, string fallback)
+    {
+        if (combo.SelectedItem is KeyActionChoice choice &&
+            !choice.IsSeparator &&
+            !string.IsNullOrWhiteSpace(choice.Value))
         {
             return choice.Value;
+        }
+
+        if (combo.SelectedItem is KeyActionChoice separatorChoice && separatorChoice.IsSeparator)
+        {
+            return fallback;
         }
 
         if (!string.IsNullOrWhiteSpace(combo.SelectedItem?.ToString()))
@@ -1612,16 +1691,6 @@ public partial class MainWindow : Window
         return choices;
     }
 
-    private static List<GestureActionChoice> BuildGestureActionChoices()
-    {
-        return
-        [
-            new GestureActionChoice("None", "None"),
-            new GestureActionChoice("Typing Toggle", "Typing Toggle"),
-            new GestureActionChoice("Chordal Shift", "Chordal Shift")
-        ];
-    }
-
     private static DeviceChoice? SelectDeviceChoice(IEnumerable<DeviceChoice> choices, string? stableId)
     {
         foreach (DeviceChoice choice in choices)
@@ -1646,23 +1715,6 @@ public partial class MainWindow : Window
         }
 
         return null;
-    }
-
-    private static GestureActionChoice SelectGestureActionChoice(
-        IEnumerable<GestureActionChoice> choices,
-        string? action,
-        string fallback)
-    {
-        string resolved = string.IsNullOrWhiteSpace(action) ? fallback : action.Trim();
-        foreach (GestureActionChoice choice in choices)
-        {
-            if (string.Equals(choice.Value, resolved, StringComparison.OrdinalIgnoreCase))
-            {
-                return choice;
-            }
-        }
-
-        return new GestureActionChoice(resolved, resolved);
     }
 
     private bool TryImportSettings(string path, out string message)
@@ -2599,14 +2651,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private sealed record GestureActionChoice(string Label, string Value)
-    {
-        public override string ToString()
-        {
-            return Label;
-        }
-    }
-
     private sealed record LayerChoice(string Label, int Layer)
     {
         public override string ToString()
@@ -2615,8 +2659,19 @@ public partial class MainWindow : Window
         }
     }
 
-    private sealed record KeyActionChoice(string Label, string Value)
+    private sealed record KeyActionChoice(string Label, string Value, bool IsSeparator)
     {
+        public static KeyActionChoice Action(string value)
+        {
+            return new KeyActionChoice(value, value, IsSeparator: false);
+        }
+
+        public static KeyActionChoice Section(string title)
+        {
+            string key = title.Replace(' ', '_');
+            return new KeyActionChoice($"--- {title} ---", $"__section__{key}", IsSeparator: true);
+        }
+
         public override string ToString()
         {
             return Label;
