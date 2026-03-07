@@ -172,7 +172,8 @@
                           HorizontalAlignment="Stretch" />
               </Grid>
               <Separator Margin="0,6,0,2" />
-              <Expander Header="Keymap Tuning"
+              <Expander x:Name="KeymapTuningExpander"
+                        Header="Keymap Tuning"
                         IsExpanded="False"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch">

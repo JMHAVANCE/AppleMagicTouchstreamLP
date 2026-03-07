@@ -39,6 +39,7 @@ public partial class MainWindow : Window
     private readonly ComboBox _fiveFingerSwipeRightCombo;
     private readonly ComboBox _fiveFingerSwipeUpCombo;
     private readonly ComboBox _fiveFingerSwipeDownCombo;
+    private readonly Expander _keymapTuningExpander;
     private readonly ComboBox _keymapLayerCombo;
     private readonly ComboBox _keymapPrimaryCombo;
     private readonly ComboBox _keymapHoldCombo;
@@ -134,6 +135,7 @@ public partial class MainWindow : Window
         _fiveFingerSwipeRightCombo = RequireControl<ComboBox>("FiveFingerSwipeRightCombo");
         _fiveFingerSwipeUpCombo = RequireControl<ComboBox>("FiveFingerSwipeUpCombo");
         _fiveFingerSwipeDownCombo = RequireControl<ComboBox>("FiveFingerSwipeDownCombo");
+        _keymapTuningExpander = RequireControl<Expander>("KeymapTuningExpander");
         _keymapLayerCombo = RequireControl<ComboBox>("KeymapLayerCombo");
         _keymapPrimaryCombo = RequireControl<ComboBox>("KeymapPrimaryCombo");
         _keymapHoldCombo = RequireControl<ComboBox>("KeymapHoldCombo");
@@ -1319,6 +1321,7 @@ public partial class MainWindow : Window
         _selectedKeyColumn = column;
         RefreshKeymapEditor();
         ApplyPreviewSnapshot(_previewSnapshot);
+        RevealKeymapEditorAndFocusPrimaryAction();
     }
 
     private void SelectCustomButtonForEditing(TrackpadSide side, string buttonId)
@@ -1331,6 +1334,23 @@ public partial class MainWindow : Window
         _selectedKeyColumn = -1;
         RefreshKeymapEditor();
         ApplyPreviewSnapshot(_previewSnapshot);
+        RevealKeymapEditorAndFocusPrimaryAction();
+    }
+
+    private void RevealKeymapEditorAndFocusPrimaryAction()
+    {
+        if (IsReplayMode)
+        {
+            return;
+        }
+
+        _keymapTuningExpander.IsExpanded = true;
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                _keymapPrimaryCombo.Focus();
+            },
+            DispatcherPriority.Input);
     }
 
     private void ClearSelectionForEditing()
