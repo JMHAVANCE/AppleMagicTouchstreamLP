@@ -2384,7 +2384,8 @@ public partial class MainWindow : Window
             {
                 NormalizedRect rect = layout.Rects[row][col];
                 string storageKey = GridKeyPosition.StorageKey(side, row, col);
-                string label = keymap.ResolveMapping(activeLayer, storageKey, layout.Labels[row][col]).Primary.Label;
+                KeyMapping mapping = keymap.ResolveMapping(activeLayer, storageKey, layout.Labels[row][col]);
+                string label = BuildKeymapDisplayLabel(mapping, layout.Labels[row][col], separator: "\n");
                 bool selected = _hasSelectedKey &&
                                 !_hasSelectedCustomButton &&
                                 _selectedKeySide == side &&
@@ -2443,7 +2444,7 @@ public partial class MainWindow : Window
                 CornerRadius = new CornerRadius(10),
                 Child = new TextBlock
                 {
-                    Text = button.Primary?.Label ?? "None",
+                    Text = BuildCustomButtonDisplayLabel(button, separator: "\n"),
                     Foreground = new SolidColorBrush(Color.Parse("#6A4533")),
                     FontSize = 11,
                     FontWeight = FontWeight.SemiBold,
@@ -2494,7 +2495,8 @@ public partial class MainWindow : Window
                     }
 
                     string storageKey = GridKeyPosition.StorageKey(side, row, col);
-                    labels.Add(keymap.ResolveMapping(activeLayer, storageKey, layout.Labels[row][col]).Primary.Label);
+                    KeyMapping mapping = keymap.ResolveMapping(activeLayer, storageKey, layout.Labels[row][col]);
+                    labels.Add(BuildKeymapDisplayLabel(mapping, layout.Labels[row][col], separator: " / "));
                 }
             }
         }
@@ -2515,12 +2517,34 @@ public partial class MainWindow : Window
                 CustomButton button = customButtons[buttonIndex];
                 if (button.Rect.Contains(x, y))
                 {
-                    labels.Add(button.Primary?.Label ?? "None");
+                    labels.Add(BuildCustomButtonDisplayLabel(button, separator: " / "));
                 }
             }
         }
 
         return labels.Count == 0 ? Array.Empty<string>() : [.. labels];
+    }
+
+    private static string BuildKeymapDisplayLabel(KeyMapping mapping, string defaultLabel, string separator)
+    {
+        string primary = string.IsNullOrWhiteSpace(mapping.Primary.Label) ? defaultLabel : mapping.Primary.Label;
+        return BuildPrimaryHoldDisplayLabel(primary, mapping.Hold?.Label, separator);
+    }
+
+    private static string BuildCustomButtonDisplayLabel(CustomButton button, string separator)
+    {
+        string primary = string.IsNullOrWhiteSpace(button.Primary?.Label) ? "None" : button.Primary.Label;
+        return BuildPrimaryHoldDisplayLabel(primary, button.Hold?.Label, separator);
+    }
+
+    private static string BuildPrimaryHoldDisplayLabel(string primary, string? hold, string separator)
+    {
+        if (string.IsNullOrWhiteSpace(hold))
+        {
+            return primary;
+        }
+
+        return $"{primary}{separator}{hold}";
     }
 
     private sealed record DeviceChoice(string Label, string? StableId)
