@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private readonly ComboBox _leftDeviceCombo;
     private readonly ComboBox _rightDeviceCombo;
     private readonly ComboBox _layoutPresetCombo;
+    private readonly ComboBox _columnLayoutColumnCombo;
     private readonly ComboBox _fiveFingerSwipeLeftCombo;
     private readonly ComboBox _fiveFingerSwipeRightCombo;
     private readonly ComboBox _fiveFingerSwipeUpCombo;
@@ -42,7 +43,14 @@ public partial class MainWindow : Window
     private readonly ComboBox _keymapPrimaryCombo;
     private readonly ComboBox _keymapHoldCombo;
     private readonly Button _keymapClearSelectionButton;
+    private readonly Button _columnAutoSplayButton;
+    private readonly Button _columnEvenSpaceButton;
     private readonly TextBlock _keymapSelectionText;
+    private readonly TextBox _columnScaleBox;
+    private readonly TextBox _keyPaddingBox;
+    private readonly TextBox _columnOffsetXBox;
+    private readonly TextBox _columnOffsetYBox;
+    private readonly TextBox _columnRotationBox;
     private readonly TextBox _keyRotationBox;
     private readonly Button _customButtonAddLeftButton;
     private readonly Button _customButtonAddRightButton;
@@ -75,6 +83,7 @@ public partial class MainWindow : Window
     private bool _loadingScreen;
     private bool _settingsApplyPending;
     private bool _hideInProgress;
+    private bool _suppressColumnLayoutEvents;
     private bool _suppressKeymapEditorEvents;
     private bool _suppressReplayTimelineEvents;
     private bool _suppressReplaySpeedEvents;
@@ -91,6 +100,7 @@ public partial class MainWindow : Window
     private double _replayAccumulatedTicks;
     private double _replaySpeed = 1.0;
     private LinuxAtpCapReplayVisualData? _replayData;
+    private ColumnLayoutSettings[] _columnSettings = Array.Empty<ColumnLayoutSettings>();
     private string _leftStickyTouchedKeys = "Touched keys: (none)";
     private string _rightStickyTouchedKeys = "Touched keys: (none)";
     private LinuxInputPreviewSnapshot _previewSnapshot = new(
@@ -113,6 +123,7 @@ public partial class MainWindow : Window
         _leftDeviceCombo = RequireControl<ComboBox>("LeftDeviceCombo");
         _rightDeviceCombo = RequireControl<ComboBox>("RightDeviceCombo");
         _layoutPresetCombo = RequireControl<ComboBox>("LayoutPresetCombo");
+        _columnLayoutColumnCombo = RequireControl<ComboBox>("ColumnLayoutColumnCombo");
         _fiveFingerSwipeLeftCombo = RequireControl<ComboBox>("FiveFingerSwipeLeftCombo");
         _fiveFingerSwipeRightCombo = RequireControl<ComboBox>("FiveFingerSwipeRightCombo");
         _fiveFingerSwipeUpCombo = RequireControl<ComboBox>("FiveFingerSwipeUpCombo");
@@ -121,7 +132,14 @@ public partial class MainWindow : Window
         _keymapPrimaryCombo = RequireControl<ComboBox>("KeymapPrimaryCombo");
         _keymapHoldCombo = RequireControl<ComboBox>("KeymapHoldCombo");
         _keymapClearSelectionButton = RequireControl<Button>("KeymapClearSelectionButton");
+        _columnAutoSplayButton = RequireControl<Button>("ColumnAutoSplayButton");
+        _columnEvenSpaceButton = RequireControl<Button>("ColumnEvenSpaceButton");
         _keymapSelectionText = RequireControl<TextBlock>("KeymapSelectionText");
+        _columnScaleBox = RequireControl<TextBox>("ColumnScaleBox");
+        _keyPaddingBox = RequireControl<TextBox>("KeyPaddingBox");
+        _columnOffsetXBox = RequireControl<TextBox>("ColumnOffsetXBox");
+        _columnOffsetYBox = RequireControl<TextBox>("ColumnOffsetYBox");
+        _columnRotationBox = RequireControl<TextBox>("ColumnRotationBox");
         _keyRotationBox = RequireControl<TextBox>("KeyRotationBox");
         _customButtonAddLeftButton = RequireControl<Button>("CustomButtonAddLeftButton");
         _customButtonAddRightButton = RequireControl<Button>("CustomButtonAddRightButton");
@@ -173,10 +191,23 @@ public partial class MainWindow : Window
         _leftDeviceCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _rightDeviceCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _layoutPresetCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        _columnLayoutColumnCombo.SelectionChanged += OnColumnLayoutSelectionChanged;
         _fiveFingerSwipeLeftCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _fiveFingerSwipeRightCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _fiveFingerSwipeUpCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _fiveFingerSwipeDownCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        _columnScaleBox.LostFocus += OnColumnLayoutCommitted;
+        _keyPaddingBox.LostFocus += OnColumnLayoutCommitted;
+        _columnOffsetXBox.LostFocus += OnColumnLayoutCommitted;
+        _columnOffsetYBox.LostFocus += OnColumnLayoutCommitted;
+        _columnRotationBox.LostFocus += OnColumnLayoutCommitted;
+        _columnScaleBox.KeyDown += OnColumnLayoutKeyDown;
+        _keyPaddingBox.KeyDown += OnColumnLayoutKeyDown;
+        _columnOffsetXBox.KeyDown += OnColumnLayoutKeyDown;
+        _columnOffsetYBox.KeyDown += OnColumnLayoutKeyDown;
+        _columnRotationBox.KeyDown += OnColumnLayoutKeyDown;
+        _columnAutoSplayButton.Click += OnColumnAutoSplayClick;
+        _columnEvenSpaceButton.Click += OnColumnEvenSpaceClick;
         _leftPreviewCanvas.PointerPressed += OnLeftPreviewPointerPressed;
         _rightPreviewCanvas.PointerPressed += OnRightPreviewPointerPressed;
         _keymapLayerCombo.SelectionChanged += OnKeymapLayerSelectionChanged;
@@ -245,6 +276,7 @@ public partial class MainWindow : Window
         _layoutPresetCombo.SelectedItem = SelectPresetChoice(presetChoices, settings.LayoutPresetName) ?? presetChoices[0];
 
         RenderKeymapPreview(configuration);
+        RefreshColumnLayoutEditor();
         ReloadKeymapActionChoices(configuration.Keymap, EnumerateGestureActions(settings.SharedProfile));
         SetActionComboSelection(_fiveFingerSwipeLeftCombo, settings.SharedProfile.FiveFingerSwipeLeftAction ?? "Typing Toggle");
         SetActionComboSelection(_fiveFingerSwipeRightCombo, settings.SharedProfile.FiveFingerSwipeRightAction ?? "Typing Toggle");
@@ -322,6 +354,395 @@ public partial class MainWindow : Window
         }
 
         return Task.CompletedTask;
+    }
+
+    private TrackpadLayoutPreset GetSelectedPreset()
+    {
+        return (_layoutPresetCombo.SelectedItem as PresetChoice)?.Name is string name
+            ? TrackpadLayoutPreset.ResolveByNameOrDefault(name)
+            : TrackpadLayoutPreset.SixByThree;
+    }
+
+    private void OnColumnLayoutSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingScreen || _suppressColumnLayoutEvents)
+        {
+            return;
+        }
+
+        RefreshColumnLayoutFields();
+    }
+
+    private void OnColumnLayoutCommitted(object? sender, RoutedEventArgs e)
+    {
+        if (_loadingScreen || _suppressColumnLayoutEvents || IsReplayMode)
+        {
+            return;
+        }
+
+        SaveColumnLayoutEdits();
+    }
+
+    private void OnColumnLayoutKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _loadingScreen || _suppressColumnLayoutEvents || IsReplayMode)
+        {
+            return;
+        }
+
+        SaveColumnLayoutEdits();
+        e.Handled = true;
+    }
+
+    private void OnColumnAutoSplayClick(object? sender, RoutedEventArgs e)
+    {
+        if (IsReplayMode)
+        {
+            return;
+        }
+
+        TrackpadLayoutPreset preset = GetSelectedPreset();
+        if (!preset.AllowsColumnSettings || !ColumnLayoutTuning.IsAutoSplaySupported(preset))
+        {
+            ShowNoticeDialog("Auto Splay", "Auto Splay currently supports 6-column layouts plus 5x3 and 5x4.");
+            return;
+        }
+
+        if (!TryCaptureAutoSplayTouches(out ColumnAutoSplayTouch[] touches, out string captureError))
+        {
+            ShowNoticeDialog("Auto Splay", captureError);
+            return;
+        }
+
+        if (!ColumnLayoutTuning.TryApplyAutoSplay(preset, _rightRenderedLayout, _columnSettings, touches, out string applyError))
+        {
+            ShowNoticeDialog("Auto Splay", applyError);
+            return;
+        }
+
+        SaveColumnLayoutStateToSettings();
+    }
+
+    private void OnColumnEvenSpaceClick(object? sender, RoutedEventArgs e)
+    {
+        if (IsReplayMode)
+        {
+            return;
+        }
+
+        TrackpadLayoutPreset preset = GetSelectedPreset();
+        if (!ColumnLayoutTuning.TryApplyEvenColumnSpacing(preset, _rightRenderedLayout, _columnSettings, out string error))
+        {
+            ShowNoticeDialog("Even Space", error);
+            return;
+        }
+
+        SaveColumnLayoutStateToSettings();
+    }
+
+    private void RefreshColumnLayoutEditor()
+    {
+        TrackpadLayoutPreset preset = GetSelectedPreset();
+        LinuxHostSettings settings = _runtime.LoadSettings();
+        UserSettings profile = settings.GetSharedProfile();
+        double keyPadding = RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(profile, preset);
+        bool allowsColumnSettings = preset.AllowsColumnSettings && !IsReplayMode;
+
+        _suppressColumnLayoutEvents = true;
+        _keyPaddingBox.IsEnabled = !IsReplayMode;
+        _columnLayoutColumnCombo.IsEnabled = allowsColumnSettings;
+        _columnScaleBox.IsEnabled = allowsColumnSettings;
+        _columnOffsetXBox.IsEnabled = allowsColumnSettings;
+        _columnOffsetYBox.IsEnabled = allowsColumnSettings;
+        _columnRotationBox.IsEnabled = allowsColumnSettings;
+        _columnAutoSplayButton.IsEnabled = allowsColumnSettings && ColumnLayoutTuning.IsAutoSplaySupported(preset);
+        _columnEvenSpaceButton.IsEnabled = allowsColumnSettings && preset.Columns >= 3;
+        _keyPaddingBox.Text = FormatNumber(keyPadding);
+
+        int previous = _columnLayoutColumnCombo.SelectedIndex;
+        List<string> columnChoices = [];
+        for (int col = 0; col < preset.Columns; col++)
+        {
+            columnChoices.Add($"Column {col + 1}");
+        }
+
+        _columnLayoutColumnCombo.ItemsSource = columnChoices;
+        if (preset.Columns > 0)
+        {
+            if (previous < 0 || previous >= preset.Columns)
+            {
+                previous = 0;
+            }
+
+            _columnLayoutColumnCombo.SelectedIndex = previous;
+        }
+        else
+        {
+            _columnLayoutColumnCombo.SelectedIndex = -1;
+        }
+
+        _suppressColumnLayoutEvents = false;
+        RefreshColumnLayoutFields();
+    }
+
+    private void RefreshColumnLayoutFields()
+    {
+        TrackpadLayoutPreset preset = GetSelectedPreset();
+        LinuxHostSettings settings = _runtime.LoadSettings();
+        UserSettings profile = settings.GetSharedProfile();
+
+        _suppressColumnLayoutEvents = true;
+        _keyPaddingBox.Text = FormatNumber(RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(profile, preset));
+
+        if (!preset.AllowsColumnSettings)
+        {
+            _columnScaleBox.Text = FormatNumber(preset.FixedKeyScale * 100.0);
+            ToolTip.SetTip(_columnScaleBox, "Fixed layout scale.");
+            _columnOffsetXBox.Text = "0";
+            _columnOffsetYBox.Text = "0";
+            _columnRotationBox.Text = "0";
+            ToolTip.SetTip(_columnRotationBox, "Rotation range: 0° - 360°.");
+            _suppressColumnLayoutEvents = false;
+            return;
+        }
+
+        int col = _columnLayoutColumnCombo.SelectedIndex;
+        if (col < 0 || col >= _columnSettings.Length)
+        {
+            _columnScaleBox.Text = "100";
+            ToolTip.SetTip(_columnScaleBox, null);
+            _columnOffsetXBox.Text = "0";
+            _columnOffsetYBox.Text = "0";
+            _columnRotationBox.Text = "0";
+            ToolTip.SetTip(_columnRotationBox, "Rotation range: 0° - 360°.");
+            _suppressColumnLayoutEvents = false;
+            return;
+        }
+
+        double maxScale = RuntimeConfigurationFactory.GetMaxColumnScaleForPreset(preset);
+        ColumnLayoutSettings column = _columnSettings[col];
+        _columnScaleBox.Text = FormatNumber(column.Scale * 100.0);
+        ToolTip.SetTip(
+            _columnScaleBox,
+            $"Scale range: {FormatNumber(RuntimeConfigurationFactory.MinColumnScale * 100.0)}% - {FormatNumber(maxScale * 100.0)}% (based on Magic Trackpad 2 dimensions 160.0mm x 114.9mm).");
+        _columnOffsetXBox.Text = FormatNumber(column.OffsetXPercent);
+        _columnOffsetYBox.Text = FormatNumber(column.OffsetYPercent);
+        _columnRotationBox.Text = FormatNumber(column.RotationDegrees);
+        ToolTip.SetTip(_columnRotationBox, "Rotation range: 0° - 360°.");
+        _suppressColumnLayoutEvents = false;
+    }
+
+    private void SaveColumnLayoutEdits()
+    {
+        TrackpadLayoutPreset preset = GetSelectedPreset();
+        LinuxHostSettings settings = _runtime.LoadSettings();
+        settings.LayoutPresetName = preset.Name;
+        settings.SharedProfile ??= UserSettings.LoadBundledDefaultsOrDefault();
+        settings.SharedProfile.LayoutPresetName = preset.Name;
+
+        if (!ApplyColumnLayoutFromUi(settings.SharedProfile, preset))
+        {
+            RefreshColumnLayoutFields();
+            return;
+        }
+
+        SaveColumnLayoutStateToSettings(settings, preset);
+    }
+
+    private bool ApplyColumnLayoutFromUi(UserSettings profile, TrackpadLayoutPreset preset)
+    {
+        bool changed = false;
+        double previousPadding = RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(profile, preset);
+        double nextPadding = Math.Clamp(ReadDouble(_keyPaddingBox, previousPadding), 0.0, 90.0);
+        if (Math.Abs(nextPadding - previousPadding) > 0.00001)
+        {
+            RuntimeConfigurationFactory.SaveKeyPaddingForPreset(profile, preset, nextPadding);
+            changed = true;
+        }
+
+        _keyPaddingBox.Text = FormatNumber(RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(profile, preset));
+
+        if (!preset.AllowsColumnSettings)
+        {
+            return changed;
+        }
+
+        int selectedColumn = _columnLayoutColumnCombo.SelectedIndex;
+        if (selectedColumn < 0 || selectedColumn >= _columnSettings.Length)
+        {
+            return changed;
+        }
+
+        ColumnLayoutSettings target = _columnSettings[selectedColumn];
+        double maxScale = RuntimeConfigurationFactory.GetMaxColumnScaleForPreset(preset);
+        double nextScalePercent = ReadDouble(_columnScaleBox, target.Scale * 100.0);
+        double nextScale = Math.Clamp(nextScalePercent / 100.0, RuntimeConfigurationFactory.MinColumnScale, maxScale);
+        double nextOffsetX = ReadDouble(_columnOffsetXBox, target.OffsetXPercent);
+        double nextOffsetY = ReadDouble(_columnOffsetYBox, target.OffsetYPercent);
+        double nextRotation = Math.Clamp(ReadDouble(_columnRotationBox, target.RotationDegrees), 0.0, 360.0);
+
+        if (Math.Abs(nextScale - target.Scale) > 0.00001)
+        {
+            target.Scale = nextScale;
+            changed = true;
+        }
+
+        if (Math.Abs(nextOffsetX - target.OffsetXPercent) > 0.00001)
+        {
+            target.OffsetXPercent = nextOffsetX;
+            changed = true;
+        }
+
+        if (Math.Abs(nextOffsetY - target.OffsetYPercent) > 0.00001)
+        {
+            target.OffsetYPercent = nextOffsetY;
+            changed = true;
+        }
+
+        if (Math.Abs(nextRotation - target.RotationDegrees) > 0.00001)
+        {
+            target.RotationDegrees = nextRotation;
+            changed = true;
+        }
+
+        _columnScaleBox.Text = FormatNumber(target.Scale * 100.0);
+        _columnOffsetXBox.Text = FormatNumber(target.OffsetXPercent);
+        _columnOffsetYBox.Text = FormatNumber(target.OffsetYPercent);
+        _columnRotationBox.Text = FormatNumber(target.RotationDegrees);
+        return changed;
+    }
+
+    private void SaveColumnLayoutStateToSettings()
+    {
+        SaveColumnLayoutStateToSettings(_runtime.LoadSettings(), GetSelectedPreset());
+    }
+
+    private void SaveColumnLayoutStateToSettings(LinuxHostSettings settings, TrackpadLayoutPreset preset)
+    {
+        settings.LayoutPresetName = preset.Name;
+        settings.SharedProfile ??= UserSettings.LoadBundledDefaultsOrDefault();
+        settings.SharedProfile.LayoutPresetName = preset.Name;
+        RuntimeConfigurationFactory.SaveColumnSettingsForPreset(settings.SharedProfile, preset, _columnSettings);
+        settings.Normalize();
+        _runtime.SaveSettings(settings);
+        RenderLayoutsFromCurrentKeymap();
+        EnsureSelectedKeyStillValid();
+        RefreshColumnLayoutEditor();
+        RefreshKeymapEditor();
+        ApplyPreviewSnapshot(_previewSnapshot);
+    }
+
+    private bool TryCaptureAutoSplayTouches(out ColumnAutoSplayTouch[] touches, out string error)
+    {
+        touches = Array.Empty<ColumnAutoSplayTouch>();
+        LinuxInputPreviewTrackpadState? left = FindPreviewTrackpadState(TrackpadSide.Left);
+        LinuxInputPreviewTrackpadState? right = FindPreviewTrackpadState(TrackpadSide.Right);
+
+        Span<ColumnAutoSplayTouch> leftTouches = stackalloc ColumnAutoSplayTouch[InputFrame.MaxContacts];
+        Span<ColumnAutoSplayTouch> rightTouches = stackalloc ColumnAutoSplayTouch[InputFrame.MaxContacts];
+        int leftCount = SnapshotAutoSplayTouches(left, leftTouches);
+        int rightCount = SnapshotAutoSplayTouches(right, rightTouches);
+
+        bool leftReady = leftCount >= ColumnLayoutTuning.AutoSplayTouchCount;
+        bool rightReady = rightCount >= ColumnLayoutTuning.AutoSplayTouchCount;
+        if (leftReady && rightReady)
+        {
+            error = "Detected 4+ touches on both sides. Keep touches on only one side and retry.";
+            return false;
+        }
+
+        if (!leftReady && !rightReady)
+        {
+            error = leftCount == 0 && rightCount == 0
+                ? "Place at least 4 fingertips on one side, then click Auto Splay."
+                : $"Auto Splay needs at least 4 touches on one side (left: {leftCount}, right: {rightCount}).";
+            return false;
+        }
+
+        TrackpadSide sourceSide = leftReady ? TrackpadSide.Left : TrackpadSide.Right;
+        Span<ColumnAutoSplayTouch> source = leftReady ? leftTouches : rightTouches;
+        int sourceCount = leftReady ? leftCount : rightCount;
+        int skipIndex = IndexOfLowestAutoSplayTouch(source, sourceCount);
+        touches = new ColumnAutoSplayTouch[ColumnLayoutTuning.AutoSplayTouchCount];
+        for (int i = 0, written = 0; i < sourceCount && written < ColumnLayoutTuning.AutoSplayTouchCount; i++)
+        {
+            if (i == skipIndex)
+            {
+                continue;
+            }
+
+            ColumnAutoSplayTouch touch = source[i];
+            double canonicalX = sourceSide == TrackpadSide.Left ? 1.0 - touch.XNorm : touch.XNorm;
+            touches[written++] = new ColumnAutoSplayTouch(canonicalX, touch.YNorm);
+        }
+
+        Array.Sort(touches, static (a, b) =>
+        {
+            int byX = a.XNorm.CompareTo(b.XNorm);
+            return byX != 0 ? byX : a.YNorm.CompareTo(b.YNorm);
+        });
+
+        error = string.Empty;
+        return true;
+    }
+
+    private static int IndexOfLowestAutoSplayTouch(Span<ColumnAutoSplayTouch> touches, int count)
+    {
+        if (count <= ColumnLayoutTuning.AutoSplayTouchCount)
+        {
+            return -1;
+        }
+
+        int index = 0;
+        for (int i = 1; i < count; i++)
+        {
+            if (touches[i].YNorm > touches[index].YNorm)
+            {
+                index = i;
+            }
+        }
+
+        return index;
+    }
+
+    private int SnapshotAutoSplayTouches(LinuxInputPreviewTrackpadState? state, Span<ColumnAutoSplayTouch> destination)
+    {
+        if (state == null || destination.Length == 0 || state.Contacts.Count == 0)
+        {
+            return 0;
+        }
+
+        ushort maxX = state.MaxX == 0 ? RuntimeConfigurationFactory.DefaultMaxX : state.MaxX;
+        ushort maxY = state.MaxY == 0 ? RuntimeConfigurationFactory.DefaultMaxY : state.MaxY;
+        int written = 0;
+        for (int index = 0; index < state.Contacts.Count && written < destination.Length; index++)
+        {
+            LinuxInputPreviewContact contact = state.Contacts[index];
+            if (!contact.TipSwitch)
+            {
+                continue;
+            }
+
+            destination[written++] = new ColumnAutoSplayTouch(
+                Math.Clamp(contact.X / (double)maxX, 0.0, 1.0),
+                Math.Clamp(contact.Y / (double)maxY, 0.0, 1.0));
+        }
+
+        return written;
+    }
+
+    private LinuxInputPreviewTrackpadState? FindPreviewTrackpadState(TrackpadSide side)
+    {
+        for (int index = 0; index < _previewSnapshot.Trackpads.Count; index++)
+        {
+            LinuxInputPreviewTrackpadState trackpad = _previewSnapshot.Trackpads[index];
+            if (trackpad.Side == side)
+            {
+                return trackpad;
+            }
+        }
+
+        return null;
     }
 
     private void InitializeKeymapEditorControls()
@@ -1305,6 +1726,7 @@ public partial class MainWindow : Window
         ColumnLayoutSettings[] columns = RuntimeConfigurationFactory.BuildColumnSettingsForPreset(
             profile,
             preset);
+        _columnSettings = RuntimeConfigurationFactory.CloneColumnSettings(columns);
         RuntimeConfigurationFactory.BuildLayouts(
             profile,
             _renderedKeymap,
@@ -1827,6 +2249,7 @@ public partial class MainWindow : Window
         _replayPanel.IsVisible = true;
         _replayToggleButton.Content = "Play";
         UpdateReplayControls();
+        RefreshColumnLayoutEditor();
         RefreshKeymapEditor();
         ApplyReplayVisualState();
         Activate();
@@ -1868,6 +2291,7 @@ public partial class MainWindow : Window
         _replayCompleted = false;
         _replayPanel.IsVisible = false;
         UpdateReplayControls();
+        RefreshColumnLayoutEditor();
         RefreshKeymapEditor();
         ApplyRuntimeStatus(_desktopRuntime.RuntimeSnapshot);
         ApplyPreviewSnapshot(_desktopRuntime.PreviewSnapshot);
@@ -2436,6 +2860,7 @@ public partial class MainWindow : Window
         ColumnLayoutSettings[] columns = RuntimeConfigurationFactory.BuildColumnSettingsForPreset(
             configuration.SharedProfile,
             configuration.LayoutPreset);
+        _columnSettings = RuntimeConfigurationFactory.CloneColumnSettings(columns);
         RuntimeConfigurationFactory.BuildLayouts(
             configuration.SharedProfile,
             configuration.Keymap,
