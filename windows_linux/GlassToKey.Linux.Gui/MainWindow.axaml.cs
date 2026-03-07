@@ -42,6 +42,12 @@ public partial class MainWindow : Window
     private readonly ComboBox _keymapLayerCombo;
     private readonly ComboBox _keymapPrimaryCombo;
     private readonly ComboBox _keymapHoldCombo;
+    private readonly CheckBox _keyboardModeCheck;
+    private readonly CheckBox _runAtStartupCheck;
+    private readonly CheckBox _startInTrayOnLaunchCheck;
+    private readonly CheckBox _snapRadiusModeCheck;
+    private readonly CheckBox _holdRepeatModeCheck;
+    private readonly CheckBox _autocorrectModeCheck;
     private readonly Button _keymapClearSelectionButton;
     private readonly Button _columnAutoSplayButton;
     private readonly Button _columnEvenSpaceButton;
@@ -131,6 +137,12 @@ public partial class MainWindow : Window
         _keymapLayerCombo = RequireControl<ComboBox>("KeymapLayerCombo");
         _keymapPrimaryCombo = RequireControl<ComboBox>("KeymapPrimaryCombo");
         _keymapHoldCombo = RequireControl<ComboBox>("KeymapHoldCombo");
+        _keyboardModeCheck = RequireControl<CheckBox>("KeyboardModeCheck");
+        _runAtStartupCheck = RequireControl<CheckBox>("RunAtStartupCheck");
+        _startInTrayOnLaunchCheck = RequireControl<CheckBox>("StartInTrayOnLaunchCheck");
+        _snapRadiusModeCheck = RequireControl<CheckBox>("SnapRadiusModeCheck");
+        _holdRepeatModeCheck = RequireControl<CheckBox>("HoldRepeatModeCheck");
+        _autocorrectModeCheck = RequireControl<CheckBox>("AutocorrectModeCheck");
         _keymapClearSelectionButton = RequireControl<Button>("KeymapClearSelectionButton");
         _columnAutoSplayButton = RequireControl<Button>("ColumnAutoSplayButton");
         _columnEvenSpaceButton = RequireControl<Button>("ColumnEvenSpaceButton");
@@ -196,6 +208,12 @@ public partial class MainWindow : Window
         _fiveFingerSwipeRightCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _fiveFingerSwipeUpCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _fiveFingerSwipeDownCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        _keyboardModeCheck.IsCheckedChanged += OnModeToggleChanged;
+        _runAtStartupCheck.IsCheckedChanged += OnModeToggleChanged;
+        _startInTrayOnLaunchCheck.IsCheckedChanged += OnModeToggleChanged;
+        _snapRadiusModeCheck.IsCheckedChanged += OnModeToggleChanged;
+        _holdRepeatModeCheck.IsCheckedChanged += OnModeToggleChanged;
+        _autocorrectModeCheck.IsCheckedChanged += OnModeToggleChanged;
         _columnScaleBox.LostFocus += OnColumnLayoutCommitted;
         _keyPaddingBox.LostFocus += OnColumnLayoutCommitted;
         _columnOffsetXBox.LostFocus += OnColumnLayoutCommitted;
@@ -274,6 +292,7 @@ public partial class MainWindow : Window
         List<PresetChoice> presetChoices = BuildPresetChoices();
         _layoutPresetCombo.ItemsSource = presetChoices;
         _layoutPresetCombo.SelectedItem = SelectPresetChoice(presetChoices, settings.LayoutPresetName) ?? presetChoices[0];
+        ApplyModeToggleControls(settings.GetSharedProfile());
 
         RenderKeymapPreview(configuration);
         RefreshColumnLayoutEditor();
@@ -320,6 +339,16 @@ public partial class MainWindow : Window
         await SaveLiveSettingsAsync();
     }
 
+    private async void OnModeToggleChanged(object? sender, RoutedEventArgs e)
+    {
+        if (_loadingScreen)
+        {
+            return;
+        }
+
+        await SaveLiveSettingsAsync();
+    }
+
     private Task SaveLiveSettingsAsync()
     {
         if (_settingsApplyPending)
@@ -329,6 +358,7 @@ public partial class MainWindow : Window
 
         _settingsApplyPending = true;
         LinuxHostSettings settings = _runtime.LoadSettings();
+        settings.SharedProfile ??= UserSettings.LoadBundledDefaultsOrDefault();
         settings.LeftTrackpadStableId = (_leftDeviceCombo.SelectedItem as DeviceChoice)?.StableId;
         settings.RightTrackpadStableId = (_rightDeviceCombo.SelectedItem as DeviceChoice)?.StableId;
         settings.LayoutPresetName = (_layoutPresetCombo.SelectedItem as PresetChoice)?.Name ?? TrackpadLayoutPreset.SixByThree.Name;
@@ -341,7 +371,30 @@ public partial class MainWindow : Window
         EnsureActionChoice(settings.SharedProfile.FiveFingerSwipeRightAction);
         EnsureActionChoice(settings.SharedProfile.FiveFingerSwipeUpAction);
         EnsureActionChoice(settings.SharedProfile.FiveFingerSwipeDownAction);
-        settings.SharedProfile.TypingEnabled = true;
+        settings.SharedProfile.KeyboardModeEnabled = _keyboardModeCheck.IsChecked == true;
+        settings.SharedProfile.AutocorrectEnabled = _autocorrectModeCheck.IsChecked == true;
+        settings.SharedProfile.AutocorrectDryRunEnabled = false;
+        settings.SharedProfile.AutocorrectMaxEditDistance = 2;
+        settings.SharedProfile.SnapRadiusPercent = _snapRadiusModeCheck.IsChecked == true
+            ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent
+            : 0.0;
+        settings.SharedProfile.HoldRepeatEnabled = _holdRepeatModeCheck.IsChecked == true;
+        settings.SharedProfile.StartInTrayOnLaunch = _startInTrayOnLaunchCheck.IsChecked == true;
+
+        bool startupRequested = _runAtStartupCheck.IsChecked == true;
+        bool startupEnabled = LinuxStartupRegistration.IsEnabled();
+        if (startupRequested != startupEnabled &&
+            !LinuxStartupRegistration.TrySetEnabled(startupRequested, out string? startupError))
+        {
+            ShowNoticeDialog(
+                "Startup Registration",
+                $"Failed to update Linux startup registration.\n{startupError}");
+            LoadScreen();
+            _settingsApplyPending = false;
+            return Task.CompletedTask;
+        }
+
+        settings.SharedProfile.RunAtStartup = startupRequested;
         try
         {
             settings.Normalize();
@@ -354,6 +407,18 @@ public partial class MainWindow : Window
         }
 
         return Task.CompletedTask;
+    }
+
+    private void ApplyModeToggleControls(UserSettings profile)
+    {
+        _keyboardModeCheck.IsChecked = profile.KeyboardModeEnabled;
+        _autocorrectModeCheck.IsChecked = profile.AutocorrectEnabled;
+        _snapRadiusModeCheck.IsChecked = profile.SnapRadiusPercent > 0.0;
+        _holdRepeatModeCheck.IsChecked = profile.HoldRepeatEnabled;
+        _startInTrayOnLaunchCheck.IsChecked = profile.StartInTrayOnLaunch;
+        bool startupEnabled = LinuxStartupRegistration.IsEnabled();
+        profile.RunAtStartup = startupEnabled;
+        _runAtStartupCheck.IsChecked = startupEnabled;
     }
 
     private TrackpadLayoutPreset GetSelectedPreset()
@@ -2767,11 +2832,14 @@ public partial class MainWindow : Window
 
         if (visibleContacts.Length == 0)
         {
+            if (state.BindingStatus == LinuxRuntimeBindingStatus.Streaming)
+            {
+                return;
+            }
+
             canvas.Children.Add(new TextBlock
             {
-                Text = state.BindingStatus == LinuxRuntimeBindingStatus.Streaming
-                    ? "Touch the trackpad to see contacts."
-                    : state.BindingMessage,
+                Text = state.BindingMessage,
                 Foreground = new SolidColorBrush(Color.Parse("#6A4533")),
                 Width = width - 24,
                 TextWrapping = TextWrapping.Wrap
