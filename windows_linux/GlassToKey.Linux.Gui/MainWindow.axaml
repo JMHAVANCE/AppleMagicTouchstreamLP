@@ -163,14 +163,20 @@
             <StackPanel Spacing="12"
                         HorizontalAlignment="Stretch">
               <TextBlock Classes="section" Text="Settings" />
-              <TextBlock Text="Layout preset" />
-              <ComboBox x:Name="LayoutPresetCombo" MinWidth="260" />
+              <Grid ColumnDefinitions="*,*">
+                <TextBlock Text="Layout preset"
+                           VerticalAlignment="Center" />
+                <ComboBox x:Name="LayoutPresetCombo"
+                          Grid.Column="1"
+                          Margin="12,0,0,0"
+                          HorizontalAlignment="Stretch" />
+              </Grid>
               <Separator Margin="0,6,0,2" />
-              <Expander Header="5-finger swipe"
+              <Expander Header="5-finger gesture"
                         IsExpanded="True"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch">
-                <Grid ColumnDefinitions="Auto,*"
+                <Grid ColumnDefinitions="*,*"
                       RowDefinitions="Auto,Auto,Auto,Auto"
                       Margin="0,10,0,0"
                       HorizontalAlignment="Stretch">
@@ -178,8 +184,8 @@
                              VerticalAlignment="Center" />
                   <ComboBox x:Name="FiveFingerSwipeLeftCombo"
                             Grid.Column="1"
-                            Margin="10,0,0,0"
-                            MinWidth="220" />
+                            Margin="12,0,0,0"
+                            HorizontalAlignment="Stretch" />
                   <TextBlock Grid.Row="1"
                              Margin="0,8,0,0"
                              Text="Right"
@@ -187,8 +193,8 @@
                   <ComboBox x:Name="FiveFingerSwipeRightCombo"
                             Grid.Row="1"
                             Grid.Column="1"
-                            Margin="10,8,0,0"
-                            MinWidth="220" />
+                            Margin="12,8,0,0"
+                            HorizontalAlignment="Stretch" />
                   <TextBlock Grid.Row="2"
                              Margin="0,8,0,0"
                              Text="Up"
@@ -196,8 +202,8 @@
                   <ComboBox x:Name="FiveFingerSwipeUpCombo"
                             Grid.Row="2"
                             Grid.Column="1"
-                            Margin="10,8,0,0"
-                            MinWidth="220" />
+                            Margin="12,8,0,0"
+                            HorizontalAlignment="Stretch" />
                   <TextBlock Grid.Row="3"
                              Margin="0,8,0,0"
                              Text="Down"
@@ -205,8 +211,8 @@
                   <ComboBox x:Name="FiveFingerSwipeDownCombo"
                             Grid.Row="3"
                             Grid.Column="1"
-                            Margin="10,8,0,0"
-                            MinWidth="220" />
+                            Margin="12,8,0,0"
+                            HorizontalAlignment="Stretch" />
                 </Grid>
               </Expander>
               <Separator Margin="0,6,0,2" />
@@ -255,7 +261,8 @@
                   <ComboBox x:Name="KeymapPrimaryCombo"
                             Grid.Row="3"
                             Grid.Column="1"
-                            Margin="12,0,0,0" />
+                            Margin="12,0,0,0"
+                            HorizontalAlignment="Stretch" />
 
                   <TextBlock Grid.Row="4"
                              Text="Hold Action (optional)"
@@ -263,7 +270,8 @@
                   <ComboBox x:Name="KeymapHoldCombo"
                             Grid.Row="4"
                             Grid.Column="1"
-                            Margin="12,0,0,0" />
+                            Margin="12,0,0,0"
+                            HorizontalAlignment="Stretch" />
 
                   <TextBlock Grid.Row="5"
                              Text="Key Rotation (deg)"
