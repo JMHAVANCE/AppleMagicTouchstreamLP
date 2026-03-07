@@ -2763,13 +2763,33 @@ public partial class MainWindow : Window
         }
 
         _previewSnapshot = snapshot;
-        int activeLayer = Math.Clamp(GetSelectedLayer(), 0, MaxSupportedLayer);
+        int activeLayer = ResolveVisualizerLayer();
         LinuxInputPreviewTrackpadState? left = GetPreviewState(snapshot, TrackpadSide.Left);
         LinuxInputPreviewTrackpadState? right = GetPreviewState(snapshot, TrackpadSide.Right);
         _leftPreviewText.Text = BuildPreviewDetails(left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer, ref _leftStickyTouchedKeys);
         _rightPreviewText.Text = BuildPreviewDetails(right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, activeLayer, ref _rightStickyTouchedKeys);
         RenderPreviewCanvas(_leftPreviewCanvas, left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer, "#D05A2A");
         RenderPreviewCanvas(_rightPreviewCanvas, right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, activeLayer, "#246A73");
+    }
+
+    private int ResolveVisualizerLayer()
+    {
+        if (IsReplayMode)
+        {
+            LinuxAtpCapReplayVisualFrame? frame = GetCurrentReplayFrame();
+            if (frame.HasValue)
+            {
+                return Math.Clamp(frame.Value.RuntimeSnapshot.ActiveLayer, 0, MaxSupportedLayer);
+            }
+        }
+
+        LinuxDesktopRuntimeSnapshot runtimeSnapshot = _desktopRuntime.RuntimeSnapshot;
+        if (runtimeSnapshot.IsRunning)
+        {
+            return Math.Clamp(runtimeSnapshot.ActiveLayer, 0, MaxSupportedLayer);
+        }
+
+        return Math.Clamp(GetSelectedLayer(), 0, MaxSupportedLayer);
     }
 
     private static LinuxInputPreviewTrackpadState? GetPreviewState(
