@@ -150,7 +150,12 @@ public sealed class LinuxEvdevReader
 
         using SafeFileHandle handle = OpenNonBlockingHandle(deviceNode);
         LinuxTrackpadAxisProfile axisProfile = GetAxisProfile(handle);
-        LinuxMtFrameAssembler assembler = new(axisProfile.SlotCount, axisProfile.MaxX, axisProfile.MaxY);
+        LinuxMtFrameAssembler assembler = new(
+            axisProfile.SlotCount,
+            axisProfile.MaxX,
+            axisProfile.MaxY,
+            axisProfile.SupportsMtPressure,
+            axisProfile.SupportsLegacyPressure);
         byte[] buffer = new byte[InputEvent.Size];
         PendingReleaseState pendingRelease = new();
 
@@ -308,7 +313,7 @@ public sealed class LinuxEvdevReader
                 assembler.SetLegacyPositionY(axisProfile.NormalizeY(value));
                 break;
             case AbsPressure:
-                assembler.SetLegacyPressure(value);
+                assembler.SetLegacyPressure(axisProfile.NormalizeLegacyPressure(value));
                 break;
             case AbsMtTouchMajor:
                 assembler.SetLegacyTouchMajor(value);
@@ -329,7 +334,7 @@ public sealed class LinuxEvdevReader
                 assembler.SetPositionY(axisProfile.NormalizeY(value));
                 break;
             case AbsMtPressure:
-                assembler.SetPressure(value);
+                assembler.SetPressure(axisProfile.NormalizeMtPressure(value));
                 break;
             case AbsMtOrientation:
                 assembler.SetOrientation(value);
@@ -359,6 +364,11 @@ public sealed class LinuxEvdevReader
         PendingReleaseState pendingRelease)
     {
         if (!pendingRelease.Pending || Stopwatch.GetTimestamp() < pendingRelease.DeadlineTicks)
+        {
+            return new PendingReleaseFlushResult(false, true);
+        }
+
+        if (assembler.IsButtonPressed)
         {
             return new PendingReleaseFlushResult(false, true);
         }
@@ -411,7 +421,6 @@ public sealed class LinuxEvdevReader
 
         LinuxInputAxisInfo? xAxis = mtX ?? legacyX;
         LinuxInputAxisInfo? yAxis = mtY ?? legacyY;
-        LinuxInputAxisInfo? pressureAxis = mtPressure ?? legacyPressure;
         if (xAxis == null || yAxis == null)
         {
             throw new IOException("Trackpad device does not expose usable X/Y absolute axes.");
@@ -421,7 +430,8 @@ public sealed class LinuxEvdevReader
             Slot: slotAxis,
             X: xAxis,
             Y: yAxis,
-            Pressure: pressureAxis,
+            MtPressure: mtPressure,
+            LegacyPressure: legacyPressure,
             UsesMtPositionAxes: mtX != null && mtY != null,
             UsesLegacyPositionAxes: mtX == null || mtY == null);
     }

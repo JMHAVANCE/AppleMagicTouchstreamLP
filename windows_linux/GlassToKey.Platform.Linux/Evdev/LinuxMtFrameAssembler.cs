@@ -11,11 +11,13 @@ public sealed class LinuxMtFrameAssembler
 
     private LinuxMtSlotState[] _slots;
     private readonly long _openTimestampTicks;
+    private readonly bool _hasLegacyPressureData;
+    private readonly bool _hasMtPressureData;
     private int _currentSlot;
     private bool _buttonPressed;
     private LegacyContactState _legacyContact;
 
-    public LinuxMtFrameAssembler(int slotCount, ushort maxX, ushort maxY)
+    public LinuxMtFrameAssembler(int slotCount, ushort maxX, ushort maxY, bool hasMtPressureData, bool hasLegacyPressureData)
     {
         if (slotCount <= 0)
         {
@@ -26,6 +28,8 @@ public sealed class LinuxMtFrameAssembler
         MaxX = maxX;
         MaxY = maxY;
         _openTimestampTicks = Stopwatch.GetTimestamp();
+        _hasMtPressureData = hasMtPressureData;
+        _hasLegacyPressureData = hasLegacyPressureData;
     }
 
     public ushort MaxX { get; }
@@ -39,6 +43,8 @@ public sealed class LinuxMtFrameAssembler
     public int LastOverflowContactCount { get; private set; }
 
     public long TotalOverflowContactCount { get; private set; }
+
+    public bool IsButtonPressed => _buttonPressed;
 
     public void Reset()
     {
@@ -212,7 +218,7 @@ public sealed class LinuxMtFrameAssembler
             Flags: ActiveContactFlags,
             Pressure: pressure,
             Phase: 0,
-            HasForceData: false);
+            HasForceData: _hasMtPressureData);
     }
 
     private ushort ComputeScanTime(long timestampTicks)
@@ -253,7 +259,7 @@ public sealed class LinuxMtFrameAssembler
             Flags: flags,
             Pressure: pressure,
             Phase: 0,
-            HasForceData: false);
+            HasForceData: _hasLegacyPressureData);
         return true;
     }
 

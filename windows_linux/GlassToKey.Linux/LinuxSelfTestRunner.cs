@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GlassToKey.Linux.Runtime;
+using GlassToKey.Platform.Linux.Evdev;
 using GlassToKey.Platform.Linux.Models;
 using GlassToKey.Platform.Linux.Uinput;
 
@@ -46,6 +47,16 @@ internal static class LinuxSelfTestRunner
         }
 
         if (!ValidateAtpCapRoundTrip(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidateLinuxForceThresholdDispatch(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidateLinuxAssemblerForceData(out failure))
         {
             return new LinuxSelfTestResult(false, failure);
         }
@@ -519,6 +530,187 @@ internal static class LinuxSelfTestRunner
     {
         return (semanticCode != DispatchSemanticCode.None && LinuxKeyCodeMapper.TryMapSemanticCode(semanticCode, out _)) ||
                (virtualKey != 0 && LinuxKeyCodeMapper.TryMapKey(virtualKey, out _));
+    }
+
+    private static bool ValidateLinuxForceThresholdDispatch(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout rightLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: false);
+        NormalizedRect keyRect = rightLayout.Rects[0][0];
+        ushort keyX = (ushort)Math.Clamp((int)Math.Round((keyRect.X + (keyRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort keyY = (ushort)Math.Clamp((int)Math.Round((keyRect.Y + (keyRect.Height * 0.5)) * maxY), 1, maxY - 1);
+
+        UserSettings settings = new()
+        {
+            LayoutPresetName = preset.Name,
+            ForceMin = 200,
+            ForceCap = 255
+        };
+        settings.NormalizeRanges();
+
+        using RecordingDispatcher dispatcher = new();
+        using TouchProcessorRuntimeHost host = new(dispatcher, KeymapStore.LoadBundledDefault(), preset, settings);
+
+        long now = 0;
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: keyX, y: keyY, pressure: 32, hasForceData: true),
+            maxX,
+            maxY,
+            now));
+        now += 1;
+        host.Post(new TrackpadFrameEnvelope(TrackpadSide.Right, MakeFrame(contactCount: 0), maxX, maxY, now));
+        if (!dispatcher.WaitForDispatchCount(0, timeoutMs: 150))
+        {
+            failure = "Low-force key tap was not suppressed by shared Force Min/Max settings.";
+            return false;
+        }
+
+        now += 10;
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: keyX, y: keyY, pressure: 240, hasForceData: true),
+            maxX,
+            maxY,
+            now));
+        now += 1;
+        host.Post(new TrackpadFrameEnvelope(TrackpadSide.Right, MakeFrame(contactCount: 0), maxX, maxY, now));
+        if (!dispatcher.WaitForDispatchCount(1, timeoutMs: 150))
+        {
+            failure = "High-force key tap did not dispatch when inside the shared Force Min/Max window.";
+            return false;
+        }
+
+        DispatchEvent[] events = dispatcher.Snapshot();
+        if (events.Length != 1 || events[0].Kind != DispatchEventKind.KeyTap)
+        {
+            failure = $"Unexpected dispatch sequence for force-threshold validation (events={events.Length}).";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateLinuxAssemblerForceData(out string failure)
+    {
+        LinuxMtFrameAssembler assembler = new(slotCount: 1, maxX: 1000, maxY: 1000, hasMtPressureData: true, hasLegacyPressureData: true);
+        assembler.SelectSlot(0);
+        assembler.SetTrackingId(7);
+        assembler.SetPositionX(320);
+        assembler.SetPositionY(480);
+        assembler.SetPressure(192);
+
+        InputFrame mtFrame = assembler.CommitFrame(timestampTicks: 1);
+        if (mtFrame.GetClampedContactCount() != 1)
+        {
+            failure = "Linux multitouch assembler did not emit the expected slot contact.";
+            return false;
+        }
+
+        ContactFrame mtContact = mtFrame.GetContact(0);
+        if (!mtContact.HasForceData || mtContact.Pressure8 != 192 || mtContact.ForceNorm <= 0)
+        {
+            failure = "Linux multitouch assembler did not preserve force-capable pressure data.";
+            return false;
+        }
+
+        assembler.Reset();
+        assembler.SetLegacyTouchActive(true);
+        assembler.SetLegacyPositionX(220);
+        assembler.SetLegacyPositionY(360);
+        assembler.SetLegacyPressure(144);
+        InputFrame legacyFrame = assembler.CommitFrame(timestampTicks: 2);
+        if (legacyFrame.GetClampedContactCount() != 1)
+        {
+            failure = "Linux legacy assembler did not emit the expected fallback contact.";
+            return false;
+        }
+
+        ContactFrame legacyContact = legacyFrame.GetContact(0);
+        if (!legacyContact.HasForceData || legacyContact.Pressure8 != 144 || legacyContact.ForceNorm <= 0)
+        {
+            failure = "Linux legacy assembler did not preserve force-capable pressure data.";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static InputFrame MakeFrame(int contactCount, ushort x = 0, ushort y = 0, byte pressure = 0, bool hasForceData = false)
+    {
+        InputFrame frame = new()
+        {
+            ArrivalQpcTicks = 0,
+            ReportId = 0xEE,
+            ScanTime = 0,
+            ContactCount = (byte)contactCount,
+            IsButtonClicked = 0
+        };
+
+        if (contactCount > 0)
+        {
+            frame.SetContact(0, new ContactFrame(1, x, y, 0x03, pressure, Phase: 0, HasForceData: hasForceData));
+        }
+
+        return frame;
+    }
+
+    private sealed class RecordingDispatcher : IInputDispatcher
+    {
+        private readonly object _gate = new();
+        private readonly List<DispatchEvent> _events = [];
+
+        public void Dispatch(in DispatchEvent dispatchEvent)
+        {
+            lock (_gate)
+            {
+                _events.Add(dispatchEvent);
+            }
+        }
+
+        public void Tick(long nowTicks)
+        {
+            _ = nowTicks;
+        }
+
+        public DispatchEvent[] Snapshot()
+        {
+            lock (_gate)
+            {
+                return _events.ToArray();
+            }
+        }
+
+        public bool WaitForDispatchCount(int expectedCount, int timeoutMs)
+        {
+            long deadline = Environment.TickCount64 + Math.Max(1, timeoutMs);
+            while (Environment.TickCount64 < deadline)
+            {
+                lock (_gate)
+                {
+                    if (_events.Count == expectedCount)
+                    {
+                        return true;
+                    }
+                }
+
+                Thread.Sleep(5);
+            }
+
+            lock (_gate)
+            {
+                return _events.Count == expectedCount;
+            }
+        }
+
+        public void Dispose()
+        {
+        }
     }
 
     private static IEnumerable<string> EnumerateActionLabels(KeymapStore.KeymapFileModel keymap)
