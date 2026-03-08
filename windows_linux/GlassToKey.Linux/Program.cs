@@ -340,8 +340,7 @@ internal static class Program
         Console.WriteLine(device.DisplayName);
         Console.WriteLine($"  Node: {device.DeviceNode}");
         Console.WriteLine($"  StableId: {device.StableId}");
-        Console.WriteLine($"  UsesMtPositionAxes: {profile.UsesMtPositionAxes}");
-        Console.WriteLine($"  UsesLegacyPositionAxes: {profile.UsesLegacyPositionAxes}");
+        Console.WriteLine("  InputContract: authoritative ABS_MT slot stream");
         PrintAxis("Slot", profile.Slot);
         PrintAxis("X", profile.X);
         PrintAxis("Y", profile.Y);

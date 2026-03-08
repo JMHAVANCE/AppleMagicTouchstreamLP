@@ -4,13 +4,8 @@ public sealed record LinuxTrackpadAxisProfile(
     LinuxInputAxisInfo? Slot,
     LinuxInputAxisInfo? X,
     LinuxInputAxisInfo? Y,
-    LinuxInputAxisInfo? MtPressure,
-    LinuxInputAxisInfo? LegacyPressure,
-    bool UsesMtPositionAxes,
-    bool UsesLegacyPositionAxes)
+    LinuxInputAxisInfo? Pressure)
 {
-    public LinuxInputAxisInfo? Pressure => MtPressure ?? LegacyPressure;
-
     public int SlotCount => Slot == null ? 1 : Math.Max(1, Slot.Maximum - Slot.Minimum + 1);
 
     public int MinX => GetAxis(X, nameof(X)).Minimum;
@@ -31,18 +26,11 @@ public sealed record LinuxTrackpadAxisProfile(
         return Normalize(rawValue, GetAxis(Y, nameof(Y)));
     }
 
-    public bool SupportsMtPressure => MtPressure != null;
+    public bool SupportsPressure => Pressure != null;
 
-    public bool SupportsLegacyPressure => LegacyPressure != null;
-
-    public byte NormalizeMtPressure(int rawValue)
+    public byte NormalizePressure(int rawValue)
     {
-        return NormalizePressure(rawValue, MtPressure);
-    }
-
-    public byte NormalizeLegacyPressure(int rawValue)
-    {
-        return NormalizePressure(rawValue, LegacyPressure);
+        return NormalizePressure(rawValue, Pressure);
     }
 
     private static LinuxInputAxisInfo GetAxis(LinuxInputAxisInfo? axis, string axisName)

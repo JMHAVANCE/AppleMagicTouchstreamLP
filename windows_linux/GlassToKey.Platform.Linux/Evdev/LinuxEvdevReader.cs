@@ -19,13 +19,6 @@ public sealed class LinuxEvdevReader
     private const ushort SyncReport = 0x00;
     private const ushort SyncDropped = 0x03;
     private const ushort ButtonLeft = 0x110;
-    private const ushort ButtonToolFinger = 0x145;
-    private const ushort ButtonTouch = 0x14a;
-    private const ushort AbsX = 0x00;
-    private const ushort AbsY = 0x01;
-    private const ushort AbsPressure = 0x18;
-    private const ushort AbsMtTouchMajor = 0x30;
-    private const ushort AbsMtTouchMinor = 0x31;
     private const ushort AbsMtSlot = 0x2f;
     private const ushort AbsMtPositionX = 0x35;
     private const ushort AbsMtPositionY = 0x36;
@@ -154,9 +147,7 @@ public sealed class LinuxEvdevReader
             axisProfile.SlotCount,
             axisProfile.MaxX,
             axisProfile.MaxY,
-            axisProfile.SupportsMtPressure,
-            axisProfile.SupportsLegacyPressure,
-            allowLegacyPositionOnlyFallback: !axisProfile.UsesMtPositionAxes);
+            axisProfile.SupportsPressure);
         byte[] buffer = new byte[InputEvent.Size];
         PendingReleaseState pendingRelease = new();
 
@@ -290,11 +281,6 @@ public sealed class LinuxEvdevReader
                 {
                     assembler.SetButtonPressed(inputEvent.Value != 0);
                 }
-                else if (inputEvent.Code == ButtonTouch || inputEvent.Code == ButtonToolFinger)
-                {
-                    assembler.SetLegacyTouchActive(inputEvent.Value != 0);
-                }
-
                 return false;
             case EventTypeSync:
                 return inputEvent.Code == SyncReport;
@@ -307,21 +293,6 @@ public sealed class LinuxEvdevReader
     {
         switch (code)
         {
-            case AbsX:
-                assembler.SetLegacyPositionX(axisProfile.NormalizeX(value));
-                break;
-            case AbsY:
-                assembler.SetLegacyPositionY(axisProfile.NormalizeY(value));
-                break;
-            case AbsPressure:
-                assembler.SetLegacyPressure(axisProfile.NormalizeLegacyPressure(value));
-                break;
-            case AbsMtTouchMajor:
-                assembler.SetLegacyTouchMajor(value);
-                break;
-            case AbsMtTouchMinor:
-                assembler.SetLegacyTouchMinor(value);
-                break;
             case AbsMtSlot:
                 assembler.SelectSlot(value);
                 break;
@@ -335,7 +306,7 @@ public sealed class LinuxEvdevReader
                 assembler.SetPositionY(axisProfile.NormalizeY(value));
                 break;
             case AbsMtPressure:
-                assembler.SetPressure(axisProfile.NormalizeMtPressure(value));
+                assembler.SetPressure(axisProfile.NormalizePressure(value));
                 break;
             case AbsMtOrientation:
                 assembler.SetOrientation(value);
@@ -345,13 +316,6 @@ public sealed class LinuxEvdevReader
 
     private static bool ShouldArmPendingReleaseFlush(in InputEvent inputEvent)
     {
-        if (inputEvent.Type == EventTypeKey &&
-            (inputEvent.Code == ButtonTouch || inputEvent.Code == ButtonToolFinger) &&
-            inputEvent.Value == 0)
-        {
-            return true;
-        }
-
         return inputEvent.Type == EventTypeAbsolute &&
                inputEvent.Code == AbsMtTrackingId &&
                inputEvent.Value < 0;
@@ -415,26 +379,17 @@ public sealed class LinuxEvdevReader
         LinuxInputAxisInfo? slotAxis = TryGetAxisInfo(handle, AbsMtSlot);
         LinuxInputAxisInfo? mtX = TryGetAxisInfo(handle, AbsMtPositionX);
         LinuxInputAxisInfo? mtY = TryGetAxisInfo(handle, AbsMtPositionY);
-        LinuxInputAxisInfo? legacyX = TryGetAxisInfo(handle, AbsX);
-        LinuxInputAxisInfo? legacyY = TryGetAxisInfo(handle, AbsY);
         LinuxInputAxisInfo? mtPressure = TryGetAxisInfo(handle, AbsMtPressure);
-        LinuxInputAxisInfo? legacyPressure = TryGetAxisInfo(handle, AbsPressure);
-
-        LinuxInputAxisInfo? xAxis = mtX ?? legacyX;
-        LinuxInputAxisInfo? yAxis = mtY ?? legacyY;
-        if (xAxis == null || yAxis == null)
+        if (slotAxis == null || mtX == null || mtY == null)
         {
-            throw new IOException("Trackpad device does not expose usable X/Y absolute axes.");
+            throw new IOException("Apple Magic Trackpad binding requires ABS_MT_SLOT and ABS_MT_POSITION_X/Y on the selected evdev node.");
         }
 
         return new LinuxTrackpadAxisProfile(
             Slot: slotAxis,
-            X: xAxis,
-            Y: yAxis,
-            MtPressure: mtPressure,
-            LegacyPressure: legacyPressure,
-            UsesMtPositionAxes: mtX != null && mtY != null,
-            UsesLegacyPositionAxes: mtX == null || mtY == null);
+            X: mtX,
+            Y: mtY,
+            Pressure: mtPressure);
     }
 
     private static LinuxInputAxisInfo? TryGetAxisInfo(SafeFileHandle handle, ushort axisCode)
