@@ -2,6 +2,7 @@ using System.Text.Json;
 using GlassToKey.Linux.Runtime;
 using GlassToKey.Platform.Linux.Devices;
 using GlassToKey.Platform.Linux.Evdev;
+using GlassToKey.Platform.Linux.Haptics;
 using GlassToKey.Platform.Linux.Models;
 using GlassToKey.Platform.Linux.Uinput;
 
@@ -63,6 +64,11 @@ internal static class LinuxSelfTestRunner
         }
 
         if (!ValidateMagicTrackpadSelectionHeuristic(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidateLinuxActuatorDescriptorParsing(out failure))
         {
             return new LinuxSelfTestResult(false, failure);
         }
@@ -673,6 +679,27 @@ internal static class LinuxSelfTestRunner
             LinuxTrackpadEnumerator.IsMagicTrackpadCandidateName("JLabs Augur Mouse"))
         {
             failure = "Magic Trackpad enumeration heuristic started matching non-trackpad devices.";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateLinuxActuatorDescriptorParsing(out string failure)
+    {
+        byte[] usbActuatorDescriptor = Convert.FromHexString("0600FF090DA1010600FF090D150026FF007508853F960F008102090D8553963F009102C0");
+        if (!LinuxMagicTrackpadActuatorProbe.TryParseActuatorOutputReportLength(usbActuatorDescriptor, out int outputReportBytes) ||
+            outputReportBytes != 64)
+        {
+            failure = "Linux actuator HID descriptor parsing no longer recognizes the validated Magic Trackpad actuator interface.";
+            return false;
+        }
+
+        byte[] bluetoothTouchDescriptor = Convert.FromHexString("05010902A10185020509190129021500250195027501810295017506810305010901A1001681FF267F0036C3FE463D016513550D09300931750895028106750895048101C00602FF09558555150026FF0075089540B1A2C00600FF0914A101859005847501950315002501096105850944094681029505810175089501150026FF0009658102C000");
+        if (LinuxMagicTrackpadActuatorProbe.TryParseActuatorOutputReportLength(bluetoothTouchDescriptor, out _))
+        {
+            failure = "Linux actuator HID descriptor parsing started treating the validated Bluetooth touch interface as an actuator.";
             return false;
         }
 

@@ -6,7 +6,7 @@ For Linux implementation status, validated behavior, and the remaining work chec
 
 Current install artifacts:
 
-- `90-glasstokey.rules`: starter `udev` rule for the tested Apple Magic Trackpad USB and Bluetooth vendor/product pairs plus `/dev/uinput`, now using a dedicated `glasstokey` group with `0660` modes and additive `uaccess`
+- `90-glasstokey.rules`: starter `udev` rule for the tested Apple Magic Trackpad USB and Bluetooth event nodes, the validated USB actuator hidraw node, and `/dev/uinput`, now using a dedicated `glasstokey` group with `0660` modes and additive `uaccess`
 - `deb/`: first Debian package skeleton, including `dpkg-deb` build script, maintainer scripts, user service unit, and optional GUI desktop entry template
 - `arch/`: first local Arch `PKGBUILD` skeleton, including pacman install hooks, user service unit, desktop entry, and sysusers group definition
 

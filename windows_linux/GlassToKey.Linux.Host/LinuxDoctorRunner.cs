@@ -1,5 +1,6 @@
 using GlassToKey.Linux.Runtime;
 using GlassToKey.Platform.Linux.Evdev;
+using GlassToKey.Platform.Linux.Haptics;
 using GlassToKey.Platform.Linux.Models;
 using GlassToKey.Platform.Linux.Uinput;
 
@@ -97,10 +98,19 @@ public static class LinuxDoctorRunner
             writer.WriteLine($"    PreferredInterface: {device.IsPreferredInterface}");
             writer.WriteLine($"    Pressure: {device.SupportsPressure}");
             writer.WriteLine($"    ButtonClick: {device.SupportsButtonClick}");
+            LinuxMagicTrackpadActuatorProbeResult haptics = LinuxMagicTrackpadActuatorProbe.Probe(device.DeviceNode);
+            writer.WriteLine($"    HapticsSupported: {haptics.Supported}");
+            writer.WriteLine($"    HapticsNode: {haptics.HidrawDeviceNode ?? "(none)"}");
+            writer.WriteLine($"    HapticsWriteAccess: {(haptics.Supported ? (haptics.CanOpenWrite ? "ok" : haptics.Status) : haptics.Status)}");
             if (!device.CanOpenEventStream)
             {
                 ok = false;
                 issues.Add($"event:{device.DeviceNode}");
+            }
+            else if (configuration.SharedProfile.HapticsEnabled && haptics.Supported && !haptics.CanOpenWrite)
+            {
+                ok = false;
+                issues.Add($"haptics:{haptics.HidrawDeviceNode}");
             }
         }
 

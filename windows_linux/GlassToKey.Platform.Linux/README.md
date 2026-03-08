@@ -20,6 +20,7 @@ Current responsibilities:
 - map semantic dispatch codes to evdev output before falling back to Windows VK compatibility
 - surface Linux-specific diagnostics and permission checks
 - support a minimal `run-engine` host path that drives the shared engine and dispatches through `uinput`
+- drive Magic Trackpad haptics through the Linux actuator hidraw interface when the device exposes the validated output report
 
 Current caveats:
 
@@ -33,6 +34,8 @@ Current caveats:
 - The current Linux CLI now also exposes `doctor`, `capture-atpcap`, `summarize-atpcap`, `replay-atpcap`, `write-atpcap-fixture`, and `check-atpcap-fixture`, so packaging checks and offline diagnostics are no longer just planned.
 - The Linux host now also exposes `show-config`, `init-config`, and `print-udev-rules` so device selection, keymap choice, and packaging permission scaffolding can be exercised without a GUI.
 - The Linux runtime now reports binding state changes outside the hot path and can re-open a trackpad stream after device-node churn.
+- On the validated USB Magic Trackpad path, Linux also exposes a separate HID interface named `Actuator`; GlassToKey now resolves that hidraw node and sends the same `0x53` output report shape used by the Windows implementation.
+- On the validated Bluetooth Magic Trackpad path on this host, Linux does not expose that actuator HID descriptor, so haptics remain capability-detected instead of assumed.
 - The Linux output path now covers semantic volume and brightness aliases (`VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, `BRIGHT_DOWN`) directly instead of depending on Windows-VK fallback.
 - The Linux semantic/output path now also covers broader non-text keys like mute/media transport, lock keys, print/pause/menu, and F13-F24 without leaning on VK fallback.
 - The Linux host now also checks in publish profiles for framework-dependent and self-contained `linux-x64` publishes, so packaging work has moved from planning into repo-backed build artifacts.

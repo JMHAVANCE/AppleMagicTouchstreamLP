@@ -126,6 +126,9 @@ public sealed class LinuxRuntimeOwner
 
                 if (LinuxRuntimeConfigurationComparer.HaveEquivalentBindings(configuration.Bindings, updated.Bindings))
                 {
+                    session.Dispatcher.SetHapticRoutes(updated.Bindings);
+                    session.Dispatcher.ConfigureHaptics(updated.SharedProfile);
+                    session.Dispatcher.WarmupHaptics();
                     session.Engine.Reconfigure(updated.Keymap, updated.LayoutPreset, updated.SharedProfile);
                     configuration = updated;
                     settingsSignature = updatedSignature;
@@ -168,6 +171,9 @@ public sealed class LinuxRuntimeOwner
     {
         CancellationTokenSource sessionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         LinuxUinputDispatcher dispatcher = new();
+        dispatcher.SetHapticRoutes(configuration.Bindings);
+        dispatcher.ConfigureHaptics(configuration.SharedProfile);
+        dispatcher.WarmupHaptics();
         TouchProcessorRuntimeHost engine = new(dispatcher, configuration.Keymap, configuration.LayoutPreset, configuration.SharedProfile);
         LinuxInputRuntimeOptions options = new()
         {
@@ -243,6 +249,8 @@ public sealed class LinuxRuntimeOwner
         }
 
         public TouchProcessorRuntimeHost Engine => _engine;
+
+        public LinuxUinputDispatcher Dispatcher => _dispatcher;
 
         public Task RunTask { get; }
 

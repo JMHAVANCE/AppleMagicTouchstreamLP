@@ -17,9 +17,9 @@ Current CLI/runtime features:
 
 - `show-config` opens the config GUI in graphical sessions when available, and `show-config --print` prints the resolved XDG-backed host settings, selected trackpads, preset, and keymap path
 - `init-config` writes default Linux host settings using detected stable IDs
-- `doctor` checks XDG config health, bundled keymap presence, live evdev bindings, and `/dev/uinput` readiness
+- `doctor` checks XDG config health, bundled keymap presence, live evdev bindings, `/dev/uinput` readiness, and Linux actuator-hidraw haptics access when available
 - `list-devices` and runtime binding only target authoritative Apple Magic Trackpad multitouch nodes; wrong evdev nodes should be fixed by rebinding, not by Linux-side fallback logic
-- `print-udev-rules` emits a packaging-oriented rule template for the currently detected Apple trackpads and `/dev/uinput`
+- `print-udev-rules` emits a packaging-oriented rule template for the currently detected Apple trackpads, any validated actuator hidraw interfaces, and `/dev/uinput`
 - `bind-left`, `bind-right`, and `swap-sides` manage explicit left/right assignment without editing settings by hand
 - `load-keymap` imports a full GlassToKey profile bundle when present (`Version` + `Settings` + `KeymapJson`), while still accepting raw keymap JSON as a fallback
 - `selftest` validates the bundled Linux keymap import path, rejects stray Windows-only bundled labels, and verifies semantic-to-evdev coverage for the current Linux action surface
@@ -35,6 +35,7 @@ Current CLI/runtime features:
 - the Linux host now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, and the embedded bundled keymap payload has been translated away from Windows-only defaults like `EMOJI`, `LWin`, and `Win+H`
 - `VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, and `BRIGHT_DOWN` now resolve through semantic codes and Linux evdev output mappings instead of relying on Windows VK fallback
 - Linux semantic coverage now also includes mute/media transport, lock keys, print/pause/menu, and F13-F24
+- Linux now also triggers Magic Trackpad haptics through the validated actuator hidraw interface when the device exposes that interface and permissions allow write access
 - the CLI now consumes the shared `GlassToKey.Linux.Host` library instead of carrying its own private copy of the Linux settings/runtime layer
 - the generated/installable Linux `udev` rules now prefer a dedicated `glasstokey` access group plus `0660` device modes, with `uaccess` left as an additive hint instead of the primary trust model
 - checked-in publish profiles now cover:
@@ -83,7 +84,7 @@ Publish commands:
 Packaging notes:
 
 - framework-dependent publish still expects the target machine to have `.NET 10` runtime installed
-- self-contained publish avoids the runtime prerequisite, but device permissions still need a targeted `udev` rule for `/dev/input/event*` and `/dev/uinput`
+- self-contained publish avoids the runtime prerequisite, but device permissions still need a targeted `udev` rule for `/dev/input/event*`, validated actuator `/dev/hidraw*` nodes, and `/dev/uinput`
 - on the current Ubuntu host, `uaccess` tags alone were not sufficient to guarantee user ACLs on recreated Bluetooth trackpad nodes, so the packaged permission strategy now prefers the dedicated `glasstokey` group model
 - `print-udev-rules` is the current packaging scaffold for those permissions
 - run overlapping `dotnet build` / `dotnet publish` commands for the same project graph sequentially; parallel publishes can collide in shared output paths

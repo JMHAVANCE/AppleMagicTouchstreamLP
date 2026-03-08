@@ -3,6 +3,7 @@ using System.Threading;
 using GlassToKey.Linux.Runtime;
 using GlassToKey.Platform.Linux.Devices;
 using GlassToKey.Platform.Linux.Evdev;
+using GlassToKey.Platform.Linux.Haptics;
 using GlassToKey.Platform.Linux.Models;
 using GlassToKey.Platform.Linux.Contracts;
 using GlassToKey.Platform.Linux.Uinput;
@@ -55,6 +56,11 @@ internal static class Program
         if (string.Equals(args[0], "probe-uinput", StringComparison.OrdinalIgnoreCase))
         {
             return ProbeUinput();
+        }
+
+        if (string.Equals(args[0], "pulse-haptics", StringComparison.OrdinalIgnoreCase))
+        {
+            return PulseHaptics(args);
         }
 
         if (string.Equals(args[0], "doctor", StringComparison.OrdinalIgnoreCase))
@@ -169,6 +175,7 @@ internal static class Program
 
         foreach (LinuxInputDeviceDescriptor device in devices)
         {
+            LinuxMagicTrackpadActuatorProbeResult haptics = LinuxMagicTrackpadActuatorProbe.Probe(device.DeviceNode);
             Console.WriteLine(device.DisplayName);
             Console.WriteLine($"  Node: {device.DeviceNode}");
             Console.WriteLine($"  StableId: {device.StableId}");
@@ -177,6 +184,16 @@ internal static class Program
             Console.WriteLine($"  Pressure: {device.SupportsPressure}");
             Console.WriteLine($"  ButtonClick: {device.SupportsButtonClick}");
             Console.WriteLine($"  EventAccess: {(device.CanOpenEventStream ? "ok" : device.AccessError)}");
+            if (haptics.Supported)
+            {
+                Console.WriteLine($"  Haptics: {(haptics.CanOpenWrite ? "ok" : haptics.Status)}");
+                Console.WriteLine($"  HapticsNode: {haptics.HidrawDeviceNode}");
+                Console.WriteLine($"  HapticsInterface: {haptics.InterfaceName ?? "(unknown)"}");
+            }
+            else
+            {
+                Console.WriteLine($"  Haptics: {haptics.Status}");
+            }
             Console.WriteLine();
         }
 
@@ -192,6 +209,7 @@ internal static class Program
         Console.WriteLine("  GlassToKey.Linux read-events [device-node-or-stable-id] [seconds] [max-events]");
         Console.WriteLine("  GlassToKey.Linux probe-axes [device-node-or-stable-id]");
         Console.WriteLine("  GlassToKey.Linux probe-uinput");
+        Console.WriteLine("  GlassToKey.Linux pulse-haptics [left|right|device-node-or-stable-id] [count]");
         Console.WriteLine("  GlassToKey.Linux doctor");
         Console.WriteLine("  GlassToKey.Linux show-config [--print|--cli|--no-runtime]");
         Console.WriteLine("  GlassToKey.Linux init-config");
@@ -387,6 +405,66 @@ internal static class Program
         Console.WriteLine($"  Access: {status.AccessError}");
         Console.WriteLine($"  Guidance: {status.Guidance}");
         return status.IsReady ? 0 : 1;
+    }
+
+    private static int PulseHaptics(string[] args)
+    {
+        string target = args.Length >= 2 ? args[1] : "right";
+        int count = args.Length >= 3 && int.TryParse(args[2], out int parsedCount)
+            ? Math.Clamp(parsedCount, 1, 64)
+            : 1;
+
+        LinuxAppRuntime appRuntime = new();
+        LinuxRuntimeConfiguration configuration = appRuntime.LoadConfiguration();
+        string? hint = ResolveHapticHint(target, configuration);
+        if (string.IsNullOrWhiteSpace(hint))
+        {
+            Console.Error.WriteLine($"No matching haptics target found for '{target}'.");
+            return 1;
+        }
+
+        int amplitude = TypingTuningCatalog.GetHapticsAmplitude(configuration.SharedProfile);
+        uint strength = configuration.SharedProfile.HapticsStrength;
+        if (amplitude <= 0)
+        {
+            strength = 0x00026C15u;
+        }
+
+        if (!LinuxMagicTrackpadActuatorHaptics.TryPulse(hint, strength, count, TimeSpan.FromMilliseconds(150), out string message))
+        {
+            Console.Error.WriteLine(message);
+            return 1;
+        }
+
+        Console.WriteLine(message);
+        return 0;
+    }
+
+    private static string? ResolveHapticHint(string target, LinuxRuntimeConfiguration configuration)
+    {
+        if (string.Equals(target, "left", StringComparison.OrdinalIgnoreCase))
+        {
+            LinuxTrackpadBinding? binding = configuration.Bindings.FirstOrDefault(candidate => candidate.Side == TrackpadSide.Left);
+            return binding?.Device.DeviceNode;
+        }
+
+        if (string.Equals(target, "right", StringComparison.OrdinalIgnoreCase))
+        {
+            LinuxTrackpadBinding? binding = configuration.Bindings.FirstOrDefault(candidate => candidate.Side == TrackpadSide.Right);
+            return binding?.Device.DeviceNode;
+        }
+
+        for (int index = 0; index < configuration.Bindings.Count; index++)
+        {
+            LinuxTrackpadBinding binding = configuration.Bindings[index];
+            if (string.Equals(binding.Device.DeviceNode, target, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(binding.Device.StableId, target, StringComparison.OrdinalIgnoreCase))
+            {
+                return binding.Device.DeviceNode;
+            }
+        }
+
+        return target;
     }
 
     private static int RunDoctor()

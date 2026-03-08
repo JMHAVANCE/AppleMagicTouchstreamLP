@@ -1,6 +1,4 @@
 # TODO:
-- Before the trackpad visualizer was tracked to the Layer drop-down in the GUI, but didn't flip when MO(1) was pressed. You changed this to track the live state. Neither one of these is 100% correct. I want the visualizer to track based on the Layer selected in the dropdown UNLESS a layer key is pressed, which can override was is displayed.
-
 - Haptics support in Linux! Look at how it's implemented in Windows and see if there is an equivalent way to do it in Linux. You may need to do some research on Github as I know this is a solved problem on Linux as well.
 
 # GUI

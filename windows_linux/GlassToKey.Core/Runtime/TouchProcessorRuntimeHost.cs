@@ -23,7 +23,7 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
             : TouchProcessorFactory.CreateConfigured(resolvedKeymap, settings, preset);
         _dispatchQueue = new DispatchEventQueue();
         _actor = new TouchProcessorActor(core, dispatchQueue: _dispatchQueue);
-        _actor.SetHapticsOnKeyDispatchEnabled(false);
+        _actor.SetHapticsOnKeyDispatchEnabled(settings?.HapticsEnabled ?? false);
         _dispatchPump = new DispatchEventPump(_dispatchQueue, dispatcher);
         if (settings != null)
         {
@@ -163,6 +163,7 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         _actor.ConfigureLayouts(leftLayout, rightLayout);
         _actor.ConfigureKeymap(keymap);
         _actor.SetPersistentLayer(activeLayer);
+        _actor.SetHapticsOnKeyDispatchEnabled(settings.HapticsEnabled);
         ConfigureDispatcherAutocorrect(_dispatcher, profile);
     }
 

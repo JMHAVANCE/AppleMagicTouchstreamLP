@@ -497,6 +497,9 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
 
                 if (LinuxRuntimeConfigurationComparer.HaveEquivalentBindings(configuration.Bindings, updated.Bindings))
                 {
+                    localSession.Dispatcher.SetHapticRoutes(updated.Bindings);
+                    localSession.Dispatcher.ConfigureHaptics(updated.SharedProfile);
+                    localSession.Dispatcher.WarmupHaptics();
                     localSession.Engine.Reconfigure(updated.Keymap, updated.LayoutPreset, updated.SharedProfile);
                     configuration = updated;
                     settingsSignature = updatedSignature;
@@ -572,6 +575,9 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
     {
         CancellationTokenSource sessionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         LinuxUinputDispatcher dispatcher = new();
+        dispatcher.SetHapticRoutes(configuration.Bindings);
+        dispatcher.ConfigureHaptics(configuration.SharedProfile);
+        dispatcher.WarmupHaptics();
         TouchProcessorRuntimeHost engine = new(dispatcher, configuration.Keymap, configuration.LayoutPreset, configuration.SharedProfile);
         ResetTrackpads(configuration.Bindings);
         LinuxInputRuntimeOptions options = new()
@@ -866,6 +872,8 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
         }
 
         public TouchProcessorRuntimeHost Engine { get; }
+
+        public LinuxUinputDispatcher Dispatcher => _dispatcher;
 
         public Task RunTask { get; }
 
