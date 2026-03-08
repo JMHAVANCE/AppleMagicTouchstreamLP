@@ -1374,22 +1374,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void SetHapticsStrengthUiFromSettings()
     {
-        const int maxAmp = 70;
-
-        int amp = 0;
-        if (_settings.HapticsEnabled)
-        {
-            int rawAmp = (int)(_settings.HapticsStrength & 0xFFu);
-            amp = Math.Clamp(rawAmp, 0, maxAmp);
-        }
-
-        HapticsStrengthSlider.Value = amp;
+        HapticsStrengthSlider.Value = TypingTuningCatalog.GetHapticsAmplitude(_settings);
     }
 
     private void SetForceThresholdUiFromSettings()
     {
-        int forceMin = Math.Clamp(_settings.ForceMin, 0, 255);
-        int forceCap = Math.Clamp(_settings.ForceCap, 0, 255);
+        int forceMin = Math.Clamp(_settings.ForceMin, TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
+        int forceCap = Math.Clamp(_settings.ForceCap, TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
         ForceMinSlider.Value = forceMin;
         ForceCapSlider.Value = forceCap;
         UpdateForceThresholdLabels();
@@ -1397,21 +1388,19 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void UpdateForceThresholdLabels()
     {
-        int forceMin = (int)Math.Clamp(Math.Round(ForceMinSlider.Value), 0, 255);
-        int forceCap = (int)Math.Clamp(Math.Round(ForceCapSlider.Value), 0, 255);
+        int forceMin = (int)Math.Clamp(Math.Round(ForceMinSlider.Value), TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
+        int forceCap = (int)Math.Clamp(Math.Round(ForceCapSlider.Value), TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
         ForceMinValueText.Text = forceMin.ToString(CultureInfo.InvariantCulture);
         ForceCapValueText.Text = forceCap.ToString(CultureInfo.InvariantCulture);
     }
 
     private void ApplyHapticsStrengthFromUi()
     {
-        const int maxAmp = 70;
-        int amp = (int)Math.Clamp(Math.Round(HapticsStrengthSlider.Value), 0, maxAmp);
-        _settings.HapticsEnabled = amp != 0;
-        if (_settings.HapticsEnabled)
-        {
-            _settings.HapticsStrength = 0x00026C00u | (uint)amp;
-        }
+        int amp = (int)Math.Clamp(
+            Math.Round(HapticsStrengthSlider.Value),
+            0,
+            TypingTuningCatalog.HapticsAmplitudeMaximum);
+        TypingTuningCatalog.SetHapticsAmplitude(_settings, amp);
     }
 
     private void RebuildLayouts()

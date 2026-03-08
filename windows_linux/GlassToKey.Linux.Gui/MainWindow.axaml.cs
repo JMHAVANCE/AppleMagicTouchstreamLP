@@ -35,6 +35,7 @@ public partial class MainWindow : Window
     private readonly ComboBox _rightDeviceCombo;
     private readonly ComboBox _layoutPresetCombo;
     private readonly ComboBox _columnLayoutColumnCombo;
+    private readonly StackPanel _typingTuningPanel;
     private readonly StackPanel _gestureSectionsPanel;
     private readonly Expander _keymapTuningExpander;
     private readonly ComboBox _keymapLayerCombo;
@@ -91,7 +92,12 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _replayTimer;
     private readonly List<KeyActionChoice> _keyActionChoices = BuildKeyActionChoices();
     private readonly HashSet<string> _keyActionChoiceLookup = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, TextBox> _typingTuningTextBoxes = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Slider> _typingTuningSliders = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, TextBlock> _typingTuningSliderValueTexts = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ComboBox> _gestureActionCombos = new(StringComparer.Ordinal);
+    private Slider? _hapticsStrengthSlider;
+    private TextBlock? _hapticsStrengthValueText;
     private bool _allowExit;
     private bool _runtimeOwnedByTray;
     private bool _loadingScreen;
@@ -144,6 +150,7 @@ public partial class MainWindow : Window
         _rightDeviceCombo = RequireControl<ComboBox>("RightDeviceCombo");
         _layoutPresetCombo = RequireControl<ComboBox>("LayoutPresetCombo");
         _columnLayoutColumnCombo = RequireControl<ComboBox>("ColumnLayoutColumnCombo");
+        _typingTuningPanel = RequireControl<StackPanel>("TypingTuningPanel");
         _gestureSectionsPanel = RequireControl<StackPanel>("GestureSectionsPanel");
         _keymapTuningExpander = RequireControl<Expander>("KeymapTuningExpander");
         _keymapLayerCombo = RequireControl<ComboBox>("KeymapLayerCombo");
@@ -201,6 +208,7 @@ public partial class MainWindow : Window
         {
             Interval = TimeSpan.FromMilliseconds(8)
         };
+        BuildTypingTuningControls();
         BuildGestureControls();
         _desktopRuntime.PreviewSnapshotChanged += OnPreviewSnapshotChanged;
         _desktopRuntime.RuntimeSnapshotChanged += OnRuntimeSnapshotChanged;
@@ -215,6 +223,193 @@ public partial class MainWindow : Window
     private void InitializeComponent()
     {
         AvaloniaXamlLoader.Load(this);
+    }
+
+    private void BuildTypingTuningControls()
+    {
+        _typingTuningPanel.Children.Clear();
+        _typingTuningTextBoxes.Clear();
+        _typingTuningSliders.Clear();
+        _typingTuningSliderValueTexts.Clear();
+        _hapticsStrengthSlider = null;
+        _hapticsStrengthValueText = null;
+
+        foreach (TypingTuningTextFieldDefinition field in TypingTuningCatalog.TextFields)
+        {
+            Grid row = new()
+            {
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+            };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            row.Children.Add(new TextBlock
+            {
+                Text = field.Label,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+            });
+
+            TextBox box = new()
+            {
+                Width = 90,
+                Margin = new Thickness(8, 0, 0, 0),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+            };
+            Grid.SetColumn(box, 1);
+            row.Children.Add(box);
+            _typingTuningPanel.Children.Add(row);
+            _typingTuningTextBoxes.Add(field.Id, box);
+        }
+
+        foreach (TypingTuningSliderFieldDefinition field in TypingTuningCatalog.SliderFields)
+        {
+            Grid row = new()
+            {
+                Margin = new Thickness(0, 6, 0, 0),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+            };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) });
+
+            row.Children.Add(new TextBlock
+            {
+                Text = field.Label,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+            });
+
+            StackPanel sliderPanel = new()
+            {
+                Margin = new Thickness(8, 0, 0, 0),
+                Spacing = 2
+            };
+            Grid.SetColumn(sliderPanel, 1);
+
+            Slider slider = new()
+            {
+                Minimum = field.Minimum,
+                Maximum = field.Maximum,
+                TickFrequency = 1,
+                IsSnapToTickEnabled = true,
+                Height = 22
+            };
+            sliderPanel.Children.Add(slider);
+
+            Grid valuesGrid = new();
+            valuesGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            valuesGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            valuesGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            valuesGrid.Children.Add(new TextBlock
+            {
+                Text = field.Minimum.ToString(CultureInfo.InvariantCulture),
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.Parse("#6B7279")),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
+            });
+            TextBlock valueText = new()
+            {
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.Parse("#5A4032")),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+            };
+            Grid.SetColumn(valueText, 1);
+            valuesGrid.Children.Add(valueText);
+            TextBlock maxText = new()
+            {
+                Text = field.Maximum.ToString(CultureInfo.InvariantCulture),
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.Parse("#6B7279")),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right
+            };
+            Grid.SetColumn(maxText, 2);
+            valuesGrid.Children.Add(maxText);
+            sliderPanel.Children.Add(valuesGrid);
+
+            row.Children.Add(sliderPanel);
+            _typingTuningPanel.Children.Add(row);
+            _typingTuningSliders.Add(field.Id, slider);
+            _typingTuningSliderValueTexts.Add(field.Id, valueText);
+        }
+
+        _typingTuningPanel.Children.Add(BuildHapticsControl());
+    }
+
+    private Control BuildHapticsControl()
+    {
+        Grid row = new()
+        {
+            Margin = new Thickness(0, 12, 0, 0),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+        };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
+
+        row.Children.Add(new TextBlock
+        {
+            Text = "Haptic Strength",
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        });
+
+        StackPanel sliderPanel = new()
+        {
+            Margin = new Thickness(8, 0, 0, 0),
+            Spacing = 2
+        };
+        Grid.SetColumn(sliderPanel, 1);
+
+        Slider slider = new()
+        {
+            Minimum = 0,
+            Maximum = TypingTuningCatalog.HapticsAmplitudeMaximum,
+            TickFrequency = 1,
+            IsSnapToTickEnabled = true,
+            Height = 22
+        };
+        sliderPanel.Children.Add(slider);
+
+        Grid valuesGrid = new();
+        valuesGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        valuesGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        valuesGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        valuesGrid.Children.Add(new TextBlock
+        {
+            Text = "0",
+            FontSize = 10,
+            Foreground = new SolidColorBrush(Color.Parse("#6B7279")),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
+        });
+        TextBlock valueText = new()
+        {
+            FontSize = 10,
+            Foreground = new SolidColorBrush(Color.Parse("#5A4032")),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+        };
+        Grid.SetColumn(valueText, 1);
+        valuesGrid.Children.Add(valueText);
+        TextBlock maxText = new()
+        {
+            Text = TypingTuningCatalog.HapticsAmplitudeMaximum.ToString(CultureInfo.InvariantCulture),
+            FontSize = 10,
+            Foreground = new SolidColorBrush(Color.Parse("#6B7279")),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right
+        };
+        Grid.SetColumn(maxText, 2);
+        valuesGrid.Children.Add(maxText);
+        sliderPanel.Children.Add(valuesGrid);
+
+        TextBlock note = new()
+        {
+            Margin = new Thickness(0, 4, 0, 0),
+            Text = TypingTuningCatalog.HapticsPlatformNote,
+            FontSize = 11,
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = new SolidColorBrush(Color.Parse("#6C757D"))
+        };
+        sliderPanel.Children.Add(note);
+
+        row.Children.Add(sliderPanel);
+        _hapticsStrengthSlider = slider;
+        _hapticsStrengthValueText = valueText;
+        return row;
     }
 
     private void BuildGestureControls()
@@ -330,6 +525,19 @@ public partial class MainWindow : Window
         _autocorrectModeCheck.IsCheckedChanged += OnModeToggleChanged;
         _autocorrectBlacklistBox.LostFocus += OnAutocorrectTextCommitted;
         _autocorrectOverridesBox.LostFocus += OnAutocorrectTextCommitted;
+        foreach (TextBox box in _typingTuningTextBoxes.Values)
+        {
+            box.LostFocus += OnTypingTuningCommitted;
+            box.KeyDown += OnTypingTuningKeyDown;
+        }
+        foreach (Slider slider in _typingTuningSliders.Values)
+        {
+            slider.PropertyChanged += OnTypingTuningSliderPropertyChanged;
+        }
+        if (_hapticsStrengthSlider != null)
+        {
+            _hapticsStrengthSlider.PropertyChanged += OnTypingTuningSliderPropertyChanged;
+        }
         _columnScaleBox.LostFocus += OnColumnLayoutCommitted;
         _keyPaddingBox.LostFocus += OnColumnLayoutCommitted;
         _columnOffsetXBox.LostFocus += OnColumnLayoutCommitted;
@@ -410,6 +618,7 @@ public partial class MainWindow : Window
         _layoutPresetCombo.SelectedItem = SelectPresetChoice(presetChoices, settings.LayoutPresetName) ?? presetChoices[0];
         UserSettings profile = settings.GetSharedProfile();
         ApplyModeToggleControls(profile);
+        ApplyTypingTuningControls(profile);
 
         RenderKeymapPreview(configuration);
         RefreshColumnLayoutEditor();
@@ -489,6 +698,7 @@ public partial class MainWindow : Window
         settings.LayoutPresetName = (_layoutPresetCombo.SelectedItem as PresetChoice)?.Name ?? TrackpadLayoutPreset.SixByThree.Name;
         settings.SharedProfile.LayoutPresetName = settings.LayoutPresetName;
         ApplyGestureSettingsFromUi(settings.SharedProfile);
+        ApplyTypingTuningSettingsFromUi(settings.SharedProfile);
         settings.SharedProfile.KeyboardModeEnabled = _keyboardModeCheck.IsChecked == true;
         settings.SharedProfile.AutocorrectEnabled = _autocorrectModeCheck.IsChecked == true;
         settings.SharedProfile.AutocorrectDryRunEnabled = false;
@@ -543,6 +753,123 @@ public partial class MainWindow : Window
         _runAtStartupCheck.IsChecked = startupEnabled;
         UpdateAutocorrectStatusVisibility();
         UpdateAutocorrectStatusDetails();
+    }
+
+    private void ApplyTypingTuningControls(UserSettings profile)
+    {
+        foreach (TypingTuningTextFieldDefinition field in TypingTuningCatalog.TextFields)
+        {
+            if (_typingTuningTextBoxes.TryGetValue(field.Id, out TextBox? box))
+            {
+                box.Text = FormatNumber(TypingTuningCatalog.GetTextValue(profile, field));
+            }
+        }
+
+        foreach (TypingTuningSliderFieldDefinition field in TypingTuningCatalog.SliderFields)
+        {
+            if (_typingTuningSliders.TryGetValue(field.Id, out Slider? slider))
+            {
+                slider.Value = TypingTuningCatalog.GetSliderValue(profile, field);
+            }
+        }
+
+        if (_hapticsStrengthSlider != null)
+        {
+            _hapticsStrengthSlider.Value = TypingTuningCatalog.GetHapticsAmplitude(profile);
+        }
+
+        UpdateTypingTuningSliderLabels();
+    }
+
+    private void ApplyTypingTuningSettingsFromUi(UserSettings profile)
+    {
+        foreach (TypingTuningTextFieldDefinition field in TypingTuningCatalog.TextFields)
+        {
+            if (_typingTuningTextBoxes.TryGetValue(field.Id, out TextBox? box))
+            {
+                double fallback = TypingTuningCatalog.GetTextValue(profile, field);
+                TypingTuningCatalog.SetTextValue(profile, field, ReadDouble(box, fallback));
+            }
+        }
+
+        foreach (TypingTuningSliderFieldDefinition field in TypingTuningCatalog.SliderFields)
+        {
+            if (_typingTuningSliders.TryGetValue(field.Id, out Slider? slider))
+            {
+                int value = (int)Math.Clamp(Math.Round(slider.Value), field.Minimum, field.Maximum);
+                TypingTuningCatalog.SetSliderValue(profile, field, value);
+            }
+        }
+
+        if (_hapticsStrengthSlider != null)
+        {
+            int amplitude = (int)Math.Clamp(
+                Math.Round(_hapticsStrengthSlider.Value),
+                0,
+                TypingTuningCatalog.HapticsAmplitudeMaximum);
+            TypingTuningCatalog.SetHapticsAmplitude(profile, amplitude);
+        }
+
+        UpdateTypingTuningSliderLabels();
+    }
+
+    private void UpdateTypingTuningSliderLabels()
+    {
+        foreach (TypingTuningSliderFieldDefinition field in TypingTuningCatalog.SliderFields)
+        {
+            if (_typingTuningSliders.TryGetValue(field.Id, out Slider? slider) &&
+                _typingTuningSliderValueTexts.TryGetValue(field.Id, out TextBlock? text))
+            {
+                int value = (int)Math.Clamp(Math.Round(slider.Value), field.Minimum, field.Maximum);
+                text.Text = value.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+
+        if (_hapticsStrengthSlider != null && _hapticsStrengthValueText != null)
+        {
+            int amplitude = (int)Math.Clamp(
+                Math.Round(_hapticsStrengthSlider.Value),
+                0,
+                TypingTuningCatalog.HapticsAmplitudeMaximum);
+            _hapticsStrengthValueText.Text = amplitude.ToString(CultureInfo.InvariantCulture);
+        }
+    }
+
+    private async void OnTypingTuningCommitted(object? sender, RoutedEventArgs e)
+    {
+        if (_loadingScreen)
+        {
+            return;
+        }
+
+        await SaveLiveSettingsAsync();
+    }
+
+    private async void OnTypingTuningKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _loadingScreen)
+        {
+            return;
+        }
+
+        await SaveLiveSettingsAsync();
+        e.Handled = true;
+    }
+
+    private async void OnTypingTuningSliderPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property != RangeBase.ValueProperty)
+        {
+            return;
+        }
+
+        UpdateTypingTuningSliderLabels();
+        if (_loadingScreen)
+        {
+            return;
+        }
+
+        await SaveLiveSettingsAsync();
     }
 
     private void ApplyGestureSelections(UserSettings profile)
