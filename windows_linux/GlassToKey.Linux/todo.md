@@ -1,5 +1,7 @@
 # TODO:
-- Haptics support in Linux! Look at how it's implemented in Windows and see if there is an equivalent way to do it in Linux. You may need to do some research on Github as I know this is a solved problem on Linux as well.
+- I would like you to implement Tray icons that change depending on the status: Circle indicator Green (mixed mode) Red (Mouse Mode), Like in Windows. 
+
+- Keyboard/Mouse mode doesn't capture clicks from trackpads and eat them and send them to the nether realm~
 
 # GUI
 - In Windows there are "contact pills" and "state pills" can you please implement those in Linux?
@@ -14,3 +16,7 @@
 
 # TEST / root cause:
 - 5-finger Up "D" is triggering Choral shift on it's own side? 
+
+# Wayland?
+- What happens when you actually run this on arch? do ppl use GUI on arch? lol. 
+- What happens when you run this on non-wayland? How flexible is avalonia or whatever?

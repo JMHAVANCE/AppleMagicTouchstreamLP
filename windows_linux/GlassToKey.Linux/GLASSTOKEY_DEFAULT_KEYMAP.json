@@ -8,7 +8,7 @@
     "decoderProfilesByDevicePath": {},
     "visualizerEnabled": true,
     "keyboardModeEnabled": false,
-    "autocorrectEnabled": true,
+    "autocorrectEnabled": false,
     "autocorrectMaxEditDistance": 2,
     "autocorrectDryRunEnabled": false,
     "autocorrectBlacklistCsv": "",
@@ -49,8 +49,8 @@
     "upperRightCornerClickAction": "None",
     "lowerLeftCornerClickAction": "None",
     "lowerRightCornerClickAction": "None",
-    "hapticsEnabled": true,
-    "hapticsStrength": 158790,
+    "hapticsEnabled": false,
+    "hapticsStrength": 158720,
     "hapticsMinIntervalMs": 20,
     "holdDurationMs": 220,
     "dragCancelMm": 3,
@@ -70,7 +70,7 @@
       "mobile-ortho-12x4": 10,
       "mobile": 10
     },
-    "forceMin": 15,
+    "forceMin": 0,
     "forceCap": 71,
     "columnSettingsByLayout": {
       "6x3": [

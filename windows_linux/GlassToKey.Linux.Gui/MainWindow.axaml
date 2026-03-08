@@ -18,9 +18,6 @@
                      FontSize="28"
                      FontWeight="Bold"
                      Foreground="#F7F2EA" />
-          <TextBlock Text="Device binding and config for the tray-owned Linux runtime"
-                     FontSize="14"
-                     Foreground="#D9C7B5" />
           <TextBlock x:Name="RuntimeTypingStatusText"
                      FontSize="13"
                      FontWeight="SemiBold"
@@ -390,7 +387,7 @@
                 </Expander>
                 <Separator Margin="0,6,0,2" />
                 <Expander Header="Gestures"
-                          IsExpanded="True"
+                          IsExpanded="False"
                           HorizontalAlignment="Stretch"
                           HorizontalContentAlignment="Stretch">
                   <StackPanel x:Name="GestureSectionsPanel"

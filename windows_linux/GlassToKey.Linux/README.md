@@ -19,6 +19,7 @@ Current CLI/runtime features:
 - `init-config` writes default Linux host settings using detected stable IDs
 - `doctor` checks XDG config health, bundled keymap presence, live evdev bindings, `/dev/uinput` readiness, and Linux actuator-hidraw haptics access when available
 - `list-devices` and runtime binding only target authoritative Apple Magic Trackpad multitouch nodes; wrong evdev nodes should be fixed by rebinding, not by Linux-side fallback logic
+- `pulse-haptics` sends direct actuator pulses to the configured left/right USB trackpad for bring-up and permission validation
 - `print-udev-rules` emits a packaging-oriented rule template for the currently detected Apple trackpads, any validated actuator hidraw interfaces, and `/dev/uinput`
 - `bind-left`, `bind-right`, and `swap-sides` manage explicit left/right assignment without editing settings by hand
 - `load-keymap` imports a full GlassToKey profile bundle when present (`Version` + `Settings` + `KeymapJson`), while still accepting raw keymap JSON as a fallback
@@ -36,6 +37,9 @@ Current CLI/runtime features:
 - `VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, and `BRIGHT_DOWN` now resolve through semantic codes and Linux evdev output mappings instead of relying on Windows VK fallback
 - Linux semantic coverage now also includes mute/media transport, lock keys, print/pause/menu, and F13-F24
 - Linux now also triggers Magic Trackpad haptics through the validated actuator hidraw interface when the device exposes that interface and permissions allow write access
+- On the current Ubuntu 24.04 host, live runtime haptics has now been validated end-to-end on both tested USB trackpads:
+  - older Magic Trackpad (`0x05ac/0x0265`) actuator node `/dev/hidraw11`
+  - newer Magic Trackpad (`0x05ac/0x0324`) actuator node `/dev/hidraw15`
 - the CLI now consumes the shared `GlassToKey.Linux.Host` library instead of carrying its own private copy of the Linux settings/runtime layer
 - the generated/installable Linux `udev` rules now prefer a dedicated `glasstokey` access group plus `0660` device modes, with `uaccess` left as an additive hint instead of the primary trust model
 - checked-in publish profiles now cover:
@@ -68,6 +72,7 @@ Quick start:
 - the documented default desktop path is `glasstokey-gui`; it starts the tray host in background, and `glasstokey-gui --show` opens the config window on demand
 - profile import/export is now shared with Windows: both sides use the same `Version` + `Settings` + `KeymapJson` bundle shape
 - if you want a bounded foreground smoke test instead of a background session, use `run-engine 10`
+- for direct haptics bring-up, use `pulse-haptics left 5` or `pulse-haptics right 5`
 - if you installed the optional headless user service, control it with:
   - `systemctl --user start glasstokey.service`
   - `systemctl --user stop glasstokey.service`
@@ -86,6 +91,7 @@ Packaging notes:
 - framework-dependent publish still expects the target machine to have `.NET 10` runtime installed
 - self-contained publish avoids the runtime prerequisite, but device permissions still need a targeted `udev` rule for `/dev/input/event*`, validated actuator `/dev/hidraw*` nodes, and `/dev/uinput`
 - on the current Ubuntu host, `uaccess` tags alone were not sufficient to guarantee user ACLs on recreated Bluetooth trackpad nodes, so the packaged permission strategy now prefers the dedicated `glasstokey` group model
+- the checked-in packaging rules now include Magic Trackpad actuator hidraw access for both validated USB product ids: `0x0265` and `0x0324`
 - `print-udev-rules` is the current packaging scaffold for those permissions
 - run overlapping `dotnet build` / `dotnet publish` commands for the same project graph sequentially; parallel publishes can collide in shared output paths
 - `packaging/linux/90-glasstokey.rules` plus package-manager installs (`.deb` and Arch package) are the supported install artifacts

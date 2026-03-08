@@ -40,7 +40,7 @@ public static class TypingTuningCatalog
     ];
 
     public const string HapticsPlatformNote =
-        "Linux does not currently drive Apple actuator haptics. This value is stored for Windows/settings parity.";
+        "Currently only USB trackpads support haptics on Linux.";
 
     public static double GetTextValue(UserSettings settings, TypingTuningTextFieldDefinition field)
     {

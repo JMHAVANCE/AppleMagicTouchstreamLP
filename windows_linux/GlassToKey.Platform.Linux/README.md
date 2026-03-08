@@ -35,6 +35,8 @@ Current caveats:
 - The Linux host now also exposes `show-config`, `init-config`, and `print-udev-rules` so device selection, keymap choice, and packaging permission scaffolding can be exercised without a GUI.
 - The Linux runtime now reports binding state changes outside the hot path and can re-open a trackpad stream after device-node churn.
 - On the validated USB Magic Trackpad path, Linux also exposes a separate HID interface named `Actuator`; GlassToKey now resolves that hidraw node and sends the same `0x53` output report shape used by the Windows implementation.
+- On the validated Linux host, the working actuator write shape is the raw 14-byte `0x53` report payload, not the 64-byte padded write that works on Windows.
+- The validated USB actuator nodes on the current host are `/dev/hidraw11` for product `0x0265` and `/dev/hidraw15` for product `0x0324`.
 - On the validated Bluetooth Magic Trackpad path on this host, Linux does not expose that actuator HID descriptor, so haptics remain capability-detected instead of assumed.
 - The Linux output path now covers semantic volume and brightness aliases (`VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, `BRIGHT_DOWN`) directly instead of depending on Windows-VK fallback.
 - The Linux semantic/output path now also covers broader non-text keys like mute/media transport, lock keys, print/pause/menu, and F13-F24 without leaning on VK fallback.

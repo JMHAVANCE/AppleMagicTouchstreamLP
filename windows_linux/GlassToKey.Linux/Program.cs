@@ -444,14 +444,30 @@ internal static class Program
     {
         if (string.Equals(target, "left", StringComparison.OrdinalIgnoreCase))
         {
-            LinuxTrackpadBinding? binding = configuration.Bindings.FirstOrDefault(candidate => candidate.Side == TrackpadSide.Left);
-            return binding?.Device.DeviceNode;
+            for (int index = 0; index < configuration.Bindings.Count; index++)
+            {
+                LinuxTrackpadBinding binding = configuration.Bindings[index];
+                if (binding.Side == TrackpadSide.Left)
+                {
+                    return binding.Device.DeviceNode;
+                }
+            }
+
+            return null;
         }
 
         if (string.Equals(target, "right", StringComparison.OrdinalIgnoreCase))
         {
-            LinuxTrackpadBinding? binding = configuration.Bindings.FirstOrDefault(candidate => candidate.Side == TrackpadSide.Right);
-            return binding?.Device.DeviceNode;
+            for (int index = 0; index < configuration.Bindings.Count; index++)
+            {
+                LinuxTrackpadBinding binding = configuration.Bindings[index];
+                if (binding.Side == TrackpadSide.Right)
+                {
+                    return binding.Device.DeviceNode;
+                }
+            }
+
+            return null;
         }
 
         for (int index = 0; index < configuration.Bindings.Count; index++)
