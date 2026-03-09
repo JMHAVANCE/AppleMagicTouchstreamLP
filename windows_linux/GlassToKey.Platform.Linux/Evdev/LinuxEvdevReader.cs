@@ -12,6 +12,7 @@ public sealed class LinuxEvdevReader
     private const int OpenReadOnly = 0x0000;
     private const int OpenNonBlocking = 0x0800;
     private const int ErrnoTryAgain = 11;
+    private const uint EviocGrab = 0x40044590;
     private const ushort EventTypeSync = 0x00;
     private const ushort EventTypeKey = 0x01;
     private const ushort EventTypeAbsolute = 0x03;
@@ -127,6 +128,7 @@ public sealed class LinuxEvdevReader
                 frames.Add(snapshot);
                 return ValueTask.FromResult(frames.Count < maxFrames && Stopwatch.GetTimestamp() < deadlineTimestamp);
             },
+            shouldGrabExclusiveInput: null,
             cancellationToken).ConfigureAwait(false);
 
         return frames;
@@ -135,6 +137,7 @@ public sealed class LinuxEvdevReader
     public async Task StreamFramesAsync(
         string deviceNode,
         Func<LinuxEvdevFrameSnapshot, ValueTask<bool>> onFrame,
+        Func<bool>? shouldGrabExclusiveInput,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(deviceNode);
@@ -148,9 +151,17 @@ public sealed class LinuxEvdevReader
             axisProfile.MaxY,
             axisProfile.SupportsPressure);
         byte[] buffer = new byte[InputEvent.Size];
+        bool isExclusivelyGrabbed = false;
 
         while (!cancellationToken.IsCancellationRequested)
         {
+            bool shouldGrab = shouldGrabExclusiveInput?.Invoke() == true;
+            if (shouldGrab != isExclusivelyGrabbed)
+            {
+                SetExclusiveGrab(handle, shouldGrab, deviceNode);
+                isExclusivelyGrabbed = shouldGrab;
+            }
+
             nint bytesRead;
             try
             {
@@ -355,6 +366,9 @@ public sealed class LinuxEvdevReader
     private static extern int ioctl(SafeFileHandle fd, ulong request, ref InputAbsInfo value);
 
     [DllImport("libc", SetLastError = true)]
+    private static extern int ioctl(SafeFileHandle fd, uint request, int value);
+
+    [DllImport("libc", SetLastError = true)]
     private static extern int open(string pathname, int flags);
 
     [DllImport("libc", SetLastError = true)]
@@ -381,5 +395,15 @@ public sealed class LinuxEvdevReader
         public readonly ushort Type;
         public readonly ushort Code;
         public readonly int Value;
+    }
+
+    private static void SetExclusiveGrab(SafeFileHandle handle, bool shouldGrab, string deviceNode)
+    {
+        int result = ioctl(handle, EviocGrab, shouldGrab ? 1 : 0);
+        if (result < 0)
+        {
+            throw new IOException(
+                $"EVIOCGRAB({(shouldGrab ? 1 : 0)}) failed for '{deviceNode}': {new Win32Exception(Marshal.GetLastWin32Error()).Message}");
+        }
     }
 }

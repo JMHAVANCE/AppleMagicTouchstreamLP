@@ -30,7 +30,7 @@ Current CLI/runtime features:
 - `write-atpcap-fixture` writes a replay expectation fixture from an existing Linux `.atpcap` capture
 - `check-atpcap-fixture` replays a Linux `.atpcap` capture and validates it against an expectation fixture
 - `start` launches the headless runtime in the background and returns the shell prompt
-- `stop` stops that background runtime
+- `stop` stops the detached background runtime, any running tray host, and matching user `systemd` services such as `glasstokey.service`
 - `run-engine` now consumes the resolved settings so stable-id selection, preset choice, and optional keymap override are part of the live runtime path
 - `watch-runtime`, `capture-atpcap`, and `run-engine` now report binding-state transitions so disconnect/rebind churn is visible during live Linux runs
 - the Linux host now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, and the embedded bundled keymap payload has been translated away from Windows-only defaults like `EMOJI`, `LWin`, and `Win+H`
@@ -68,7 +68,7 @@ Quick start:
   - `glasstokey show-config`
   - `glasstokey load-keymap /path/to/keymap.json`
   - `glasstokey start`
-- stop the background CLI runtime with `glasstokey stop`
+- stop the background CLI runtime, tray host, or optional user service with `glasstokey stop`
 - the documented default desktop path is `glasstokey-gui`; it starts the tray host in background, and `glasstokey-gui --show` opens the config window on demand
 - profile import/export is now shared with Windows: both sides use the same `Version` + `Settings` + `KeymapJson` bundle shape
 - if you want a bounded foreground smoke test instead of a background session, use `run-engine 10`

@@ -148,17 +148,15 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
 
         int activeLayer = Math.Clamp(profile.ActiveLayer, 0, 7);
         bool typingEnabled = profile.TypingEnabled;
-        bool keyboardModeEnabled = profile.KeyboardModeEnabled;
         if (TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot))
         {
             activeLayer = Math.Clamp(snapshot.ActiveLayer, 0, 7);
             typingEnabled = snapshot.TypingEnabled;
-            keyboardModeEnabled = snapshot.KeyboardModeEnabled;
         }
 
         _actor.Configure(RuntimeConfigurationFactory.BuildTouchConfig(profile));
         _actor.SetTypingEnabled(typingEnabled);
-        _actor.SetKeyboardModeEnabled(keyboardModeEnabled);
+        _actor.SetKeyboardModeEnabled(profile.KeyboardModeEnabled);
         _actor.SetAllowMouseTakeover(profile.AllowMouseTakeover);
         _actor.ConfigureLayouts(leftLayout, rightLayout);
         _actor.ConfigureKeymap(keymap);

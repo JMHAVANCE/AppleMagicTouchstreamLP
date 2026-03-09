@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading;
 using GlassToKey.Linux.Runtime;
 using GlassToKey.Platform.Linux.Devices;
@@ -928,6 +929,8 @@ internal static class Program
         List<LinuxTrackpadBinding> bindings = [.. configuration.Bindings];
 
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(seconds));
+        using PosixSignalRegistration sigTermRegistration = RegisterShutdownSignal(PosixSignal.SIGTERM, cts);
+        using PosixSignalRegistration sigIntRegistration = RegisterShutdownSignal(PosixSignal.SIGINT, cts);
         LinuxInputRuntimeService runtime = new();
         Console.WriteLine($"Watching runtime for {seconds:0.##}s on {bindings.Count} trackpad(s).");
         Console.WriteLine($"  Settings: {configuration.SettingsPath}");
@@ -970,6 +973,8 @@ internal static class Program
         using CancellationTokenSource cts = duration.HasValue
             ? new CancellationTokenSource(duration.Value)
             : new CancellationTokenSource();
+        using PosixSignalRegistration sigTermRegistration = RegisterShutdownSignal(PosixSignal.SIGTERM, cts);
+        using PosixSignalRegistration sigIntRegistration = RegisterShutdownSignal(PosixSignal.SIGINT, cts);
         LinuxRuntimeOwner runtimeOwner = new(appRuntime);
 
         Console.WriteLine(duration.HasValue
@@ -995,6 +1000,21 @@ internal static class Program
 
     private static async Task<int> StartBackgroundRuntimeAsync()
     {
+        LinuxSystemdServiceController serviceController = new();
+        IReadOnlyList<LinuxSystemdServiceStatus> runningServices = serviceController.Query()
+            .Where(static serviceStatus => serviceStatus.IsRunning)
+            .ToArray();
+        if (runningServices.Count > 0)
+        {
+            Console.WriteLine("GlassToKey is already running through a user service.");
+            foreach (LinuxSystemdServiceStatus serviceStatus in runningServices)
+            {
+                Console.WriteLine($"  Service: {serviceStatus.UnitName}{FormatProcessId(serviceStatus.ProcessId)}");
+            }
+
+            return 0;
+        }
+
         LinuxGuiHostController trayController = new();
         LinuxGuiHostStatus trayStatus = trayController.Query();
         if (trayStatus.IsRunning && trayStatus.OwnsRuntime)
@@ -1021,18 +1041,39 @@ internal static class Program
 
     private static async Task<int> StopBackgroundRuntimeAsync()
     {
+        LinuxSystemdServiceController serviceController = new();
         LinuxBackgroundRuntimeController backgroundController = new();
         LinuxGuiHostController trayController = new();
 
+        IReadOnlyList<LinuxSystemdServiceStatus> currentServices = serviceController.Query()
+            .Where(static serviceStatus => serviceStatus.IsRunning)
+            .ToArray();
         LinuxBackgroundRuntimeStatus currentBackground = backgroundController.Query();
         LinuxGuiHostStatus currentTray = trayController.Query();
-        if (!currentBackground.IsRunning && !currentTray.IsRunning)
+        if (currentServices.Count == 0 && !currentBackground.IsRunning && !currentTray.IsRunning)
         {
             Console.WriteLine("GlassToKey is not running.");
             return 0;
         }
 
         bool success = true;
+
+        if (currentServices.Count > 0)
+        {
+            IReadOnlyList<LinuxSystemdServiceStatus> serviceStatuses = await serviceController.StopAsync().ConfigureAwait(false);
+            foreach (LinuxSystemdServiceStatus status in serviceStatuses)
+            {
+                Console.WriteLine(status.Message);
+                if (status.IsRunning)
+                {
+                    success = false;
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine("No GlassToKey user service is running.");
+        }
 
         if (currentBackground.IsRunning)
         {
@@ -1070,6 +1111,23 @@ internal static class Program
         LinuxBackgroundRuntimeController controller = new();
         LinuxRuntimeOwner runtimeOwner = new();
         return await controller.RunBackgroundAsync(runtimeOwner).ConfigureAwait(false);
+    }
+
+    private static PosixSignalRegistration RegisterShutdownSignal(PosixSignal signal, CancellationTokenSource cts)
+    {
+        return PosixSignalRegistration.Create(signal, context =>
+        {
+            context.Cancel = true;
+            if (!cts.IsCancellationRequested)
+            {
+                cts.Cancel();
+            }
+        });
+    }
+
+    private static string FormatProcessId(int? processId)
+    {
+        return processId.HasValue ? $" (PID {processId.Value})" : string.Empty;
     }
 
     private sealed class ConsoleTrackpadFrameTarget : ITrackpadFrameTarget

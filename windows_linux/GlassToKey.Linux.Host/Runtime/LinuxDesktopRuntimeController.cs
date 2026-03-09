@@ -579,19 +579,33 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
         dispatcher.ConfigureHaptics(configuration.SharedProfile);
         dispatcher.WarmupHaptics();
         TouchProcessorRuntimeHost engine = new(dispatcher, configuration.Keymap, configuration.LayoutPreset, configuration.SharedProfile);
+        RuntimeSession? session = null;
         ResetTrackpads(configuration.Bindings);
         LinuxInputRuntimeOptions options = new()
         {
-            Observer = this
+            Observer = this,
+            ShouldGrabExclusiveInput = () => ShouldGrabExclusiveInput(session, configuration.SharedProfile)
         };
         Task runTask = _runtime.RunAsync([.. configuration.Bindings], this, options, sessionCts.Token);
-        RuntimeSession session = new(sessionCts, dispatcher, engine, runTask);
+        session = new RuntimeSession(sessionCts, dispatcher, engine, runTask);
         lock (_gate)
         {
             _session = session;
         }
 
         return session;
+    }
+
+    private static bool ShouldGrabExclusiveInput(RuntimeSession? session, UserSettings fallbackProfile)
+    {
+        if (session != null && session.Engine.TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot))
+        {
+            return snapshot.KeyboardModeEnabled &&
+                   snapshot.TypingEnabled &&
+                   !snapshot.MomentaryLayerActive;
+        }
+
+        return fallbackProfile.KeyboardModeEnabled && fallbackProfile.TypingEnabled;
     }
 
     private void ResetTrackpads(IReadOnlyList<LinuxTrackpadBinding> bindings)
