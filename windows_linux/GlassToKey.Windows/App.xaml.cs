@@ -18,6 +18,7 @@ public partial class App : Application
     private MainWindow? _configWindow;
     private ReaderOptions? _startupOptions;
     private bool _restartRequested;
+    private bool _restartToTrayWhenConfigCloses = true;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -216,7 +217,9 @@ public partial class App : Application
         _runtimeService.ModeIndicatorChanged += OnRuntimeModeIndicatorChanged;
 
         UserSettings startupSettings = UserSettings.Load();
-        bool shouldOpenConfigOnLaunch = options.StartInConfigUi || !startupSettings.StartInTrayOnLaunch;
+        bool shouldOpenConfigOnLaunch =
+            !options.StartInTrayOnly &&
+            (options.StartInConfigUi || !startupSettings.StartInTrayOnLaunch);
         if (shouldOpenConfigOnLaunch)
         {
             OpenConfigWindow();
@@ -343,6 +346,7 @@ public partial class App : Application
 
     private void ExitApplicationFromTray()
     {
+        _restartToTrayWhenConfigCloses = false;
         _configWindow?.Close();
         _configWindow = null;
         Shutdown(0);
@@ -364,6 +368,15 @@ public partial class App : Application
         if (ReferenceEquals(_configWindow, window))
         {
             _configWindow = null;
+        }
+
+        if (_restartToTrayWhenConfigCloses &&
+            !_restartRequested &&
+            TryLaunchReplacementInstance(showErrors: true, "--tray-only"))
+        {
+            _restartToTrayWhenConfigCloses = false;
+            Shutdown(0);
+            return;
         }
 
         ManagedMemoryCompactor.QueueCompaction();
@@ -418,6 +431,7 @@ public partial class App : Application
     {
         if (TryLaunchReplacementInstance(showErrors: true, args: args))
         {
+            _restartToTrayWhenConfigCloses = false;
             ExitApplicationFromTray();
         }
     }
