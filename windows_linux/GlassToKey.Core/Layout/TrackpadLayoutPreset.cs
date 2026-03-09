@@ -174,6 +174,16 @@ public sealed class TrackpadLayoutPreset
         Mobile
     };
 
+    public static TrackpadLayoutPreset[] Selectable { get; } =
+    {
+        Blank,
+        SixByThree,
+        SixByFour,
+        FiveByThree,
+        FiveByFour,
+        MobileOrthoTwelveByFour
+    };
+
     public string Name { get; }
     public string DisplayName { get; }
     public int Columns { get; }

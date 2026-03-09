@@ -2703,10 +2703,10 @@ public partial class MainWindow : Window
 
     private static List<PresetChoice> BuildPresetChoices()
     {
-        List<PresetChoice> choices = new(TrackpadLayoutPreset.All.Length);
-        for (int index = 0; index < TrackpadLayoutPreset.All.Length; index++)
+        List<PresetChoice> choices = new(TrackpadLayoutPreset.Selectable.Length);
+        for (int index = 0; index < TrackpadLayoutPreset.Selectable.Length; index++)
         {
-            TrackpadLayoutPreset preset = TrackpadLayoutPreset.All[index];
+            TrackpadLayoutPreset preset = TrackpadLayoutPreset.Selectable[index];
             choices.Add(new PresetChoice(preset.DisplayName, preset.Name));
         }
 
@@ -2728,15 +2728,22 @@ public partial class MainWindow : Window
 
     private static PresetChoice? SelectPresetChoice(IEnumerable<PresetChoice> choices, string? name)
     {
+        PresetChoice? fallback = null;
         foreach (PresetChoice choice in choices)
         {
+            if (fallback == null &&
+                string.Equals(choice.Name, TrackpadLayoutPreset.SixByThree.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                fallback = choice;
+            }
+
             if (string.Equals(choice.Name, name, StringComparison.OrdinalIgnoreCase))
             {
                 return choice;
             }
         }
 
-        return null;
+        return fallback;
     }
 
     private bool TryImportSettings(string path, out string message)

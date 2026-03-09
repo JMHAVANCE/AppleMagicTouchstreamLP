@@ -583,12 +583,14 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         LowerRightCornerClickGestureCombo.SelectedValue = lowerRightCornerClickAction;
 
         LayoutPresetCombo.Items.Clear();
-        foreach (TrackpadLayoutPreset preset in TrackpadLayoutPreset.All)
+        foreach (TrackpadLayoutPreset preset in TrackpadLayoutPreset.Selectable)
         {
             LayoutPresetCombo.Items.Add(preset);
         }
 
-        LayoutPresetCombo.SelectedItem = _preset;
+        LayoutPresetCombo.SelectedItem = TrackpadLayoutPreset.Selectable.Contains(_preset)
+            ? _preset
+            : TrackpadLayoutPreset.SixByThree;
         SyncDerivedGestureToggleSettings();
         KeyboardModeCheck.IsChecked = _settings.KeyboardModeEnabled;
         AutocorrectModeCheck.IsChecked = _settings.AutocorrectEnabled;
