@@ -106,33 +106,49 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         switch (dispatchEvent.Kind)
         {
             case DispatchEventKind.KeyTap:
-                if (!_suppressPhysicalOutput && TryDispatchSystemAction(dispatchEvent.VirtualKey))
+                if (!TryResolveKeyVirtualKey(dispatchEvent, out ushort keyTapVirtualKey))
                 {
                     break;
                 }
 
-                if (dispatchEvent.VirtualKey != 0)
+                if (!_suppressPhysicalOutput && TryDispatchSystemAction(keyTapVirtualKey))
                 {
-                    HandleKeyTap(dispatchEvent);
+                    break;
                 }
+
+                HandleKeyTap(keyTapVirtualKey, dispatchEvent);
                 break;
             case DispatchEventKind.KeyDown:
+                if (!TryResolveKeyVirtualKey(dispatchEvent, out ushort keyDownVirtualKey))
+                {
+                    break;
+                }
+
                 HandleKeyDownAutocorrect(dispatchEvent);
                 HandleKeyDown(
-                    dispatchEvent.VirtualKey,
+                    keyDownVirtualKey,
                     dispatchEvent.RepeatToken,
                     dispatchEvent.Flags,
                     dispatchEvent.TimestampTicks,
                     dispatchEvent.SemanticAction);
                 break;
             case DispatchEventKind.KeyUp:
-                HandleKeyUp(dispatchEvent.VirtualKey, dispatchEvent.RepeatToken);
+                if (TryResolveKeyVirtualKey(dispatchEvent, out ushort keyUpVirtualKey))
+                {
+                    HandleKeyUp(keyUpVirtualKey, dispatchEvent.RepeatToken);
+                }
                 break;
             case DispatchEventKind.ModifierDown:
-                HandleModifierDown(dispatchEvent.VirtualKey);
+                if (TryResolveModifierVirtualKey(dispatchEvent, out ushort modifierDownVirtualKey))
+                {
+                    HandleModifierDown(modifierDownVirtualKey);
+                }
                 break;
             case DispatchEventKind.ModifierUp:
-                HandleModifierUp(dispatchEvent.VirtualKey);
+                if (TryResolveModifierVirtualKey(dispatchEvent, out ushort modifierUpVirtualKey))
+                {
+                    HandleModifierUp(modifierUpVirtualKey);
+                }
                 break;
             case DispatchEventKind.MouseButtonClick:
                 _autocorrect.NotifyPointerActivity();
@@ -156,10 +172,10 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         }
     }
 
-    private void HandleKeyTap(in DispatchEvent dispatchEvent)
+    private void HandleKeyTap(ushort virtualKey, in DispatchEvent dispatchEvent)
     {
         ProcessAutocorrectKeyInput(dispatchEvent);
-        SendKeyTap(dispatchEvent.VirtualKey);
+        SendKeyTap(virtualKey);
     }
 
     private void HandleKeyDownAutocorrect(in DispatchEvent dispatchEvent)
@@ -757,6 +773,32 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         }
 
         return false;
+    }
+
+    private static bool TryResolveKeyVirtualKey(in DispatchEvent dispatchEvent, out ushort virtualKey)
+    {
+        if (WindowsVirtualKeyMapper.TryMapSemanticCode(dispatchEvent.SemanticAction.PrimaryCode, out virtualKey))
+        {
+            return true;
+        }
+
+        virtualKey = dispatchEvent.VirtualKey;
+        return virtualKey != 0;
+    }
+
+    private static bool TryResolveModifierVirtualKey(in DispatchEvent dispatchEvent, out ushort virtualKey)
+    {
+        DispatchSemanticCode semanticCode =
+            dispatchEvent.SemanticAction.Kind == DispatchSemanticKind.KeyChord
+                ? dispatchEvent.SemanticAction.SecondaryCode
+                : dispatchEvent.SemanticAction.PrimaryCode;
+        if (WindowsVirtualKeyMapper.TryMapSemanticCode(semanticCode, out virtualKey))
+        {
+            return true;
+        }
+
+        virtualKey = dispatchEvent.VirtualKey;
+        return virtualKey != 0;
     }
 
     private void ApplyAutocorrectForWordBoundary()

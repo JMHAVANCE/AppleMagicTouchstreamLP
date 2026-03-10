@@ -28,6 +28,11 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Bundled default settings tests failed: {bundledDefaultsFailure}");
         }
 
+        if (!RunWindowsSemanticMapperTests(out string semanticMapperFailure))
+        {
+            return new SelfTestResult(false, $"Windows semantic mapper tests failed: {semanticMapperFailure}");
+        }
+
         if (!RunReplayTests(out string replayFailure))
         {
             return new SelfTestResult(false, $"Replay tests failed: {replayFailure}");
@@ -89,6 +94,40 @@ internal static class SelfTestRunner
         }
 
         return new SelfTestResult(true, "All self-tests passed.");
+    }
+
+    private static bool RunWindowsSemanticMapperTests(out string failure)
+    {
+        if (!WindowsVirtualKeyMapper.TryMapSemanticCode(DispatchSemanticCode.A, out ushort letterKey) ||
+            letterKey != 0x41)
+        {
+            failure = "semantic letter A did not map to virtual key 0x41";
+            return false;
+        }
+
+        if (!WindowsVirtualKeyMapper.TryMapSemanticCode(DispatchSemanticCode.Meta, out ushort metaKey) ||
+            metaKey != 0x5B)
+        {
+            failure = "generic Meta did not map to the default Windows meta key";
+            return false;
+        }
+
+        if (!WindowsVirtualKeyMapper.TryMapSemanticCode(DispatchSemanticCode.RightMeta, out ushort rightMetaKey) ||
+            rightMetaKey != 0x5C)
+        {
+            failure = "RightMeta did not map to virtual key 0x5C";
+            return false;
+        }
+
+        if (!WindowsVirtualKeyMapper.TryMapSemanticCode(DispatchSemanticCode.BrightnessUp, out ushort brightnessUpKey) ||
+            brightnessUpKey != DispatchKeyResolver.VirtualKeyBrightnessUp)
+        {
+            failure = "BrightnessUp did not map to the Windows brightness compatibility key";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
     }
 
     private static bool RunParserTests(out string failure)

@@ -1433,7 +1433,7 @@ internal sealed class TouchProcessorCore
         switch (action.Kind)
         {
             case EngineActionKind.Modifier:
-                if (action.VirtualKey == 0)
+                if (!CanDispatchModifierAction(action))
                 {
                     return;
                 }
@@ -1467,7 +1467,7 @@ internal sealed class TouchProcessorCore
                 }
                 break;
             case EngineActionKind.Continuous:
-                if (action.VirtualKey == 0)
+                if (!CanDispatchKeyAction(action))
                 {
                     return;
                 }
@@ -1504,8 +1504,8 @@ internal sealed class TouchProcessorCore
             case EngineActionKind.KeyChord:
                 if (!isHoldTriggeredAction ||
                     !_config.HoldRepeatEnabled ||
-                    action.VirtualKey == 0 ||
-                    action.ModifierVirtualKey == 0)
+                    !CanDispatchKeyAction(action) ||
+                    !CanDispatchChordModifierAction(action))
                 {
                     return;
                 }
@@ -1605,7 +1605,7 @@ internal sealed class TouchProcessorCore
     {
         if (!_config.HoldRepeatEnabled ||
             action.Kind != EngineActionKind.Key ||
-            action.VirtualKey == 0)
+            !CanDispatchKeyAction(action))
         {
             return action;
         }
@@ -1676,7 +1676,9 @@ internal sealed class TouchProcessorCore
                     timestampTicks,
                     dispatchLabel: state.DispatchDownLabel,
                     semanticAction: state.DispatchDownSemanticAction);
-                if (state.DispatchDownModifierVirtualKey != 0)
+                if (ShouldReleaseChordModifier(
+                    state.DispatchDownSemanticAction,
+                    state.DispatchDownModifierVirtualKey))
                 {
                     EnqueueDispatchEvent(
                         DispatchEventKind.ModifierUp,
@@ -1742,7 +1744,7 @@ internal sealed class TouchProcessorCore
         {
             case EngineActionKind.Key:
             case EngineActionKind.Continuous:
-                if (action.VirtualKey != 0)
+                if (CanDispatchKeyAction(action))
                 {
                     DispatchEventFlags keyTapFlags =
                         hapticOnDispatch && _hapticsOnKeyDispatch
@@ -1763,7 +1765,7 @@ internal sealed class TouchProcessorCore
                 }
                 break;
             case EngineActionKind.Modifier:
-                if (action.VirtualKey != 0)
+                if (CanDispatchModifierAction(action))
                 {
                     DispatchEventFlags modifierFlags =
                         hapticOnDispatch && _hapticsOnKeyDispatch
@@ -1820,7 +1822,7 @@ internal sealed class TouchProcessorCore
                 }
                 break;
             case EngineActionKind.KeyChord:
-                if (action.ModifierVirtualKey != 0 && action.VirtualKey != 0)
+                if (CanDispatchChordModifierAction(action) && CanDispatchKeyAction(action))
                 {
                     EnqueueDispatchEvent(
                         DispatchEventKind.ModifierDown,
@@ -2189,6 +2191,38 @@ internal sealed class TouchProcessorCore
             >= 0x41 and <= 0x5A => ((char)virtualKey).ToString(),
             _ => $"VK_0x{virtualKey:X2}"
         };
+    }
+
+    private static bool CanDispatchKeyAction(EngineKeyAction action)
+    {
+        return HasDispatchIdentity(action.SemanticAction.PrimaryCode, action.VirtualKey);
+    }
+
+    private static bool CanDispatchModifierAction(EngineKeyAction action)
+    {
+        return HasDispatchIdentity(action.SemanticAction.PrimaryCode, action.VirtualKey);
+    }
+
+    private static bool CanDispatchChordModifierAction(EngineKeyAction action)
+    {
+        return HasDispatchIdentity(action.SemanticAction.SecondaryCode, action.ModifierVirtualKey);
+    }
+
+    private static bool HasDispatchIdentity(DispatchSemanticCode semanticCode, ushort virtualKey)
+    {
+        return semanticCode != DispatchSemanticCode.None || virtualKey != 0;
+    }
+
+    private static bool ShouldReleaseChordModifier(
+        DispatchSemanticAction semanticAction,
+        ushort modifierVirtualKey)
+    {
+        if (semanticAction.Kind != DispatchSemanticKind.KeyChord)
+        {
+            return modifierVirtualKey != 0;
+        }
+
+        return semanticAction.SecondaryCode != DispatchSemanticCode.None || modifierVirtualKey != 0;
     }
 
     private static bool IsTypingSuppressedDispatch(DispatchEventKind kind)
@@ -2780,7 +2814,7 @@ internal sealed class TouchProcessorCore
         }
 
         EngineKeyAction holdAction = ResolveHoldActionForDispatch(action);
-        if (holdAction.Kind == EngineActionKind.Continuous && holdAction.VirtualKey != 0)
+        if (holdAction.Kind == EngineActionKind.Continuous && CanDispatchKeyAction(holdAction))
         {
             ulong repeatToken = BuildMultiFingerHoldRepeatToken(gesture.Side, requiredContactCount);
             if (EnqueueDispatchEvent(
@@ -4194,7 +4228,10 @@ internal sealed class TouchProcessorCore
             side: TrackpadSide.Left,
             timestampTicks,
             dispatchLabel: "ChordShift",
-            semanticAction: new DispatchSemanticAction(DispatchSemanticKind.Modifier, "ChordShift")))
+            semanticAction: new DispatchSemanticAction(
+                DispatchSemanticKind.Modifier,
+                "ChordShift",
+                DispatchSemanticCode.Shift)))
         {
             _chordShiftKeyDown = shouldBeDown;
             RecordDiagnostic(

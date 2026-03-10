@@ -316,9 +316,8 @@ internal static class EngineActionResolver
             return shiftChord;
         }
 
-        if (DispatchKeyResolver.TryResolveModifierVirtualKey(resolved, out ushort modifierKey))
+        if (TryResolveModifierIdentity(resolved, out ushort modifierKey, out DispatchSemanticCode modifierCode))
         {
-            DispatchSemanticResolver.TryResolveModifierCode(resolved, out DispatchSemanticCode modifierCode);
             return CreateAction(
                 EngineActionKind.Modifier,
                 resolved,
@@ -328,9 +327,8 @@ internal static class EngineActionResolver
 
         if (IsContinuousActionLabel(resolved))
         {
-            if (DispatchKeyResolver.TryResolveVirtualKey(resolved, out ushort continuousVk))
+            if (TryResolveKeyIdentity(resolved, out ushort continuousVk, out DispatchSemanticCode continuousCode))
             {
-                DispatchSemanticResolver.TryResolveKeyCode(resolved, out DispatchSemanticCode continuousCode);
                 return CreateAction(
                     EngineActionKind.Continuous,
                     resolved,
@@ -357,9 +355,8 @@ internal static class EngineActionResolver
                 semanticPrimaryCode: DispatchSemanticCode.Minus);
         }
 
-        if (DispatchKeyResolver.TryResolveVirtualKey(resolved, out ushort virtualKey))
+        if (TryResolveKeyIdentity(resolved, out ushort virtualKey, out DispatchSemanticCode keyCode))
         {
-            DispatchSemanticResolver.TryResolveKeyCode(resolved, out DispatchSemanticCode keyCode);
             return CreateAction(
                 EngineActionKind.Key,
                 resolved,
@@ -394,22 +391,15 @@ internal static class EngineActionResolver
 
         string modifierLabel = text[..plusIndex].Trim();
         string token = text[(plusIndex + 1)..].Trim();
-        if (!DispatchKeyResolver.TryResolveModifierVirtualKey(modifierLabel, out ushort modifierVirtualKey))
+        if (!TryResolveModifierIdentity(modifierLabel, out ushort modifierVirtualKey, out DispatchSemanticCode modifierSemanticCode))
         {
             return false;
         }
 
-        if (!DispatchSemanticResolver.TryResolveModifierCode(modifierLabel, out DispatchSemanticCode modifierSemanticCode))
+        if (!TryResolveKeyIdentity(token, out ushort keyVk, out DispatchSemanticCode primaryCode))
         {
             return false;
         }
-
-        if (!DispatchKeyResolver.TryResolveVirtualKey(token, out ushort keyVk))
-        {
-            return false;
-        }
-
-        DispatchSemanticResolver.TryResolveKeyCode(token, out DispatchSemanticCode primaryCode);
 
         action = new EngineKeyAction(
             EngineActionKind.KeyChord,
@@ -550,5 +540,25 @@ internal static class EngineActionResolver
         };
 
         return new DispatchSemanticAction(semanticKind, label, primaryCode, secondaryCode, mouseButton);
+    }
+
+    private static bool TryResolveKeyIdentity(
+        string label,
+        out ushort virtualKey,
+        out DispatchSemanticCode semanticCode)
+    {
+        bool hasSemantic = DispatchSemanticResolver.TryResolveKeyCode(label, out semanticCode);
+        bool hasVirtualKey = DispatchKeyResolver.TryResolveVirtualKey(label, out virtualKey);
+        return hasSemantic || hasVirtualKey;
+    }
+
+    private static bool TryResolveModifierIdentity(
+        string label,
+        out ushort virtualKey,
+        out DispatchSemanticCode semanticCode)
+    {
+        bool hasSemantic = DispatchSemanticResolver.TryResolveModifierCode(label, out semanticCode);
+        bool hasVirtualKey = DispatchKeyResolver.TryResolveModifierVirtualKey(label, out virtualKey);
+        return hasSemantic || hasVirtualKey;
     }
 }
