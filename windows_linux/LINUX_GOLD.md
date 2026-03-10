@@ -6,9 +6,9 @@ It replaces the old split planning/status docs and should be kept aligned with:
 
 - `AGENTS.md`
 - `GlassToKey.Linux/README.md`
-- `GlassToKey.Platform.Linux/README.md`
-- `GlassToKey.Linux.Gui/README.md`
-- `packaging/linux/README.md`
+- `GlassToKey.Linux/Platform/README.md`
+- `GlassToKey.Linux/Gui/README.md`
+- `GlassToKey.Linux/packaging/README.md`
 
 ## Goal
 
@@ -39,12 +39,12 @@ Current target assumptions:
 
 ### Linux backend
 
-- `GlassToKey.Platform.Linux/`
+- `GlassToKey.Linux/Platform/`
 - owns Linux device enumeration, stable identity, evdev frame assembly, reconnect supervision, `uinput` dispatch, and Linux-specific permission probing
 
 ### Linux host/config
 
-- `GlassToKey.Linux.Host/`
+- `GlassToKey.Linux/Host/`
 - owns XDG-backed settings/config/runtime composition and the shared Linux `doctor` surface used by both CLI and GUI
 
 ### Linux CLI
@@ -55,13 +55,13 @@ Current target assumptions:
 
 ### Linux GUI
 
-- `GlassToKey.Linux.Gui/`
+- `GlassToKey.Linux/Gui/`
 - early Avalonia control shell
 - current scope is settings, bindings, preset/keymap path selection, in-app `doctor`, and a first tray/top-bar path
 
 ### Packaging
 
-- `packaging/linux/`
+- `GlassToKey.Linux/packaging/`
 - checked-in `udev` rule template, install script, and Debian package skeleton
 
 ## Target Final Architecture
@@ -312,8 +312,8 @@ The architecture is not considered complete until:
 - Keep shared engine/runtime seams in `GlassToKey.Core/`.
 - Prefer physically moving shared layout, keymap, touch-config, and runtime-profile logic into `GlassToKey.Core/` instead of rebuilding similar logic separately in Linux host, GUI, or platform code.
 - Do not treat linked source files back into `GlassToKey.Windows/` as an acceptable steady state for shared code.
-- Keep Linux gesture ingestion and `uinput` output in `GlassToKey.Platform.Linux/`.
-- Keep Linux settings/runtime composition in `GlassToKey.Linux.Host/`.
+- Keep Linux gesture ingestion and `uinput` output in `GlassToKey.Linux/Platform/`.
+- Keep Linux settings/runtime composition in `GlassToKey.Linux/Host/`.
 - Keep Linux CLI/GUI hosts thin.
 - Prefer platform-neutral semantic actions over Windows-VK assumptions in any shared flow.
 - Treat touch processing as latency-sensitive: no avoidable allocations, logging, or file I/O on hot paths.
@@ -575,7 +575,7 @@ Exit criteria:
 - [x] Decide the documented default install mode for first users: tray desktop by default, with CLI `start` / `stop` documented for headless runs
 - [x] Tighten post-install guidance around `doctor`, `init-config`, `show-config`, `load-keymap`, `start`, `stop`, direct `run-engine` smoke tests, and optional service enablement
 - [x] Keep a documented and validated headless launch path as part of the final packaged Linux story
-- [ ] Validate and document the first Arch install/package flow from `packaging/linux/arch/`
+- [ ] Validate and document the first Arch install/package flow from `GlassToKey.Linux/packaging/arch/`
 
 Exit criteria:
 
@@ -593,9 +593,9 @@ Exit criteria:
 
 ## README Follow-Ups
 
-- `packaging/linux/README.md`: keep desktop packaging guidance centered on the tray-owned GUI runtime, with the user service described as the optional headless/background path and `glasstokey start` / `stop` documented as the direct headless path
+- `GlassToKey.Linux/packaging/README.md`: keep desktop packaging guidance centered on the tray-owned GUI runtime, with the user service described as the optional headless/background path and `glasstokey start` / `stop` documented as the direct headless path
 - `GlassToKey.Linux/README.md`: keep a short direct-run section covering `doctor`, `init-config`, `show-config`, `load-keymap`, `pulse-haptics`, `start`, `stop`, and `run-engine`
-- `GlassToKey.Linux.Gui/README.md`: keep the current scope aligned with the tray-owned desktop runtime, GUI keymap editing being in scope, and rich diagnostics remaining CLI-first
+- `GlassToKey.Linux/Gui/README.md`: keep the current scope aligned with the tray-owned desktop runtime, GUI keymap editing being in scope, and rich diagnostics remaining CLI-first
 - `GlassToKey.Core/README.md`: update when the linked-source bridge starts shrinking materially, not just when Linux adds features
 - `AGENTS.md`: update after Linux packaging defaults or desktop/headless workflow expectations change
 
@@ -606,26 +606,26 @@ Run overlapping builds/publishes for the same project graph sequentially.
 ### Shared/Linux builds
 
 - `dotnet build GlassToKey.Core/GlassToKey.Core.csproj -c Release`
-- `dotnet build GlassToKey.Platform.Linux/GlassToKey.Platform.Linux.csproj -c Release`
-- `dotnet build GlassToKey.Linux.Host/GlassToKey.Linux.Host.csproj -c Release`
+- `dotnet build GlassToKey.Linux/Platform/GlassToKey.Platform.Linux.csproj -c Release`
+- `dotnet build GlassToKey.Linux/Host/GlassToKey.Linux.Host.csproj -c Release`
 - `dotnet build GlassToKey.Linux/GlassToKey.Linux.csproj -c Release`
-- `dotnet build GlassToKey.Linux.Gui/GlassToKey.Linux.Gui.csproj -c Release`
+- `dotnet build GlassToKey.Linux/Gui/GlassToKey.Linux.Gui.csproj -c Release`
 
 ### Linux publish
 
 - `dotnet publish GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -p:PublishProfile=LinuxFrameworkDependent`
 - `dotnet publish GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -p:PublishProfile=LinuxSelfContained`
-- `dotnet publish GlassToKey.Linux.Gui/GlassToKey.Linux.Gui.csproj -c Release -p:PublishProfile=LinuxGuiFrameworkDependent`
-- `dotnet publish GlassToKey.Linux.Gui/GlassToKey.Linux.Gui.csproj -c Release -p:PublishProfile=LinuxGuiSelfContained`
+- `dotnet publish GlassToKey.Linux/Gui/GlassToKey.Linux.Gui.csproj -c Release -p:PublishProfile=LinuxGuiFrameworkDependent`
+- `dotnet publish GlassToKey.Linux/Gui/GlassToKey.Linux.Gui.csproj -c Release -p:PublishProfile=LinuxGuiSelfContained`
 
 ### Linux package build
 
-- `bash packaging/linux/deb/build-deb.sh --version 0.1.0-dev --output-dir /tmp/glasstokey-deb-out`
+- `bash GlassToKey.Linux/packaging/deb/build-deb.sh --version 0.1.0-dev --output-dir /tmp/glasstokey-deb-out`
 
 ### Arch local package build
 
 - `sudo pacman -S --needed base-devel dotnet-sdk`
-- `cd packaging/linux/arch`
+- `cd GlassToKey.Linux/packaging/arch`
 - `makepkg -f`
 
 ## Doc Rule

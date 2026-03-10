@@ -7,22 +7,24 @@
 
 ## Default Targets
 - Primary production target: `GlassToKey.Windows/GlassToKey.Windows.csproj`
-- Migration targets: `GlassToKey.Core/GlassToKey.Core.csproj`, `GlassToKey.Platform.Linux/GlassToKey.Platform.Linux.csproj`, `GlassToKey.Linux.Host/GlassToKey.Linux.Host.csproj`, `GlassToKey.Linux/GlassToKey.Linux.csproj`
+- Migration targets: `GlassToKey.Core/GlassToKey.Core.csproj`, `GlassToKey.Linux/Platform/GlassToKey.Platform.Linux.csproj`, `GlassToKey.Linux/Host/GlassToKey.Linux.Host.csproj`, `GlassToKey.Linux/GlassToKey.Linux.csproj`
 - Current reality: the Windows app in `GlassToKey.Windows/` is the only feature-complete implementation here today.
 
 ## Current State
 - `GlassToKey.Windows/` is the active Windows host. It targets `net10.0-windows` with WPF and WinForms enabled.
 - `GlassToKey.Core/` now includes shared input/dispatch primitives, the extracted engine/layout/keymap path, shared `.atpcap` capture payload/reader/metrics primitives, a shared `TrackpadFrameEnvelope` / `ITrackpadFrameTarget` seam, and `TouchProcessorRuntimeHost` as a public wrapper around the internal actor/dispatch pipeline.
-- `GlassToKey.Platform.Linux/` now has preferred Apple `if01` device selection, raw evdev capture, real `EVIOCGABS` axis/range probing, an evdev-to-`InputFrame` assembler, a runtime service that can stream directly into a shared frame target, runtime-side stable-id rebind/reconnect supervision for unplug/replug churn, a `LinuxUinputDispatcher`, Linux actuator-hidraw haptics support for validated USB Magic Trackpads, and a semantics-first Linux key mapper that resolves semantic codes to evdev output before falling back to Windows VK compatibility.
-- `GlassToKey.Linux.Host/` now carries the reusable Linux XDG settings/config/runtime layer plus the `doctor` runner so the CLI and GUI can share one host surface without the GUI referencing the CLI executable project.
+- `GlassToKey.Linux/Platform/` now has preferred Apple `if01` device selection, raw evdev capture, real `EVIOCGABS` axis/range probing, an evdev-to-`InputFrame` assembler, a runtime service that can stream directly into a shared frame target, runtime-side stable-id rebind/reconnect supervision for unplug/replug churn, a `LinuxUinputDispatcher`, Linux actuator-hidraw haptics support for validated USB Magic Trackpads, and a semantics-first Linux key mapper that resolves semantic codes to evdev output before falling back to Windows VK compatibility.
+- `GlassToKey.Linux/Host/` now carries the reusable Linux XDG settings/config/runtime layer plus the `doctor` runner so the CLI and GUI can share one host surface without the GUI referencing the CLI executable project.
 - `GlassToKey.Linux/` is now a minimal CLI host. `Program.cs` supports `list-devices`, `probe-axes`, `probe-uinput`, `pulse-haptics`, `doctor`, `show-config`, `init-config`, `bind-left`, `bind-right`, `swap-sides`, `print-udev-rules`, `selftest`, `capture-atpcap`, `replay-atpcap`, `summarize-atpcap`, `write-atpcap-fixture`, `check-atpcap-fixture`, `uinput-smoke`, `read-events`, `read-frames`, `watch-runtime`, and `run-engine`. It now uses an XDG-backed settings file for stable-id device selection, layout preset selection, and optional keymap-path override through `GlassToKey.Linux.Host`. The Linux host also now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json` instead of copying the Windows default, and the embedded bundled `KeymapJson` has been translated so Linux no longer ships Windows-only `EMOJI`, `LWin`, or `Win+H` defaults by accident. `run-engine` has been validated end-to-end on the current Ubuntu 24.04 host with both tested Apple Magic Trackpads, live Linux haptics has now been validated end-to-end on both tested USB trackpads, and the runtime owner now reloads updated settings in-process instead of requiring the GUI to restart `systemd` for layout/binding changes. Checked-in publish profiles now cover framework-dependent and self-contained `linux-x64` publishes, and the checked-in install script now supports wrapper-vs-service install decisions with better post-install guidance.
-- `GlassToKey.Linux.Gui/` now exists as an early Avalonia config surface on top of the same XDG-backed Linux host settings used by the CLI. It now supports device assignment, preset selection, settings import/export, an in-app `doctor` report, a live trackpad preview driven from the same in-process tray-owned runtime stream used for typing, and tray-level `.atpcap` capture/replay/summarize actions for debugging. `.atpcap` replay is now an in-window visualizer mode with play/pause and a time-based scrubber instead of a tray dialog-only action. The tray app now owns the default desktop runtime while the config window stays off the hotpath, and the CLI/service path remains the headless/engineering host. GUI publish now works both framework-dependent and self-contained.
-- `packaging/linux/arch/` now carries a first local Arch `PKGBUILD` skeleton with pacman install hooks, user-service unit, desktop entry, and sysusers group definition; real Arch host validation is still pending.
+- `GlassToKey.Linux/Gui/` now exists as an early Avalonia config surface on top of the same XDG-backed Linux host settings used by the CLI. It now supports device assignment, preset selection, settings import/export, an in-app `doctor` report, a live trackpad preview driven from the same in-process tray-owned runtime stream used for typing, and tray-level `.atpcap` capture/replay/summarize actions for debugging. `.atpcap` replay is now an in-window visualizer mode with play/pause and a time-based scrubber instead of a tray dialog-only action. The tray app now owns the default desktop runtime while the config window stays off the hotpath, and the CLI/service path remains the headless/engineering host. GUI publish now works both framework-dependent and self-contained.
+- `GlassToKey.Linux/packaging/arch/` now carries a first local Arch `PKGBUILD` skeleton with pacman install hooks, user-service unit, desktop entry, and sysusers group definition; real Arch host validation is still pending.
+- The Linux repo layout is intentionally nested under `GlassToKey.Linux/`, but the project boundaries are still real: `GlassToKey.Linux/GlassToKey.Linux.csproj` is the CLI project only and explicitly excludes `Host/**`, `Platform/**`, `Gui/**`, and `packaging/**` from its default item globs so nested sibling projects do not get compiled into the CLI by accident.
+- The nested repo layout does not change the installed product split: packaging still installs the CLI under `/opt/GlassToKey.Linux` and the GUI under `/opt/GlassToKey.Linux.Gui`; do not collapse those installed locations just because the repo folders are nested.
 
 ## What To Build
 - For Windows app work, target `GlassToKey.Windows/GlassToKey.Windows.csproj`.
 - For shared extraction work, target `GlassToKey.Core/GlassToKey.Core.csproj`.
-- For Linux backend work, target `GlassToKey.Platform.Linux/GlassToKey.Platform.Linux.csproj` and `GlassToKey.Linux/GlassToKey.Linux.csproj`. There is now runnable Linux behavior, but it is still an engineering host rather than a packaged end-user app.
+- For Linux backend work, target `GlassToKey.Linux/Platform/GlassToKey.Platform.Linux.csproj` and `GlassToKey.Linux/GlassToKey.Linux.csproj`. There is now runnable Linux behavior, but it is still an engineering host rather than a packaged end-user app.
 
 ## Build Commands
 - Windows app build:
@@ -31,10 +33,10 @@
   - `dotnet run --project GlassToKey.Windows/GlassToKey.Windows.csproj -c Release -- --selftest`
 - Shared/Linux builds:
   - `dotnet build GlassToKey.Core/GlassToKey.Core.csproj -c Release`
-  - `dotnet build GlassToKey.Platform.Linux/GlassToKey.Platform.Linux.csproj -c Release`
-  - `dotnet build GlassToKey.Linux.Host/GlassToKey.Linux.Host.csproj -c Release`
+  - `dotnet build GlassToKey.Linux/Platform/GlassToKey.Platform.Linux.csproj -c Release`
+  - `dotnet build GlassToKey.Linux/Host/GlassToKey.Linux.Host.csproj -c Release`
   - `dotnet build GlassToKey.Linux/GlassToKey.Linux.csproj -c Release`
-  - `dotnet build GlassToKey.Linux.Gui/GlassToKey.Linux.Gui.csproj -c Release`
+  - `dotnet build GlassToKey.Linux/Gui/GlassToKey.Linux.Gui.csproj -c Release`
 - Linux device probe:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- list-devices`
 - Linux raw evdev probe:
@@ -85,14 +87,14 @@
 - Linux self-contained publish:
   - `dotnet publish GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -p:PublishProfile=LinuxSelfContained`
 - Linux GUI framework-dependent publish:
-  - `dotnet publish GlassToKey.Linux.Gui/GlassToKey.Linux.Gui.csproj -c Release -p:PublishProfile=LinuxGuiFrameworkDependent`
+  - `dotnet publish GlassToKey.Linux/Gui/GlassToKey.Linux.Gui.csproj -c Release -p:PublishProfile=LinuxGuiFrameworkDependent`
 - Linux GUI self-contained publish:
-  - `dotnet publish GlassToKey.Linux.Gui/GlassToKey.Linux.Gui.csproj -c Release -p:PublishProfile=LinuxGuiSelfContained`
+  - `dotnet publish GlassToKey.Linux/Gui/GlassToKey.Linux.Gui.csproj -c Release -p:PublishProfile=LinuxGuiSelfContained`
 - Linux Debian skeleton build:
-  - `bash packaging/linux/deb/build-deb.sh --version 0.1.0-dev --output-dir /tmp/glasstokey-deb-out`
+  - `bash GlassToKey.Linux/packaging/deb/build-deb.sh --version 0.1.0-dev --output-dir /tmp/glasstokey-deb-out`
 - Linux Arch local package build:
   - `sudo pacman -S --needed base-devel dotnet-sdk`
-  - `cd packaging/linux/arch`
+  - `cd GlassToKey.Linux/packaging/arch`
   - `makepkg -f`
 - In the current Ubuntu 24.04 shell, the three Linux-targeted build commands above were verified.
 - Run overlapping `dotnet build` / `dotnet publish` commands for the same project graph sequentially. Parallel publishes can collide in shared `bin/` / `obj/` paths.
@@ -103,20 +105,24 @@
 - `GlassToKey.Windows/WindowsDispatch/`: Windows-specific dispatch implementation details.
 - `GlassToKey.Windows/WindowsHaptics/`: Windows-specific haptics integration.
 - `GlassToKey.Windows/WindowsDiagnostics/`: Windows-hosted replay, capture, raw analysis, and self-test infrastructure.
-- `GlassToKey.Platform.Linux/`: Linux device enumeration, evdev/uinput backend in progress.
-- `GlassToKey.Linux.Host/`: shared Linux host/config/runtime and doctor layer used by both CLI and GUI.
+- `GlassToKey.Linux/Platform/`: Linux device enumeration, evdev/uinput backend in progress.
+- `GlassToKey.Linux/Host/`: shared Linux host/config/runtime and doctor layer used by both CLI and GUI.
 - `GlassToKey.Linux/`: Linux CLI host and early packaging/publish surface.
-- `GlassToKey.Linux.Gui/`: early Linux GUI control shell for device binding, keymap selection, and diagnostics.
+- `GlassToKey.Linux/Gui/`: early Linux GUI control shell for device binding, keymap selection, and diagnostics.
+- `GlassToKey.Linux/packaging/`: Linux install artifacts plus Debian and Arch package skeletons.
 - `LINUX_GOLD.md`: canonical Linux implementation, validation, and remaining-work document.
 
 ## Important Boundaries
 - Keep Windows-only code in `GlassToKey.Windows/`: WPF, WinForms, Raw Input, `SendInput`, click suppression, tray/startup UI, Windows haptics.
 - Keep `GlassToKey.Core/` free of WPF, WinForms, Raw Input, `SendInput`, `evdev`, and `uinput`.
+- Treat `GlassToKey.Linux/`, `GlassToKey.Linux/Platform/`, `GlassToKey.Linux/Host/`, `GlassToKey.Linux/Gui/`, and `GlassToKey.Linux/packaging/` as separate ownership zones even though they now share one top-level folder.
 - Prefer moving shared engine, layout, keymap, touch-config, and runtime-profile behavior into `GlassToKey.Core/` when the dependency boundary permits it, instead of creating parallel Linux-specific implementations.
 - Shared code should be physically moved into `GlassToKey.Core/`; do not treat linked source files back into `GlassToKey.Windows/` as an acceptable steady state.
 - During the Linux/shared-core buildout, Windows may remain the source of truth for behavior, but extracted shared code should still be moved into `GlassToKey.Core/` rather than linked back to `GlassToKey.Windows/`.
 - `GlassToKey.Windows` now consumes `GlassToKey.Core` through a real project reference; keep that dependency boundary clean.
-- When Linux exposes a missing abstraction, first ask whether it should be extracted into `GlassToKey.Core/` before adding more logic to `GlassToKey.Linux.Host/`, `GlassToKey.Linux.Gui/`, or `GlassToKey.Platform.Linux/`.
+- When Linux exposes a missing abstraction, first ask whether it should be extracted into `GlassToKey.Core/` before adding more logic to `GlassToKey.Linux/Host/`, `GlassToKey.Linux/Gui/`, or `GlassToKey.Linux/Platform/`.
+- Do not add source files from `Host/`, `Platform/`, or `Gui/` directly to `GlassToKey.Linux/GlassToKey.Linux.csproj`; keep those as project references.
+- Do not change packaging install destinations to mirror the nested repo layout; repo structure and installed `/opt` structure are intentionally different.
 - Linux work should consume platform-neutral models or semantics, not Windows virtual-key assumptions.
 - `DispatchKeyResolver.cs` is a known split point because Linux needs semantic actions or evdev key codes rather than Windows VK mappings. The current engine/dispatch path now carries `DispatchSemanticAction` metadata alongside Windows VK fields, so new Linux output work should build on that semantic payload instead of adding more VK-only assumptions.
 - For hot paths, prefer precomputed code tables and fixed-size state arrays. The Linux `uinput` dispatcher now resolves semantic codes to evdev codes first and tracks repeat/modifier state by resolved Linux key code in the pump loop.
@@ -140,7 +146,7 @@
 - `GlassToKey.Linux selftest` now validates the bundled Linux keymap import path, rejects stray Windows-only bundled labels, and checks semantic-to-evdev coverage for the current Linux action surface.
 - The repo now carries checked-in Linux publish profiles for framework-dependent and self-contained `linux-x64` publishes, plus a first Debian package skeleton.
 - The repo now also carries self-contained GUI publish support and a reusable `GlassToKey.Linux.Host` library so CLI and GUI share one Linux host/config surface.
-- `packaging/linux/` now contains checked-in Linux install artifacts, plus first Debian and Arch package skeletons under `packaging/linux/deb/` and `packaging/linux/arch/`.
+- `GlassToKey.Linux/packaging/` now contains checked-in Linux install artifacts, plus first Debian and Arch package skeletons under `GlassToKey.Linux/packaging/deb/` and `GlassToKey.Linux/packaging/arch/`.
 - Linux now has a first `.atpcap` capture/replay path based on version 3 normalized frame captures, plus a `doctor` command for post-install evdev/`uinput`/config health checks.
 - Linux `.atpcap` version 3 capture now preserves physical click state in the frame header flags while staying in the shared normalized v3 payload shape.
 - Linux now also has fixture generation and fixture checking commands so `.atpcap` captures can be regression-checked, not just replayed.

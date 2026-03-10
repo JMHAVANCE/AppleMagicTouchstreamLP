@@ -52,7 +52,7 @@ Current phase:
 - the live Linux typing path is working on the tested Ubuntu 24.04 host
 - tray-desktop packaging is the default user story
 - direct headless CLI operation remains supported through `glasstokey start` / `glasstokey stop`
-- local Arch `PKGBUILD` scaffolding now exists under `packaging/linux/arch`; real Arch packaging/install validation is the next distro-expansion checkpoint
+- local Arch `PKGBUILD` scaffolding now exists under `GlassToKey.Linux/packaging/arch`; real Arch packaging/install validation is the next distro-expansion checkpoint
 
 Quick start:
 
@@ -94,8 +94,8 @@ Packaging notes:
 - the checked-in packaging rules now include Magic Trackpad actuator hidraw access for both validated USB product ids: `0x0265` and `0x0324`
 - `print-udev-rules` is the current packaging scaffold for those permissions
 - run overlapping `dotnet build` / `dotnet publish` commands for the same project graph sequentially; parallel publishes can collide in shared output paths
-- `packaging/linux/90-glasstokey.rules` plus package-manager installs (`.deb` and Arch package) are the supported install artifacts
-- `packaging/linux/deb/build-deb.sh` now produces a first Debian package skeleton from the current publish outputs
+- `GlassToKey.Linux/packaging/90-glasstokey.rules` plus package-manager installs (`.deb` and Arch package) are the supported install artifacts
+- `GlassToKey.Linux/packaging/deb/build-deb.sh` now produces a first Debian package skeleton from the current publish outputs
 
 Current diagnostics status:
 

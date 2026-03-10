@@ -7,11 +7,12 @@
     <LangVersion>latest</LangVersion>
     <EnableSharedPortReferences>true</EnableSharedPortReferences>
     <RuntimeIdentifiers>linux-x64;linux-arm64</RuntimeIdentifiers>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Host/**;Platform/**;Gui/**;packaging/**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup Condition="'$(EnableSharedPortReferences)' == 'true'">
     <ProjectReference Include="..\GlassToKey.Core\GlassToKey.Core.csproj" />
-    <ProjectReference Include="..\GlassToKey.Platform.Linux\GlassToKey.Platform.Linux.csproj" />
-    <ProjectReference Include="..\GlassToKey.Linux.Host\GlassToKey.Linux.Host.csproj" />
+    <ProjectReference Include="Platform\GlassToKey.Platform.Linux.csproj" />
+    <ProjectReference Include="Host\GlassToKey.Linux.Host.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="GLASSTOKEY_DEFAULT_KEYMAP.json">
