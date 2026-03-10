@@ -11,14 +11,6 @@ Operational guidance, architecture boundaries, and build commands now live in `A
 - Validate the checked-in Arch package install/runtime story on a real Arch test environment.
 - Document the real Arch install flow once it is proven outside the Ubuntu-hosted local package build path.
 
-### 2. Shared Semantic Cleanup
-
-- Reduce remaining shared-flow dependence on Windows virtual-key compatibility where semantic actions should be authoritative.
-
-### 3. Linux Force-Click Decision
-
-- Decide whether Linux force-click parity is explicitly out of scope for v1 or worth pursuing later as a Linux-specific calibrated pressure path.
-
 ## Remaining Linux Tests
 
 ### Required
@@ -40,7 +32,6 @@ Operational guidance, architecture boundaries, and build commands now live in `A
 - When Linux shared dispatch/keymap behavior changes:
   - re-run Linux self-test
   - re-run representative `.atpcap` fixture checks
-  - confirm Linux semantic mappings still avoid unintended Windows-VK fallback where a semantic mapping should exist
 
 ## Update Rule
 
