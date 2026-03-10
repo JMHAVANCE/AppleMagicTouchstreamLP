@@ -61,6 +61,7 @@ dotnet build GlassToKey.Windows\GlassToKey.Windows.csproj -c Release
 ### Optional arguments
 - `--maxx <value>` / `--maxy <value>`: Force coordinate scaling.
 - `--config`: Open config visualizer on startup (live runtime remains tray-hosted).
+- `--tray-only`: Internal flag used for restarts that should come back tray-only without reopening Config.
 - `--list`: Print available trackpad interfaces.
 - `--capture <path>`: Write captured reports to binary `.atpcap` format.
 - `--replay <capturePath>`: Replay a capture without opening the UI.
