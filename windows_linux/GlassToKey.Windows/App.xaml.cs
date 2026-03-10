@@ -373,6 +373,11 @@ public partial class App : Application
         bool shouldRestartToTrayOnClose = _restartToTrayWhenConfigCloses &&
             !window.IsAutocorrectEnabled;
 
+        if (shouldRestartToTrayOnClose)
+        {
+            PersistLiveRuntimeModeForRestart();
+        }
+
         if (shouldRestartToTrayOnClose &&
             !_restartRequested &&
             TryLaunchReplacementInstance(showErrors: true, "--tray-only"))
@@ -479,6 +484,33 @@ public partial class App : Application
             }
 
             return false;
+        }
+    }
+
+    private void PersistLiveRuntimeModeForRestart()
+    {
+        if (_runtimeService == null || !_runtimeService.TryGetSnapshot(out TouchProcessorSnapshot snapshot))
+        {
+            return;
+        }
+
+        UserSettings settings = UserSettings.Load();
+        bool changed = false;
+        if (settings.TypingEnabled != snapshot.TypingEnabled)
+        {
+            settings.TypingEnabled = snapshot.TypingEnabled;
+            changed = true;
+        }
+
+        if (settings.KeyboardModeEnabled != snapshot.KeyboardModeEnabled)
+        {
+            settings.KeyboardModeEnabled = snapshot.KeyboardModeEnabled;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            settings.Save();
         }
     }
 
