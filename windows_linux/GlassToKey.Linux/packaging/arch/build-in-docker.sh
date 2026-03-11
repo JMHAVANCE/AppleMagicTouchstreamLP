@@ -20,6 +20,9 @@ docker run --rm \
   bash -lc '
     set -euo pipefail
 
+    pacman-key --init
+    pacman-key --populate archlinux
+
     pacman -Syu --noconfirm --needed base-devel dotnet-sdk git sudo libevdev systemd systemd-sysvcompat
 
     if ! getent group "${HOST_GID}" >/dev/null; then
