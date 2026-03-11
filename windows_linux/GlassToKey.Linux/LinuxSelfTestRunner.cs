@@ -373,6 +373,12 @@ internal static class LinuxSelfTestRunner
                 return false;
             }
 
+            if (actual.ThreeFingerDragEnabled != expected.ThreeFingerDragEnabled)
+            {
+                failure = "Bundled Linux settings did not load the expected 3-finger drag toggle from the settings payload.";
+                return false;
+            }
+
             if (!string.Equals(actual.LayoutPresetName, expected.LayoutPresetName, StringComparison.OrdinalIgnoreCase))
             {
                 failure = "Bundled Linux settings did not load the expected layout preset from the settings payload.";

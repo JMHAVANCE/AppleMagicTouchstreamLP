@@ -8,7 +8,7 @@
 
 ## Windows: **(*PREREQUISITE INSTALL)**
 - Supports both the Official Apple Bootcamp drivers and Opensource drivers!
-- **Please follow the <a href="windows_linux/GlassToKey/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
+- **Please follow the <a href="windows_linux/GlassToKey.Windows/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
 
 ****If you can move your mouse and you can scroll with a 2-finger gesture — you already have drivers installed!***
 
@@ -18,7 +18,7 @@
 <hr>
 
 ## Usage
-I have posted a installers in <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/tag/beta">Beta Release</a>!
+**I have posted installers under <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/tag/beta">Releases</a>!**
 
 It can't hurt to submit an Issue or PR but this is just a fun side project I am working on with Codex, so it's something you might have to fork and extend! 
 
@@ -40,9 +40,9 @@ Right-clicking the indicator opens tray actions: Config, Capture, Replay, Restar
 - There is also a "Blank" mode where you can just use it as a Trackpad + Gestures + Custom buttons
 - There is also a "Planck" mode where all 12x4 are on 1 trackpad xD (It's terrible)
 
-**Windows Haptics:**
+**Windows/Linux Haptics:**
 - Working over USB!!!
-- **~I do not see a path forward for Bluetooth Haptics on Windows!~**
+- **~I do not see a path forward for Bluetooth Haptics outside of Mac!~**
 - Maybe through extending the Opensource driver, now that Vito has BT working?
  https://github.com/vitoplantamura/MagicTrackpad2ForWindows
 

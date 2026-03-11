@@ -60,6 +60,21 @@ internal sealed class LinuxUinputDevice : IDisposable
         Sync();
     }
 
+    public void EmitRelative(int deltaX, int deltaY)
+    {
+        if (deltaX != 0)
+        {
+            Emit(LinuxEvdevCodes.EventRelative, LinuxEvdevCodes.RelativeX, deltaX);
+        }
+
+        if (deltaY != 0)
+        {
+            Emit(LinuxEvdevCodes.EventRelative, LinuxEvdevCodes.RelativeY, deltaY);
+        }
+
+        Sync();
+    }
+
     public void Sync()
     {
         Emit(LinuxEvdevCodes.EventSync, LinuxEvdevCodes.SyncReport, 0);

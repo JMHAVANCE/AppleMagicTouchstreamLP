@@ -6,6 +6,7 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
     private readonly DispatchEventQueue _dispatchQueue;
     private readonly DispatchEventPump _dispatchPump;
     private readonly TouchProcessorActor _actor;
+    private readonly ThreeFingerDragController? _threeFingerDragController;
     private bool _disposed;
 
     public TouchProcessorRuntimeHost(
@@ -29,6 +30,12 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         {
             ConfigureDispatcherAutocorrect(dispatcher, settings);
         }
+
+        if (dispatcher is IThreeFingerDragSink dragSink)
+        {
+            _threeFingerDragController = new ThreeFingerDragController(dragSink);
+            _threeFingerDragController.SetEnabled(settings?.ThreeFingerDragEnabled == true);
+        }
     }
 
     public bool Post(in TrackpadFrameEnvelope frame)
@@ -39,8 +46,15 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         }
 
         InputFrame payload = frame.Frame;
+        if (_threeFingerDragController?.ProcessFrame(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks) == true)
+        {
+            return true;
+        }
+
         return _actor.Post(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks);
     }
+
+    public bool RequestsExclusiveInput => _threeFingerDragController?.RequestsExclusiveInput == true;
 
     public bool TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot)
     {
@@ -161,6 +175,7 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         _actor.ConfigureKeymap(keymap);
         _actor.SetPersistentLayer(activeLayer);
         _actor.SetHapticsOnKeyDispatchEnabled(settings.HapticsEnabled);
+        _threeFingerDragController?.SetEnabled(profile.ThreeFingerDragEnabled);
         ConfigureDispatcherAutocorrect(_dispatcher, profile);
     }
 
@@ -172,6 +187,7 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         }
 
         _disposed = true;
+        _threeFingerDragController?.SetEnabled(false);
         _actor.Dispose();
         _dispatchPump.Dispose();
         _dispatchQueue.Dispose();
