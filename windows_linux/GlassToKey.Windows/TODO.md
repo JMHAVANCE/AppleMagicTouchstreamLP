@@ -1,17 +1,6 @@
-## TODO:
-- Implement 3-Finger Drag (Like Mac!) for Windows / Linux: 
-On Mac you can 3-finger drag to move windows, or select files. It's perfect. Windows does not expost this functionality, infact, if you drag with 3 fingers the mouse's X, Y are not moved AT ALL by the operating system. I have downloaded an app from the Microsoft App store `ThreeFingerDragOnWindows` which is installed on this computer if you need a look. 
-
-What I think this program is doing is:
-1. Taking raw x,y data from the trackpad and synthesizing mouse movement.
-2. Allowing 3-finger holds to trigger a mouse-down and then full release of fingers is mouse up.
-
-Does this seem conceptually sound? I need you to analyze the codebase, check references on the web, and give me your best implementation for GlassToKey Windows. 
-
-3-Finger drag should be exposed as a Mode Toggle checkbox.
-
-
--------
+## TODO:Definit
+- Great! My only complaint about the 3-finger grab logic is that it's eating 3-finger holds and 3-finger clicks when I would consider that I am not moving my fingers. Maybe we need to up the mm for drag? Please analyze and advise. 
+---
 - caps lock button?
 - What other actions could we add??
 - Can we add 3-finger tap? this one should be easy to differentiate between typing fast, right?

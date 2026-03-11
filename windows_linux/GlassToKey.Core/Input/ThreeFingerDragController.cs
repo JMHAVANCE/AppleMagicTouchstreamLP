@@ -1,16 +1,15 @@
-using System;
 using System.Diagnostics;
 
 namespace GlassToKey;
 
-internal interface IThreeFingerDragSink
+public interface IThreeFingerDragSink
 {
     void MovePointerBy(int deltaX, int deltaY);
     void NotifyPointerActivity();
     void SetLeftButtonState(bool pressed);
 }
 
-internal sealed class ThreeFingerDragController
+public sealed class ThreeFingerDragController
 {
     private const double ActivationMoveMm = 1.5;
     private const double PixelsPerMm = 10.0;
@@ -33,6 +32,8 @@ internal sealed class ThreeFingerDragController
     {
         _sink = sink ?? throw new ArgumentNullException(nameof(sink));
     }
+
+    public bool RequestsExclusiveInput => _candidate;
 
     public void SetEnabled(bool enabled)
     {

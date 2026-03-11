@@ -617,9 +617,12 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
             bool engineWantsExclusiveGrab = snapshot.KeyboardModeEnabled &&
                                             snapshot.TypingEnabled &&
                                             !snapshot.MomentaryLayerActive;
+            bool pointerGestureWantsExclusiveGrab = session.Engine.RequestsExclusiveInput;
             lock (_gate)
             {
-                return engineWantsExclusiveGrab || _holdExclusiveGrabUntilAllUp;
+                return engineWantsExclusiveGrab ||
+                       pointerGestureWantsExclusiveGrab ||
+                       _holdExclusiveGrabUntilAllUp;
             }
         }
 
@@ -631,13 +634,17 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
         bool engineWantsExclusiveGrab = snapshot.KeyboardModeEnabled &&
                                         snapshot.TypingEnabled &&
                                         !snapshot.MomentaryLayerActive;
+        bool pointerGestureWantsExclusiveGrab = false;
+        lock (_gate)
+        {
+            pointerGestureWantsExclusiveGrab = _session?.Engine.RequestsExclusiveInput == true;
+        }
+        bool anyExclusiveGrabRequested = engineWantsExclusiveGrab || pointerGestureWantsExclusiveGrab;
 
         lock (_gate)
         {
             if (_lastEngineRequestedExclusiveGrab &&
-                !engineWantsExclusiveGrab &&
-                snapshot.KeyboardModeEnabled &&
-                !snapshot.TypingEnabled &&
+                !anyExclusiveGrabRequested &&
                 HasActivePhysicalInputLocked())
             {
                 _holdExclusiveGrabUntilAllUp = true;
@@ -647,7 +654,7 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                 _holdExclusiveGrabUntilAllUp = false;
             }
 
-            _lastEngineRequestedExclusiveGrab = engineWantsExclusiveGrab;
+            _lastEngineRequestedExclusiveGrab = anyExclusiveGrabRequested;
         }
     }
 

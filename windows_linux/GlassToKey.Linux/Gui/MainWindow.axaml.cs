@@ -46,6 +46,7 @@ public partial class MainWindow : Window
     private readonly CheckBox _startInTrayOnLaunchCheck;
     private readonly CheckBox _snapRadiusModeCheck;
     private readonly CheckBox _holdRepeatModeCheck;
+    private readonly CheckBox _threeFingerDragModeCheck;
     private readonly CheckBox _autocorrectModeCheck;
     private readonly Border _autocorrectStatusBorder;
     private readonly Button _keymapClearSelectionButton;
@@ -161,6 +162,7 @@ public partial class MainWindow : Window
         _startInTrayOnLaunchCheck = RequireControl<CheckBox>("StartInTrayOnLaunchCheck");
         _snapRadiusModeCheck = RequireControl<CheckBox>("SnapRadiusModeCheck");
         _holdRepeatModeCheck = RequireControl<CheckBox>("HoldRepeatModeCheck");
+        _threeFingerDragModeCheck = RequireControl<CheckBox>("ThreeFingerDragModeCheck");
         _autocorrectModeCheck = RequireControl<CheckBox>("AutocorrectModeCheck");
         _autocorrectStatusBorder = RequireControl<Border>("AutocorrectStatusBorder");
         _keymapClearSelectionButton = RequireControl<Button>("KeymapClearSelectionButton");
@@ -522,6 +524,7 @@ public partial class MainWindow : Window
         _startInTrayOnLaunchCheck.IsCheckedChanged += OnModeToggleChanged;
         _snapRadiusModeCheck.IsCheckedChanged += OnModeToggleChanged;
         _holdRepeatModeCheck.IsCheckedChanged += OnModeToggleChanged;
+        _threeFingerDragModeCheck.IsCheckedChanged += OnModeToggleChanged;
         _autocorrectModeCheck.IsCheckedChanged += OnModeToggleChanged;
         _autocorrectBlacklistBox.LostFocus += OnAutocorrectTextCommitted;
         _autocorrectOverridesBox.LostFocus += OnAutocorrectTextCommitted;
@@ -709,6 +712,7 @@ public partial class MainWindow : Window
             ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent
             : 0.0;
         settings.SharedProfile.HoldRepeatEnabled = _holdRepeatModeCheck.IsChecked == true;
+        settings.SharedProfile.ThreeFingerDragEnabled = _threeFingerDragModeCheck.IsChecked == true;
         settings.SharedProfile.StartInTrayOnLaunch = _startInTrayOnLaunchCheck.IsChecked == true;
 
         bool startupRequested = _runAtStartupCheck.IsChecked == true;
@@ -747,6 +751,7 @@ public partial class MainWindow : Window
         _autocorrectOverridesBox.Text = profile.AutocorrectOverridesCsv ?? string.Empty;
         _snapRadiusModeCheck.IsChecked = profile.SnapRadiusPercent > 0.0;
         _holdRepeatModeCheck.IsChecked = profile.HoldRepeatEnabled;
+        _threeFingerDragModeCheck.IsChecked = profile.ThreeFingerDragEnabled;
         _startInTrayOnLaunchCheck.IsChecked = profile.StartInTrayOnLaunch;
         bool startupEnabled = LinuxStartupRegistration.IsEnabled();
         profile.RunAtStartup = startupEnabled;

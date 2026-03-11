@@ -5,7 +5,7 @@ using System.Threading;
 using GlassToKey.Platform.Linux.Haptics;
 using GlassToKey.Platform.Linux.Models;
 
-public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDiagnosticsProvider, IAutocorrectController
+public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDiagnosticsProvider, IAutocorrectController, IThreeFingerDragSink
 {
     private readonly LinuxUinputDevice _device;
     private readonly LinuxMagicTrackpadActuatorHaptics _haptics;
@@ -223,6 +223,56 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         lock (_gate)
         {
             _autocorrect.NotifyPointerActivity();
+        }
+    }
+
+    public void MovePointerBy(int deltaX, int deltaY)
+    {
+        if (_disposed || (deltaX == 0 && deltaY == 0))
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            try
+            {
+                _device.EmitRelative(deltaX, deltaY);
+            }
+            catch (Exception ex)
+            {
+                RecordSendFailure(ex);
+            }
+        }
+    }
+
+    public void SetLeftButtonState(bool pressed)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            try
+            {
+                _device.EmitKey(LinuxEvdevCodes.ButtonLeft, pressed);
+            }
+            catch (Exception ex)
+            {
+                RecordSendFailure(ex);
+            }
         }
     }
 

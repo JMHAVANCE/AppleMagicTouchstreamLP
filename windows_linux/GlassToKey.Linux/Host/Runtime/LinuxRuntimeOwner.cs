@@ -136,7 +136,7 @@ public sealed class LinuxRuntimeOwner
                 }
 
                 if (session.TryGetSnapshot(out TouchProcessorRuntimeSnapshot pendingSnapshot) &&
-                    HasActiveContacts(pendingSnapshot))
+                    (HasActiveContacts(pendingSnapshot) || session.Engine.RequestsExclusiveInput))
                 {
                     continue;
                 }
@@ -190,9 +190,10 @@ public sealed class LinuxRuntimeOwner
     {
         if (session != null && session.Engine.TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot))
         {
-            return snapshot.KeyboardModeEnabled &&
-                   snapshot.TypingEnabled &&
-                   !snapshot.MomentaryLayerActive;
+            return session.Engine.RequestsExclusiveInput ||
+                   (snapshot.KeyboardModeEnabled &&
+                    snapshot.TypingEnabled &&
+                    !snapshot.MomentaryLayerActive);
         }
 
         return fallbackProfile.KeyboardModeEnabled && fallbackProfile.TypingEnabled;
