@@ -85,6 +85,8 @@
   - headless only auto-resolves devices when no saved left/right stable IDs exist; it does not persist those choices
   - headless forces `KeyboardModeEnabled=true`, `TypingEnabled=true`, and `ThreeFingerDragEnabled=false`
   - headless ignores typing-toggle actions so the background runtime cannot flip itself out of pure keyboard mode
+  - headless also disables pointer-intent takeover in core, so it never transitions into `MouseCandidate` or `MouseActive`
+  - headless exclusive grab is now policy-driven: in a graphical session it grabs evdev unconditionally for the pure-keyboard policy; in proven no-pointer environments it skips grab; `glasstokey start --no-grab` and `glasstokey run-engine --no-grab` explicitly opt out
 - Graphical Linux config handoff should preserve mouse usability:
   - when bare `glasstokey` is used from a graphical session while a detached headless runtime or user service is active, stop that headless runtime first
   - then launch the full tray host so the GUI becomes the active desktop path instead of leaving the headless runtime grabbing pointer input underneath it

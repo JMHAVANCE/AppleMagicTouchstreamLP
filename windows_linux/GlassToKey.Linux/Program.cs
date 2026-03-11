@@ -22,7 +22,7 @@ internal static class Program
     {
         if (string.Equals(GetCommand(args), "__background-run", StringComparison.OrdinalIgnoreCase))
         {
-            return RunBackgroundAsync().GetAwaiter().GetResult();
+            return RunBackgroundAsync(args).GetAwaiter().GetResult();
         }
 
         if (args.Length == 0)
@@ -150,7 +150,7 @@ internal static class Program
 
         if (string.Equals(args[0], "start", StringComparison.OrdinalIgnoreCase))
         {
-            return StartBackgroundRuntimeAsync().GetAwaiter().GetResult();
+            return StartBackgroundRuntimeAsync(args).GetAwaiter().GetResult();
         }
 
         if (string.Equals(args[0], "stop", StringComparison.OrdinalIgnoreCase))
@@ -1171,10 +1171,12 @@ internal static class Program
 
     private static async Task<int> RunEngineAsync(string[] args)
     {
+        bool disableExclusiveGrab = HasFlag(args, "--no-grab");
         TimeSpan? duration = null;
-        if (args.Length >= 2)
+        string? durationToken = GetFirstPositionalArgument(args, startIndex: 1);
+        if (!string.IsNullOrWhiteSpace(durationToken))
         {
-            if (!double.TryParse(args[1], out double parsedSeconds) || parsedSeconds <= 0)
+            if (!double.TryParse(durationToken, out double parsedSeconds) || parsedSeconds <= 0)
             {
                 Console.Error.WriteLine("Duration must be positive.");
                 return 1;
@@ -1190,7 +1192,10 @@ internal static class Program
             : new CancellationTokenSource();
         using PosixSignalRegistration sigTermRegistration = RegisterShutdownSignal(PosixSignal.SIGTERM, cts);
         using PosixSignalRegistration sigIntRegistration = RegisterShutdownSignal(PosixSignal.SIGINT, cts);
-        LinuxRuntimeOwner runtimeOwner = new(appRuntime: appRuntime, policy: LinuxRuntimePolicy.HeadlessPureKeyboard);
+        LinuxRuntimeOwner runtimeOwner = new(
+            appRuntime: appRuntime,
+            policy: LinuxRuntimePolicy.HeadlessPureKeyboard,
+            disableExclusiveGrab: disableExclusiveGrab);
 
         Console.WriteLine(duration.HasValue
             ? $"Running engine for {duration.Value.TotalSeconds:0.##}s."
@@ -1213,8 +1218,9 @@ internal static class Program
         return 0;
     }
 
-    private static async Task<int> StartBackgroundRuntimeAsync()
+    private static async Task<int> StartBackgroundRuntimeAsync(string[] args)
     {
+        bool disableExclusiveGrab = HasFlag(args, "--no-grab");
         LinuxSystemdServiceController serviceController = new();
         IReadOnlyList<LinuxSystemdServiceStatus> runningServices = serviceController.Query()
             .Where(static serviceStatus => serviceStatus.IsRunning)
@@ -1244,7 +1250,7 @@ internal static class Program
         }
 
         LinuxBackgroundRuntimeController controller = new();
-        LinuxBackgroundRuntimeStatus status = await controller.StartAsync().ConfigureAwait(false);
+        LinuxBackgroundRuntimeStatus status = await controller.StartAsync(disableExclusiveGrab).ConfigureAwait(false);
         Console.WriteLine(status.Message);
         if (status.IsRunning)
         {
@@ -1321,11 +1327,40 @@ internal static class Program
         return success ? 0 : 1;
     }
 
-    private static async Task<int> RunBackgroundAsync()
+    private static async Task<int> RunBackgroundAsync(string[] args)
     {
+        bool disableExclusiveGrab = HasFlag(args, "--no-grab");
         LinuxBackgroundRuntimeController controller = new();
-        LinuxRuntimeOwner runtimeOwner = new(policy: LinuxRuntimePolicy.HeadlessPureKeyboard);
+        LinuxRuntimeOwner runtimeOwner = new(
+            policy: LinuxRuntimePolicy.HeadlessPureKeyboard,
+            disableExclusiveGrab: disableExclusiveGrab);
         return await controller.RunBackgroundAsync(runtimeOwner).ConfigureAwait(false);
+    }
+
+    private static bool HasFlag(string[] args, string flag)
+    {
+        for (int index = 1; index < args.Length; index++)
+        {
+            if (string.Equals(args[index], flag, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string? GetFirstPositionalArgument(string[] args, int startIndex)
+    {
+        for (int index = startIndex; index < args.Length; index++)
+        {
+            if (!args[index].StartsWith("-", StringComparison.Ordinal))
+            {
+                return args[index];
+            }
+        }
+
+        return null;
     }
 
     private static PosixSignalRegistration RegisterShutdownSignal(PosixSignal signal, CancellationTokenSource cts)

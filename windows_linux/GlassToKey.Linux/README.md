@@ -36,6 +36,8 @@ Current CLI/runtime features:
 - `run-engine` now consumes the resolved settings so stable-id selection, preset choice, and optional keymap override are part of the live runtime path
 - `start`, detached `__background-run`, and `run-engine` now all use the headless pure-keyboard runtime policy
 - headless only auto-selects trackpads when no saved left/right bindings exist; it does not persist those temporary choices
+- headless now also disables pointer-intent takeover in core, so the pure-keyboard runtime never transitions into mouse intent
+- headless evdev grab is now policy-driven: in a graphical session it grabs exclusively by default, in proven no-pointer environments it skips grab, and `start --no-grab` / `run-engine --no-grab` explicitly opt out
 - `watch-runtime`, `capture-atpcap`, and `run-engine` now report binding-state transitions so disconnect/rebind churn is visible during live Linux runs
 - the Linux host now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, and the embedded bundled keymap payload has been translated away from Windows-only defaults like `EMOJI`, `LWin`, and `Win+H`
 - `VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, and `BRIGHT_DOWN` now resolve through semantic codes and Linux evdev output mappings instead of relying on Windows VK fallback

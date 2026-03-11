@@ -1,3 +1,5 @@
+using GlassToKey.Platform.Linux;
+
 namespace GlassToKey.Linux.Runtime;
 
 public enum LinuxRuntimePolicy
@@ -21,6 +23,30 @@ public static class LinuxRuntimePolicyExtensions
     public static bool IgnoresTypingToggleActions(this LinuxRuntimePolicy policy)
     {
         return policy == LinuxRuntimePolicy.HeadlessPureKeyboard;
+    }
+
+    public static bool UsesPureKeyboardIntent(this LinuxRuntimePolicy policy)
+    {
+        return policy == LinuxRuntimePolicy.HeadlessPureKeyboard;
+    }
+
+    public static LinuxExclusiveGrabMode ResolveExclusiveGrabMode(
+        this LinuxRuntimePolicy policy,
+        bool disableExclusiveGrab,
+        bool graphicalSession)
+    {
+        if (disableExclusiveGrab)
+        {
+            return LinuxExclusiveGrabMode.Never;
+        }
+
+        return policy switch
+        {
+            LinuxRuntimePolicy.HeadlessPureKeyboard => graphicalSession
+                ? LinuxExclusiveGrabMode.Always
+                : LinuxExclusiveGrabMode.Never,
+            _ => LinuxExclusiveGrabMode.DynamicKeyboardMode
+        };
     }
 
     public static UserSettings ApplyToProfile(this LinuxRuntimePolicy policy, UserSettings profile)

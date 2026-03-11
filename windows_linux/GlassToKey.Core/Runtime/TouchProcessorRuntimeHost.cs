@@ -14,7 +14,8 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         KeymapStore? keymap = null,
         TrackpadLayoutPreset? preset = null,
         UserSettings? settings = null,
-        bool ignoreTypingToggleActions = false)
+        bool ignoreTypingToggleActions = false,
+        bool pureKeyboardIntent = false)
     {
         ArgumentNullException.ThrowIfNull(dispatcher);
         _dispatcher = dispatcher;
@@ -26,6 +27,7 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         _dispatchQueue = new DispatchEventQueue();
         _actor = new TouchProcessorActor(core, dispatchQueue: _dispatchQueue);
         _actor.SetHapticsOnKeyDispatchEnabled(settings?.HapticsEnabled ?? false);
+        _actor.SetPointerIntentEnabled(!pureKeyboardIntent);
         _actor.SetTypingToggleActionsEnabled(!ignoreTypingToggleActions);
         _dispatchPump = new DispatchEventPump(_dispatchQueue, dispatcher);
         if (settings != null)
@@ -148,7 +150,8 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         KeymapStore keymap,
         TrackpadLayoutPreset preset,
         UserSettings settings,
-        bool ignoreTypingToggleActions = false)
+        bool ignoreTypingToggleActions = false,
+        bool pureKeyboardIntent = false)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(keymap);
@@ -174,6 +177,7 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         _actor.Configure(RuntimeConfigurationFactory.BuildTouchConfig(profile));
         _actor.SetTypingEnabled(typingEnabled);
         _actor.SetKeyboardModeEnabled(profile.KeyboardModeEnabled);
+        _actor.SetPointerIntentEnabled(!pureKeyboardIntent);
         _actor.SetTypingToggleActionsEnabled(!ignoreTypingToggleActions);
         _actor.ConfigureLayouts(leftLayout, rightLayout);
         _actor.ConfigureKeymap(keymap);

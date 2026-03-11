@@ -57,7 +57,9 @@ public sealed class LinuxBackgroundRuntimeController
         return new LinuxBackgroundRuntimeStatus(false, null, _markerPath, "The background runtime is not running.");
     }
 
-    public async Task<LinuxBackgroundRuntimeStatus> StartAsync(CancellationToken cancellationToken = default)
+    public async Task<LinuxBackgroundRuntimeStatus> StartAsync(
+        bool disableExclusiveGrab = false,
+        CancellationToken cancellationToken = default)
     {
         LinuxBackgroundRuntimeStatus current = Query();
         if (current.IsRunning)
@@ -69,7 +71,7 @@ public sealed class LinuxBackgroundRuntimeController
         }
 
         DeleteMarker();
-        LaunchDetachedProcess();
+        LaunchDetachedProcess(disableExclusiveGrab);
 
         Stopwatch stopwatch = Stopwatch.StartNew();
         while (stopwatch.Elapsed < StartTimeout)
@@ -229,9 +231,9 @@ public sealed class LinuxBackgroundRuntimeController
         }
     }
 
-    private void LaunchDetachedProcess()
+    private void LaunchDetachedProcess(bool disableExclusiveGrab)
     {
-        LaunchSpec launchSpec = ResolveLaunchSpec();
+        LaunchSpec launchSpec = ResolveLaunchSpec(disableExclusiveGrab);
         string command = $"nohup setsid {EscapeShellArgument(launchSpec.FileName)} {string.Join(" ", launchSpec.Arguments.Select(EscapeShellArgument))} >/dev/null 2>&1 < /dev/null &";
         using Process shell = Process.Start(new ProcessStartInfo
         {
@@ -247,21 +249,34 @@ public sealed class LinuxBackgroundRuntimeController
         }
     }
 
-    private static LaunchSpec ResolveLaunchSpec()
+    private static LaunchSpec ResolveLaunchSpec(bool disableExclusiveGrab)
     {
         string? processPath = Environment.ProcessPath;
         if (!string.IsNullOrWhiteSpace(processPath) && !IsDotnetHost(processPath))
         {
-            return new LaunchSpec(processPath, ["__background-run"]);
+            return new LaunchSpec(processPath, BuildBackgroundArguments("__background-run", disableExclusiveGrab));
         }
 
         string? entryAssemblyPath = Assembly.GetEntryAssembly()?.Location;
         if (!string.IsNullOrWhiteSpace(entryAssemblyPath))
         {
-            return new LaunchSpec("dotnet", [entryAssemblyPath, "__background-run"]);
+            List<string> arguments = [entryAssemblyPath];
+            arguments.AddRange(BuildBackgroundArguments("__background-run", disableExclusiveGrab));
+            return new LaunchSpec("dotnet", arguments);
         }
 
         throw new InvalidOperationException("Could not resolve how to relaunch the current CLI for background runtime startup.");
+    }
+
+    private static IReadOnlyList<string> BuildBackgroundArguments(string command, bool disableExclusiveGrab)
+    {
+        List<string> arguments = [command];
+        if (disableExclusiveGrab)
+        {
+            arguments.Add("--no-grab");
+        }
+
+        return arguments;
     }
 
     private static bool IsDotnetHost(string path)

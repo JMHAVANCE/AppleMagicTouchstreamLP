@@ -1,4 +1,11 @@
 # TODO:
+Minor modification to help/install text:
+{
+  glasstokey            # start tray GUI
+  glasstokey start      # start headless mode
+  glasstokey stop       # stop  headless mode
+}
+---
 Now complete {
   4. In core, add a pure-keyboard intent path so headless never transitions into MouseCandidate / MouseActive; keep key and non-pointer gesture semantics only.
   5. Change grab policy to be policy-driven: headless pure-keyboard grabs the evdev node whenever we are in a real desktop seat; only skip grab behind an explicit --no-grab or a proven no-pointer environment.

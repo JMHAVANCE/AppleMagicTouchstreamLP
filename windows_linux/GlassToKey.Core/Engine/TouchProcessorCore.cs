@@ -79,6 +79,7 @@ internal sealed class TouchProcessorCore
 
     private bool _typingEnabled = true;
     private bool _keyboardModeEnabled;
+    private bool _pointerIntentEnabled = true;
     private bool _typingToggleActionsEnabled = true;
     private int _persistentLayer;
     private int _activeLayer;
@@ -275,6 +276,28 @@ internal sealed class TouchProcessorCore
     public void SetKeyboardModeEnabled(bool enabled)
     {
         _keyboardModeEnabled = enabled;
+    }
+
+    public void SetPointerIntentEnabled(bool enabled)
+    {
+        _pointerIntentEnabled = enabled;
+        if (enabled)
+        {
+            return;
+        }
+
+        long nowTicks = Stopwatch.GetTimestamp();
+        if (_intentMode is IntentMode.MouseCandidate or IntentMode.MouseActive)
+        {
+            if (_intentTouches.Count > 0)
+            {
+                SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "pointer_intent_disabled");
+            }
+            else
+            {
+                TransitionTo(IntentMode.Idle, nowTicks, "pointer_intent_disabled");
+            }
+        }
     }
 
     public void SetTypingToggleActionsEnabled(bool enabled)
@@ -2378,6 +2401,7 @@ internal sealed class TouchProcessorCore
     {
         bool graceActive = IsTypingGraceActive(nowTicks);
         bool keyboardOnly = ShouldEnforceKeyboardOnlyMode();
+        bool pointerIntentEnabled = _pointerIntentEnabled;
         if (aggregate.ContactCount <= 0)
         {
             if (graceActive)
@@ -2465,6 +2489,10 @@ internal sealed class TouchProcessorCore
                     _keyCandidateCentroidY = aggregate.CentroidY;
                     TransitionTo(IntentMode.KeyCandidate, nowTicks, "on_key");
                 }
+                else if (!pointerIntentEnabled)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "off_key_pure_keyboard");
+                }
                 else
                 {
                     _mouseCandidateStartTicks = nowTicks;
@@ -2478,7 +2506,11 @@ internal sealed class TouchProcessorCore
                     return;
                 }
 
-                if (mouseSignal)
+                if (!pointerIntentEnabled && mouseSignal)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "mouse_signal_pure_keyboard");
+                }
+                else if (mouseSignal)
                 {
                     _mouseCandidateStartTicks = nowTicks;
                     TransitionTo(IntentMode.MouseCandidate, nowTicks, "mouse_signal");
@@ -2500,7 +2532,11 @@ internal sealed class TouchProcessorCore
                     break;
                 }
 
-                if (mouseSignal)
+                if (!pointerIntentEnabled && mouseSignal)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "mouse_takeover_pure_keyboard");
+                }
+                else if (mouseSignal)
                 {
                     TransitionTo(IntentMode.MouseActive, nowTicks, "mouse_takeover");
                 }
@@ -2512,7 +2548,11 @@ internal sealed class TouchProcessorCore
                     return;
                 }
 
-                if (mouseSignal || (nowTicks - _mouseCandidateStartTicks) >= keyBufferTicks)
+                if (!pointerIntentEnabled)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "mouse_candidate_pure_keyboard");
+                }
+                else if (mouseSignal || (nowTicks - _mouseCandidateStartTicks) >= keyBufferTicks)
                 {
                     TransitionTo(IntentMode.MouseActive, nowTicks, "mouse_confirmed");
                 }
@@ -2521,6 +2561,10 @@ internal sealed class TouchProcessorCore
                 if (typingAnchorActive)
                 {
                     SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "typing_anchor");
+                }
+                else if (!pointerIntentEnabled)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "mouse_active_pure_keyboard");
                 }
                 break;
             case IntentMode.GestureCandidate:
@@ -5040,6 +5084,14 @@ internal sealed class TouchProcessorActor : IDisposable
         lock (_coreGate)
         {
             _core.SetKeyboardModeEnabled(enabled);
+        }
+    }
+
+    public void SetPointerIntentEnabled(bool enabled)
+    {
+        lock (_coreGate)
+        {
+            _core.SetPointerIntentEnabled(enabled);
         }
     }
 

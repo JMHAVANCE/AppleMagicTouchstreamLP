@@ -148,10 +148,17 @@ public sealed class LinuxInputRuntimeService
 
             try
             {
+                Func<bool>? shouldGrabExclusiveInput = options.ExclusiveGrabMode switch
+                {
+                    LinuxExclusiveGrabMode.Always => static () => true,
+                    LinuxExclusiveGrabMode.Never => static () => false,
+                    _ => options.ShouldGrabExclusiveInput
+                };
+
                 await _reader.StreamFramesAsync(
                     currentDevice.DeviceNode,
                     snapshot => onFrame(activeBinding, snapshot, cancellationToken),
-                    options.ShouldGrabExclusiveInput,
+                    shouldGrabExclusiveInput,
                     cancellationToken).ConfigureAwait(false);
 
                 if (cancellationToken.IsCancellationRequested)

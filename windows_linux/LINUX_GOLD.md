@@ -27,7 +27,8 @@ Operational guidance, architecture boundaries, and build commands now live in `A
   - verify foreground `run-engine` uses the same headless pure-keyboard policy as `start`
   - verify the packaged `glasstokey.service` user service also lands in that same headless pure-keyboard path
   - verify headless only auto-resolves trackpads when no saved stable IDs exist, and does not persist those bindings back into settings
-  - verify headless stays in pure keyboard mode and ignores typing-toggle gestures/actions
+  - verify headless stays in pure keyboard mode, never re-enters mouse intent, and ignores typing-toggle gestures/actions
+  - verify headless grabs evdev unconditionally on a graphical seat unless `--no-grab` is used, and skips grab in proven no-pointer environments
   - verify packaged evdev, `/dev/uinput`, and actuator permissions
 
 ### Ongoing Regression Checks

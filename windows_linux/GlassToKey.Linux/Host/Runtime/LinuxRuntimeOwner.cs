@@ -20,17 +20,20 @@ public sealed class LinuxRuntimeOwner
     private readonly LinuxInputRuntimeService _runtime;
     private readonly LinuxRuntimeStateStore _stateStore;
     private readonly LinuxRuntimePolicy _policy;
+    private readonly bool _disableExclusiveGrab;
 
     public LinuxRuntimeOwner(
         LinuxAppRuntime? appRuntime = null,
         LinuxInputRuntimeService? runtime = null,
         LinuxRuntimeStateStore? stateStore = null,
-        LinuxRuntimePolicy policy = LinuxRuntimePolicy.DesktopInteractive)
+        LinuxRuntimePolicy policy = LinuxRuntimePolicy.DesktopInteractive,
+        bool disableExclusiveGrab = false)
     {
         _appRuntime = appRuntime ?? new LinuxAppRuntime();
         _runtime = runtime ?? new LinuxInputRuntimeService();
         _stateStore = stateStore ?? new LinuxRuntimeStateStore();
         _policy = policy;
+        _disableExclusiveGrab = disableExclusiveGrab;
     }
 
     public async Task RunAsync(
@@ -136,7 +139,8 @@ public sealed class LinuxRuntimeOwner
                         updated.Keymap,
                         updated.LayoutPreset,
                         updated.SharedProfile,
-                        ignoreTypingToggleActions: _policy.IgnoresTypingToggleActions());
+                        ignoreTypingToggleActions: _policy.IgnoresTypingToggleActions(),
+                        pureKeyboardIntent: _policy.UsesPureKeyboardIntent());
                     configuration = updated;
                     settingsSignature = updatedSignature;
                     continue;
@@ -186,11 +190,13 @@ public sealed class LinuxRuntimeOwner
             configuration.Keymap,
             configuration.LayoutPreset,
             configuration.SharedProfile,
-            ignoreTypingToggleActions: _policy.IgnoresTypingToggleActions());
+            ignoreTypingToggleActions: _policy.IgnoresTypingToggleActions(),
+            pureKeyboardIntent: _policy.UsesPureKeyboardIntent());
         RuntimeSession? session = null;
         LinuxInputRuntimeOptions options = new()
         {
             Observer = observer,
+            ExclusiveGrabMode = _policy.ResolveExclusiveGrabMode(_disableExclusiveGrab, LinuxGuiLauncher.IsGraphicalSession()),
             ShouldGrabExclusiveInput = () => ShouldGrabExclusiveInput(session, configuration.SharedProfile)
         };
         Task runTask = _runtime.RunAsync([.. configuration.Bindings], engine, options, sessionCts.Token);

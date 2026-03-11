@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using GlassToKey.Linux.Config;
 using GlassToKey.Linux.Runtime;
+using GlassToKey.Platform.Linux;
 using GlassToKey.Platform.Linux.Devices;
 using GlassToKey.Platform.Linux.Evdev;
 using GlassToKey.Platform.Linux.Haptics;
@@ -61,6 +62,11 @@ internal static class LinuxSelfTestRunner
         }
 
         if (!ValidateConfiguredMouseTakeoverStartupState(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidatePureKeyboardIntentSuppressesMouseTakeover(out failure))
         {
             return new LinuxSelfTestResult(false, failure);
         }
@@ -539,11 +545,112 @@ internal static class LinuxSelfTestRunner
             return false;
         }
 
+        if (LinuxRuntimePolicy.DesktopInteractive.UsesPureKeyboardIntent() ||
+            !LinuxRuntimePolicy.HeadlessPureKeyboard.UsesPureKeyboardIntent())
+        {
+            failure = "Linux runtime pure-keyboard intent policy flags are inconsistent.";
+            return false;
+        }
+
         if (!LinuxRuntimePolicy.HeadlessPureKeyboard.AllowsAutomaticBindingSelection(hasSavedBindings: false) ||
             LinuxRuntimePolicy.HeadlessPureKeyboard.AllowsAutomaticBindingSelection(hasSavedBindings: true) ||
             LinuxRuntimePolicy.DesktopInteractive.AllowsAutomaticBindingSelection(hasSavedBindings: false))
         {
             failure = "Linux runtime auto-binding policy flags are inconsistent.";
+            return false;
+        }
+
+        if (LinuxRuntimePolicy.HeadlessPureKeyboard.ResolveExclusiveGrabMode(disableExclusiveGrab: false, graphicalSession: true) != LinuxExclusiveGrabMode.Always ||
+            LinuxRuntimePolicy.HeadlessPureKeyboard.ResolveExclusiveGrabMode(disableExclusiveGrab: false, graphicalSession: false) != LinuxExclusiveGrabMode.Never ||
+            LinuxRuntimePolicy.HeadlessPureKeyboard.ResolveExclusiveGrabMode(disableExclusiveGrab: true, graphicalSession: true) != LinuxExclusiveGrabMode.Never ||
+            LinuxRuntimePolicy.DesktopInteractive.ResolveExclusiveGrabMode(disableExclusiveGrab: false, graphicalSession: true) != LinuxExclusiveGrabMode.DynamicKeyboardMode)
+        {
+            failure = "Linux runtime exclusive-grab policy flags are inconsistent.";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidatePureKeyboardIntentSuppressesMouseTakeover(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout rightLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: false);
+        NormalizedRect keyRect = rightLayout.Rects[0][0];
+        ushort keyX = (ushort)Math.Clamp((int)Math.Round((keyRect.X + (keyRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort keyY = (ushort)Math.Clamp((int)Math.Round((keyRect.Y + (keyRect.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort offKeyX = (ushort)Math.Clamp(maxX - 64, 1, maxX - 1);
+        ushort offKeyY = (ushort)Math.Clamp(maxY - 64, 1, maxY - 1);
+
+        UserSettings settings = new()
+        {
+            LayoutPresetName = preset.Name,
+            TypingEnabled = true,
+            KeyboardModeEnabled = false,
+            KeyBufferMs = 1.0,
+            IntentMoveMm = 1.0,
+            DragCancelMm = 1.0
+        };
+        settings.NormalizeRanges();
+
+        using RecordingDispatcher dispatcher = new();
+        using TouchProcessorRuntimeHost host = new(
+            dispatcher,
+            KeymapStore.LoadBundledDefault(),
+            preset,
+            settings,
+            pureKeyboardIntent: true);
+
+        long now = Stopwatch.Frequency / 100;
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: keyX, y: keyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+        now += Math.Max(1, Stopwatch.Frequency / 200);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: keyX, y: keyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+        now += Math.Max(1, Stopwatch.Frequency / 20);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: keyX, y: keyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+        now += Math.Max(1, Stopwatch.Frequency / 20);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: offKeyX, y: offKeyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+        now += Math.Max(1, Stopwatch.Frequency / 20);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: offKeyX, y: offKeyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+
+        if (!host.TryGetSynchronizedSnapshot(timeoutMs: 25, out TouchProcessorRuntimeSnapshot snapshot))
+        {
+            failure = "Pure-keyboard runtime host did not produce a synchronized snapshot for mouse suppression validation.";
+            return false;
+        }
+
+        if (string.Equals(snapshot.IntentMode, "MouseCandidate", StringComparison.Ordinal) ||
+            string.Equals(snapshot.IntentMode, "MouseActive", StringComparison.Ordinal))
+        {
+            failure = $"Pure-keyboard runtime host still entered mouse intent (intent={snapshot.IntentMode}).";
             return false;
         }
 
