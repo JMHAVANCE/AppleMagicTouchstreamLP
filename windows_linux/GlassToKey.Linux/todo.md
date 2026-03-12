@@ -1,4 +1,6 @@
 # TODO:
+- Linux does not respect "open in tray" and always opens in fullscreen
+
 - If I Switch between keyboard (purple) and mouse (red) during keyboard/mouse mode.. It actually wont give mouse control back to the mouse until I click - Is there another way to accomplish this? I really don't like EVIOCGRAB style suppression. =x 
 
 
