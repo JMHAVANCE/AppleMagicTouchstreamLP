@@ -975,7 +975,6 @@ public partial class MainWindow : Window
         {
             if (!HasKeymapSelection())
             {
-                _gestureShortcutTargetText.Text = "Select a key or custom button, choose Primary or Hold, then apply a shortcut.";
                 _gestureShortcutCtrlToggle.IsChecked = false;
                 _gestureShortcutShiftToggle.IsChecked = false;
                 _gestureShortcutAltToggle.IsChecked = false;
@@ -984,9 +983,6 @@ public partial class MainWindow : Window
             }
             else
             {
-                _gestureShortcutTargetText.Text = _shortcutTargetHoldRadio.IsChecked == true
-                    ? "Apply to Hold Action on the selected key or custom button."
-                    : "Apply to Primary Action on the selected key or custom button.";
                 string selectedAction = ReadActionSelection(GetShortcutTargetCombo(), "None");
                 if (DispatchShortcutHelper.TryReadShortcut(selectedAction, out DispatchModifierFlags modifiers, out string keyLabel))
                 {
@@ -1097,7 +1093,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        EnsureActionChoice(shortcut);
+        if (EnsureActionChoice(shortcut))
+        {
+            RefreshActionChoiceBindings();
+        }
+
         SetActionComboSelection(GetShortcutTargetCombo(), shortcut);
     }
 
@@ -1611,25 +1611,53 @@ public partial class MainWindow : Window
         _suppressKeymapEditorEvents = false;
     }
 
-    private void EnsureActionChoice(string? action)
+    private void RefreshActionChoiceBindings()
+    {
+        string previousPrimary = ReadSelectedActionValue(_keymapPrimaryCombo, "None");
+        string previousHold = ReadSelectedActionValue(_keymapHoldCombo, "None");
+        Dictionary<string, string> previousGestureActions = CaptureGestureSelections();
+
+        _suppressKeymapEditorEvents = true;
+        _keymapPrimaryCombo.ItemsSource = null;
+        _keymapHoldCombo.ItemsSource = null;
+        foreach (ComboBox combo in _gestureActionCombos.Values)
+        {
+            combo.ItemsSource = null;
+        }
+
+        _keymapPrimaryCombo.ItemsSource = _keyActionChoices;
+        _keymapHoldCombo.ItemsSource = _keyActionChoices;
+        foreach (ComboBox combo in _gestureActionCombos.Values)
+        {
+            combo.ItemsSource = _keyActionChoices;
+        }
+
+        SetActionComboSelection(_keymapPrimaryCombo, previousPrimary);
+        SetActionComboSelection(_keymapHoldCombo, previousHold);
+        RestoreGestureSelections(previousGestureActions);
+        _suppressKeymapEditorEvents = false;
+    }
+
+    private bool EnsureActionChoice(string? action)
     {
         if (string.IsNullOrWhiteSpace(action))
         {
-            return;
+            return false;
         }
 
         string value = action.Trim();
         if (IsUnsupportedLayerActionChoice(value))
         {
-            return;
+            return false;
         }
 
         if (!_keyActionChoiceLookup.Add(value))
         {
-            return;
+            return false;
         }
 
         _keyActionChoices.Add(KeyActionChoice.Action(value));
+        return true;
     }
 
     private Dictionary<string, string> CaptureGestureSelections()
@@ -1788,23 +1816,6 @@ public partial class MainWindow : Window
         for (int i = 0; i < systemAndMedia.Length; i++)
         {
             AddKeyActionChoice(options, systemAndMedia[i]);
-        }
-
-        AddActionSection(options, "Shortcuts");
-        string[] shortcuts =
-        {
-            "Ctrl+C",
-            "Ctrl+V",
-            "Ctrl+F",
-            "Ctrl+X",
-            "Ctrl+S",
-            "Ctrl+A",
-            "Ctrl+Z",
-            "Ctrl+."
-        };
-        for (int i = 0; i < shortcuts.Length; i++)
-        {
-            AddKeyActionChoice(options, shortcuts[i]);
         }
 
         AddActionSection(options, "Layer Controls");

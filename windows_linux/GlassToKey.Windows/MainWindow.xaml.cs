@@ -510,6 +510,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _keyActionOptionLookup.Add(action.Value);
         }
 
+        SeedConfiguredActionOptions();
+
         foreach (ComboBox actionCombo in EnumerateActionCombos())
         {
             InitializeActionCombo(actionCombo);
@@ -658,6 +660,41 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ListCollectionView view = new(_keyActionOptions);
         view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(KeyActionOption.Group)));
         return view;
+    }
+
+    private void SeedConfiguredActionOptions()
+    {
+        foreach (KeyValuePair<int, Dictionary<string, KeyMapping>> layer in _keymap.Mappings)
+        {
+            foreach (KeyValuePair<string, KeyMapping> mappingEntry in layer.Value)
+            {
+                EnsureActionOption(mappingEntry.Value?.Primary?.Label);
+                EnsureActionOption(mappingEntry.Value?.Hold?.Label);
+            }
+        }
+
+        foreach (KeyValuePair<int, List<CustomButton>> customButtonsByLayer in _keymap.CustomButtons)
+        {
+            for (int index = 0; index < customButtonsByLayer.Value.Count; index++)
+            {
+                CustomButton button = customButtonsByLayer.Value[index];
+                EnsureActionOption(button.Primary?.Label);
+                EnsureActionOption(button.Hold?.Label);
+            }
+        }
+
+        foreach (string action in GestureBindingCatalog.EnumerateConfiguredActions(_settings))
+        {
+            EnsureActionOption(action);
+        }
+    }
+
+    private void RefreshActionComboViews()
+    {
+        foreach (ListCollectionView view in _actionViewsByCombo.Values)
+        {
+            view.Refresh();
+        }
     }
 
     private IEnumerable<ComboBox> EnumerateActionCombos()
@@ -971,7 +1008,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             if (!HasKeymapSelection())
             {
-                GestureShortcutTargetText.Text = "Select a key or custom button, choose Primary or Hold, then apply a shortcut.";
                 GestureShortcutCtrlToggle.IsChecked = false;
                 GestureShortcutShiftToggle.IsChecked = false;
                 GestureShortcutAltToggle.IsChecked = false;
@@ -980,9 +1016,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             }
             else
             {
-                GestureShortcutTargetText.Text = ShortcutTargetHoldRadio.IsChecked == true
-                    ? "Apply to Hold Action on the selected key or custom button."
-                    : "Apply to Primary Action on the selected key or custom button.";
                 string selectedAction = ReadGestureActionSelection(GetShortcutTargetCombo(), "None");
                 if (DispatchShortcutHelper.TryReadShortcut(selectedAction, out DispatchModifierFlags modifiers, out string keyLabel))
                 {
@@ -2209,21 +2242,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             AddKeyActionOption(options, systemAndMedia[i], "System & Media");
         }
 
-        string[] shortcuts =
-        {
-            "Ctrl+C",
-            "Ctrl+V",
-            "Ctrl+F",
-            "Ctrl+X",
-            "Ctrl+S",
-            "Ctrl+A",
-            "Ctrl+Z"
-        };
-        for (int i = 0; i < shortcuts.Length; i++)
-        {
-            AddKeyActionOption(options, shortcuts[i], "Shortcuts");
-        }
-
         AddKeyActionOption(options, "TO(0)", "Layers");
         for (int layer = 1; layer <= 3; layer++)
         {
@@ -2239,7 +2257,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         options.Add(new KeyActionOption(value, value, group));
     }
 
-    private void EnsureActionOption(string action)
+    private void EnsureActionOption(string? action)
     {
         if (string.IsNullOrWhiteSpace(action))
         {
@@ -2263,6 +2281,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             _keyActionOptions.Add(new KeyActionOption(action, action, "Custom"));
             _keyActionOptionLookup.Add(action);
+            RefreshActionComboViews();
             return true;
         }
         catch (InvalidOperationException)

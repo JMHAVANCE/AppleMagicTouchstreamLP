@@ -1,6 +1,7 @@
 ## CURRENT:
-- Remove Ctrl+A, Ctrl+V, etc from the actions dropdown!
 - App Launcher: Shortcut.. VSCode.. Chrome? You decide!
+- DECIDE: Do I like Custom Buttons as a collapsable? 
+- Can I have `Custom Buttons` text highlighted like the internal Gestures one for `Holds`?
 
 ## User Issues:
 - NO CUSTOM BUTTONS???

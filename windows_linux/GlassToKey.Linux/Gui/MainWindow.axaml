@@ -345,10 +345,11 @@
                                    FontSize="12"
                                    FontWeight="SemiBold" />
                         <TextBlock x:Name="GestureShortcutTargetText"
-                                   Text="Choose Primary or Hold, then apply a shortcut to the selected key or custom button."
+                                   Text=""
                                    Foreground="#8FB6CF"
                                    FontSize="11"
-                                   TextWrapping="Wrap" />
+                                   TextWrapping="Wrap"
+                                   IsVisible="False" />
                         <Grid ColumnDefinitions="*,*">
                           <RadioButton x:Name="ShortcutTargetPrimaryRadio"
                                        GroupName="ShortcutTarget"
