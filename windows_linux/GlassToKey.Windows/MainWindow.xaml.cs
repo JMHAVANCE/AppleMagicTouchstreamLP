@@ -10,6 +10,7 @@ using System.Text.Json;
 using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Interop;
 using System.Windows.Input;
@@ -60,6 +61,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private readonly Dictionary<ComboBox, ListCollectionView> _actionViewsByCombo = new();
     private bool _suppressActionComboFiltering;
     private bool _deferredKeyActionOptionsScheduled;
+    private bool _suppressGestureShortcutEditorEvents;
     private TrackpadLayoutPreset _preset;
     private ColumnLayoutSettings[] _columnSettings;
     private readonly RawInputContext _rawInputContext = new();
@@ -106,6 +108,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private int _selectedKeyRow = -1;
     private int _selectedKeyColumn = -1;
     private string? _selectedCustomButtonId;
+    private ComboBox? _gestureShortcutTargetCombo;
     private bool _controlsPaneVisible = true;
     private int _lastLeftPillCount = -1;
     private int _lastRightPillCount = -1;
@@ -270,6 +273,21 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         UpperRightCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         LowerLeftCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         LowerRightCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        foreach (ComboBox combo in EnumerateGestureActionCombos())
+        {
+            combo.GotKeyboardFocus += OnGestureActionComboFocused;
+        }
+        GestureShortcutCtrlToggle.Checked += OnGestureShortcutEditorChanged;
+        GestureShortcutCtrlToggle.Unchecked += OnGestureShortcutEditorChanged;
+        GestureShortcutShiftToggle.Checked += OnGestureShortcutEditorChanged;
+        GestureShortcutShiftToggle.Unchecked += OnGestureShortcutEditorChanged;
+        GestureShortcutAltToggle.Checked += OnGestureShortcutEditorChanged;
+        GestureShortcutAltToggle.Unchecked += OnGestureShortcutEditorChanged;
+        GestureShortcutWinToggle.Checked += OnGestureShortcutEditorChanged;
+        GestureShortcutWinToggle.Unchecked += OnGestureShortcutEditorChanged;
+        GestureShortcutKeyCombo.SelectionChanged += OnGestureShortcutKeySelectionChanged;
+        GestureShortcutApplyButton.Click += OnGestureShortcutApplyClicked;
+        GestureShortcutResetButton.Click += OnGestureShortcutResetClicked;
         CustomButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
         CustomButtonAddRightButton.Click += OnCustomButtonAddRightClicked;
         CustomButtonDeleteButton.Click += OnCustomButtonDeleteClicked;
@@ -632,6 +650,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RefreshColumnLayoutEditor();
         _suppressSettingsEvents = false;
         UpdateAutocorrectStatusDetails();
+        InitializeGestureShortcutEditor();
 
         ClearSelectionForEditing();
         RefreshKeymapEditor();
@@ -648,6 +667,14 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         yield return KeymapPrimaryCombo;
         yield return KeymapHoldCombo;
+        foreach (ComboBox combo in EnumerateGestureActionCombos())
+        {
+            yield return combo;
+        }
+    }
+
+    private IEnumerable<ComboBox> EnumerateGestureActionCombos()
+    {
         yield return FiveFingerSwipeLeftGestureCombo;
         yield return FiveFingerSwipeRightGestureCombo;
         yield return FiveFingerSwipeUpGestureCombo;
@@ -925,12 +952,189 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void OnGestureActionSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (sender is ComboBox combo)
+        {
+            SetGestureShortcutTarget(combo);
+        }
+
         if (_suppressSettingsEvents)
         {
             return;
         }
 
         ApplySettingsFromUi();
+    }
+
+    private void OnGestureActionComboFocused(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is ComboBox combo)
+        {
+            SetGestureShortcutTarget(combo);
+        }
+    }
+
+    private void InitializeGestureShortcutEditor()
+    {
+        GestureShortcutKeyCombo.ItemsSource = DispatchShortcutHelper.ShortcutKeyLabels;
+        _gestureShortcutTargetCombo = null;
+        RefreshGestureShortcutEditorUi();
+    }
+
+    private void SetGestureShortcutTarget(ComboBox combo)
+    {
+        _gestureShortcutTargetCombo = combo;
+        RefreshGestureShortcutEditorUi();
+    }
+
+    private void RefreshGestureShortcutEditorUi()
+    {
+        _suppressGestureShortcutEditorEvents = true;
+        try
+        {
+            if (_gestureShortcutTargetCombo == null)
+            {
+                GestureShortcutTargetText.Text = "Select a gesture action above to build a custom shortcut.";
+                GestureShortcutCtrlToggle.IsChecked = false;
+                GestureShortcutShiftToggle.IsChecked = false;
+                GestureShortcutAltToggle.IsChecked = false;
+                GestureShortcutWinToggle.IsChecked = false;
+                GestureShortcutKeyCombo.SelectedItem = null;
+            }
+            else
+            {
+                GestureShortcutTargetText.Text = "Editing the selected gesture action.";
+                string selectedAction = ReadGestureActionSelection(_gestureShortcutTargetCombo, "None");
+                if (DispatchShortcutHelper.TryReadShortcut(selectedAction, out DispatchModifierFlags modifiers, out string keyLabel))
+                {
+                    GestureShortcutCtrlToggle.IsChecked = (modifiers & (
+                        DispatchModifierFlags.Ctrl |
+                        DispatchModifierFlags.LeftCtrl |
+                        DispatchModifierFlags.RightCtrl)) != 0;
+                    GestureShortcutShiftToggle.IsChecked = (modifiers & (
+                        DispatchModifierFlags.Shift |
+                        DispatchModifierFlags.LeftShift |
+                        DispatchModifierFlags.RightShift)) != 0;
+                    GestureShortcutAltToggle.IsChecked = (modifiers & (
+                        DispatchModifierFlags.Alt |
+                        DispatchModifierFlags.LeftAlt |
+                        DispatchModifierFlags.RightAlt)) != 0;
+                    GestureShortcutWinToggle.IsChecked = (modifiers & (
+                        DispatchModifierFlags.Meta |
+                        DispatchModifierFlags.LeftMeta |
+                        DispatchModifierFlags.RightMeta)) != 0;
+                    GestureShortcutKeyCombo.SelectedItem = keyLabel;
+                }
+                else
+                {
+                    GestureShortcutCtrlToggle.IsChecked = false;
+                    GestureShortcutShiftToggle.IsChecked = false;
+                    GestureShortcutAltToggle.IsChecked = false;
+                    GestureShortcutWinToggle.IsChecked = false;
+                    GestureShortcutKeyCombo.SelectedItem = null;
+                }
+            }
+        }
+        finally
+        {
+            _suppressGestureShortcutEditorEvents = false;
+        }
+
+        UpdateGestureShortcutPreview();
+    }
+
+    private void OnGestureShortcutEditorChanged(object sender, RoutedEventArgs e)
+    {
+        if (_suppressGestureShortcutEditorEvents)
+        {
+            return;
+        }
+
+        UpdateGestureShortcutPreview();
+    }
+
+    private void OnGestureShortcutKeySelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressGestureShortcutEditorEvents)
+        {
+            return;
+        }
+
+        UpdateGestureShortcutPreview();
+    }
+
+    private void UpdateGestureShortcutPreview()
+    {
+        string preview = BuildGestureShortcutPreview();
+        GestureShortcutPreviewText.Text = string.IsNullOrEmpty(preview)
+            ? "Shortcut: none"
+            : $"Shortcut: {preview}";
+        GestureShortcutApplyButton.IsEnabled = _gestureShortcutTargetCombo != null && !string.IsNullOrEmpty(preview);
+    }
+
+    private string BuildGestureShortcutPreview()
+    {
+        if (GestureShortcutKeyCombo.SelectedItem is not string selectedKey ||
+            !DispatchShortcutHelper.TryNormalizeShortcutKeyLabel(selectedKey, out string keyLabel))
+        {
+            return string.Empty;
+        }
+
+        DispatchModifierFlags modifiers = DispatchModifierFlags.None;
+        if (GestureShortcutCtrlToggle.IsChecked == true)
+        {
+            modifiers |= DispatchModifierFlags.Ctrl;
+        }
+
+        if (GestureShortcutShiftToggle.IsChecked == true)
+        {
+            modifiers |= DispatchModifierFlags.Shift;
+        }
+
+        if (GestureShortcutAltToggle.IsChecked == true)
+        {
+            modifiers |= DispatchModifierFlags.Alt;
+        }
+
+        if (GestureShortcutWinToggle.IsChecked == true)
+        {
+            modifiers |= DispatchModifierFlags.Meta;
+        }
+
+        return modifiers == DispatchModifierFlags.None
+            ? string.Empty
+            : DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel);
+    }
+
+    private void OnGestureShortcutApplyClicked(object sender, RoutedEventArgs e)
+    {
+        string shortcut = BuildGestureShortcutPreview();
+        if (_gestureShortcutTargetCombo == null || string.IsNullOrEmpty(shortcut))
+        {
+            return;
+        }
+
+        EnsureActionOption(shortcut);
+        _gestureShortcutTargetCombo.SelectedValue = shortcut;
+        UpdateGestureShortcutPreview();
+    }
+
+    private void OnGestureShortcutResetClicked(object sender, RoutedEventArgs e)
+    {
+        _suppressGestureShortcutEditorEvents = true;
+        try
+        {
+            GestureShortcutCtrlToggle.IsChecked = false;
+            GestureShortcutShiftToggle.IsChecked = false;
+            GestureShortcutAltToggle.IsChecked = false;
+            GestureShortcutWinToggle.IsChecked = false;
+            GestureShortcutKeyCombo.SelectedItem = null;
+        }
+        finally
+        {
+            _suppressGestureShortcutEditorEvents = false;
+        }
+
+        UpdateGestureShortcutPreview();
     }
 
     private void OnHapticsStrengthChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
