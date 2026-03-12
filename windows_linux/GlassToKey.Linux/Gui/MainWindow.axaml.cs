@@ -120,7 +120,6 @@ public partial class MainWindow : Window
     private bool _suppressColumnLayoutEvents;
     private bool _suppressKeymapEditorEvents;
     private bool _suppressGestureShortcutEditorEvents;
-    private bool _suppressEditorExpanderSync;
     private bool _suppressReplayTimelineEvents;
     private bool _suppressReplaySpeedEvents;
     private bool _hasSelectedKey;
@@ -557,8 +556,6 @@ public partial class MainWindow : Window
         _gestureShortcutKeyCombo.SelectionChanged += OnGestureShortcutKeySelectionChanged;
         _gestureShortcutApplyButton.Click += OnGestureShortcutApplyClick;
         _gestureShortcutResetButton.Click += OnGestureShortcutResetClick;
-        _keymapTuningExpander.PropertyChanged += OnEditorExpanderPropertyChanged;
-        _customButtonsExpander.PropertyChanged += OnEditorExpanderPropertyChanged;
         _keyboardModeCheck.IsCheckedChanged += OnModeToggleChanged;
         _runAtStartupCheck.IsCheckedChanged += OnModeToggleChanged;
         _startInTrayOnLaunchCheck.IsCheckedChanged += OnModeToggleChanged;
@@ -714,44 +711,6 @@ public partial class MainWindow : Window
 
         UpdateAutocorrectStatusVisibility();
         await SaveLiveSettingsAsync();
-    }
-
-    private void OnEditorExpanderPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
-    {
-        if (_suppressEditorExpanderSync || e.Property != Expander.IsExpandedProperty)
-        {
-            return;
-        }
-
-        if (e.NewValue is not bool isExpanded || !isExpanded)
-        {
-            return;
-        }
-
-        if (ReferenceEquals(sender, _keymapTuningExpander))
-        {
-            SetEditorExpanderStates(keymapExpanded: true, customButtonsExpanded: false);
-            return;
-        }
-
-        if (ReferenceEquals(sender, _customButtonsExpander))
-        {
-            SetEditorExpanderStates(keymapExpanded: false, customButtonsExpanded: true);
-        }
-    }
-
-    private void SetEditorExpanderStates(bool keymapExpanded, bool customButtonsExpanded)
-    {
-        _suppressEditorExpanderSync = true;
-        try
-        {
-            _keymapTuningExpander.IsExpanded = keymapExpanded;
-            _customButtonsExpander.IsExpanded = customButtonsExpanded;
-        }
-        finally
-        {
-            _suppressEditorExpanderSync = false;
-        }
     }
 
     private async void OnAutocorrectTextCommitted(object? sender, RoutedEventArgs e)
@@ -2112,7 +2071,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        SetEditorExpanderStates(keymapExpanded: true, customButtonsExpanded: false);
+        _keymapTuningExpander.IsExpanded = true;
+        _customButtonsExpander.IsExpanded = false;
         Dispatcher.UIThread.Post(
             () =>
             {
@@ -2128,7 +2088,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        SetEditorExpanderStates(keymapExpanded: false, customButtonsExpanded: true);
+        _keymapTuningExpander.IsExpanded = true;
+        _customButtonsExpander.IsExpanded = true;
         Dispatcher.UIThread.Post(
             () =>
             {
@@ -2199,7 +2160,7 @@ public partial class MainWindow : Window
         _customButtonAddRightButton.IsEnabled = true;
         if (TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))
         {
-            SetEditorExpanderStates(keymapExpanded: false, customButtonsExpanded: true);
+            _customButtonsExpander.IsExpanded = true;
             _keymapSelectionText.Text = $"Selection: custom button ({_selectedKeySide})";
             _keymapPrimaryCombo.IsEnabled = true;
             _keymapHoldCombo.IsEnabled = true;
@@ -2225,6 +2186,7 @@ public partial class MainWindow : Window
 
         if (!TryGetSelectedKeyPosition(out TrackpadSide side, out int row, out int column))
         {
+            _customButtonsExpander.IsExpanded = false;
             _keymapSelectionText.Text = "Selection: none";
             _keymapPrimaryCombo.IsEnabled = false;
             _keymapHoldCombo.IsEnabled = false;
@@ -2255,6 +2217,7 @@ public partial class MainWindow : Window
         _keymapHoldCombo.IsEnabled = true;
         _customButtonDeleteButton.IsEnabled = false;
         _keyRotationBox.IsEnabled = true;
+        _customButtonsExpander.IsExpanded = false;
         SetCustomButtonGeometryEditorEnabled(false);
         ClearCustomButtonGeometryEditorValues();
         string defaultLabel = layout.Labels[row][column];

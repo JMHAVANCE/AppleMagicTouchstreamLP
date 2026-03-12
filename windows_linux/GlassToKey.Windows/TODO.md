@@ -1,6 +1,12 @@
-## User Issues:
-- Okay, I made a Mistake. I asked you to move Custom Buttons into it's own collapsable, and add logic to make it an accordian and open one and close the other.. I don't like that. Custom Buttons belongs inside Keymap Tuning, and it can remain collapsed unless a custom button is clicked. I made another mistake in asking you to put the shortcut builder above "key rotation" please move it underneath `key rotation` and above Custom Buttons.
+## CURRENT:
+- Remove Ctrl+A, Ctrl+V, etc from the actions dropdown!
 - App Launcher: Shortcut.. VSCode.. Chrome? You decide!
+
+## User Issues:
+- NO CUSTOM BUTTONS???
+- `chording with more than 3 keys doesn't register`: I think I should be able to "fix" rolling by exposing a slider for tuning tap cadence (ms). Marking 3+ finger chords as "won't fix: use Custom Shortcuts"
+- Test: `momentary layer not working when used as a hold action` Backspace / MO(1) with custom button underneath makes input go crazy (interaction with another layer?)
+- Try: `left click every time I press a key` I think you actually pointed out one avenue I haven't explored and that is setting that taps windows Mouse events and eats them if they are under Force Min. (This way you could set an Actuation Force basically that determines if you are mouse tapping(lighter) or key tapping (harder))
 
 ## TODO:
 - `Keyboard / Mouse` mode should just be about state machine

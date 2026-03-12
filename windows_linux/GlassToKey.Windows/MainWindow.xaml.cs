@@ -62,7 +62,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private bool _suppressActionComboFiltering;
     private bool _deferredKeyActionOptionsScheduled;
     private bool _suppressGestureShortcutEditorEvents;
-    private bool _suppressEditorExpanderSync;
     private TrackpadLayoutPreset _preset;
     private ColumnLayoutSettings[] _columnSettings;
     private readonly RawInputContext _rawInputContext = new();
@@ -302,8 +301,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         KeyDown += OnWindowKeyDown;
         LeftSurface.MouseLeftButtonDown += OnLeftSurfaceMouseLeftButtonDown;
         RightSurface.MouseLeftButtonDown += OnRightSurfaceMouseLeftButtonDown;
-        KeymapEditorExpander.Expanded += OnEditorExpanderExpanded;
-        CustomButtonsExpander.Expanded += OnEditorExpanderExpanded;
         SourceInitialized += OnSourceInitialized;
         HookTuningAutoApplyHandlers();
 
@@ -2881,7 +2878,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _suppressKeymapActionEvents = true;
         if (TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))
         {
-            SetEditorExpanderStates(keymapExpanded: false, customButtonsExpanded: true);
+            CustomButtonsExpander.IsExpanded = true;
             KeymapPrimaryCombo.IsEnabled = true;
             KeymapHoldCombo.IsEnabled = true;
             CustomButtonDeleteButton.IsEnabled = true;
@@ -2906,6 +2903,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         if (!TryGetSelectedKeyPosition(out TrackpadSide side, out int row, out int column))
         {
+            CustomButtonsExpander.IsExpanded = false;
             KeymapPrimaryCombo.IsEnabled = false;
             KeymapHoldCombo.IsEnabled = false;
             CustomButtonDeleteButton.IsEnabled = false;
@@ -2932,6 +2930,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         KeymapHoldCombo.IsEnabled = true;
         CustomButtonDeleteButton.IsEnabled = false;
         KeyRotationBox.IsEnabled = true;
+        CustomButtonsExpander.IsExpanded = false;
         SetCustomButtonGeometryEditorEnabled(false);
         ClearCustomButtonGeometryEditorValues();
         string defaultLabel = layout.Labels[row][column];
@@ -3175,39 +3174,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         e.Handled = true;
     }
 
-    private void OnEditorExpanderExpanded(object sender, RoutedEventArgs e)
-    {
-        if (_suppressEditorExpanderSync)
-        {
-            return;
-        }
-
-        if (ReferenceEquals(sender, KeymapEditorExpander))
-        {
-            SetEditorExpanderStates(keymapExpanded: true, customButtonsExpanded: false);
-            return;
-        }
-
-        if (ReferenceEquals(sender, CustomButtonsExpander))
-        {
-            SetEditorExpanderStates(keymapExpanded: false, customButtonsExpanded: true);
-        }
-    }
-
-    private void SetEditorExpanderStates(bool keymapExpanded, bool customButtonsExpanded)
-    {
-        _suppressEditorExpanderSync = true;
-        try
-        {
-            KeymapEditorExpander.IsExpanded = keymapExpanded;
-            CustomButtonsExpander.IsExpanded = customButtonsExpanded;
-        }
-        finally
-        {
-            _suppressEditorExpanderSync = false;
-        }
-    }
-
     private void ApplySelectedCustomButtonGeometryFromUi()
     {
         if (!TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))
@@ -3328,7 +3294,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ExpandKeymapEditorAndFocusPrimaryAction()
     {
-        SetEditorExpanderStates(keymapExpanded: true, customButtonsExpanded: false);
+        KeymapEditorExpander.IsExpanded = true;
+        CustomButtonsExpander.IsExpanded = false;
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
         {
             KeymapPrimaryCombo.BringIntoView();
@@ -3339,7 +3306,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ExpandCustomButtonEditorAndFocusGeometry()
     {
-        SetEditorExpanderStates(keymapExpanded: false, customButtonsExpanded: true);
+        KeymapEditorExpander.IsExpanded = true;
+        CustomButtonsExpander.IsExpanded = true;
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
         {
             CustomButtonXBox.BringIntoView();
