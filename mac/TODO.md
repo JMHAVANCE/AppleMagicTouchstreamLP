@@ -12,6 +12,7 @@
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
 - Can we make Gesture Tuning section scrollable??
 ---
+- .atpcap should capture keymap! that would be super helpful!
 - auto-reconnect not working correctly after sleep
 ---
 
