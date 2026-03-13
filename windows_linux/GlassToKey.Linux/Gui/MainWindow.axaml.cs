@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -27,6 +28,9 @@ public partial class MainWindow : Window
     private const double KeyWidthMm = 18.0;
     private const double KeyHeightMm = 17.0;
     private const double MinCustomButtonPercent = 5.0;
+    private const string TerminalLauncherCommand = "x-terminal-emulator";
+    private static readonly string TerminalActionValue = AppLaunchActionHelper.CreateActionLabel(TerminalLauncherCommand);
+    private static readonly IDataTemplate KeyActionChoiceTemplate = CreateKeyActionChoiceTemplate();
     private readonly LinuxAppRuntime _runtime = new();
     private readonly LinuxDesktopRuntimeController _desktopRuntime;
     private KeyLayout _leftRenderedLayout = new(Array.Empty<NormalizedRect[]>(), Array.Empty<string[]>());
@@ -235,6 +239,8 @@ public partial class MainWindow : Window
         _rightPreviewText = RequireControl<TextBlock>("RightPreviewText");
         _leftPreviewCanvas = RequireControl<Canvas>("LeftPreviewCanvas");
         _rightPreviewCanvas = RequireControl<Canvas>("RightPreviewCanvas");
+        _keymapPrimaryCombo.ItemTemplate = KeyActionChoiceTemplate;
+        _keymapHoldCombo.ItemTemplate = KeyActionChoiceTemplate;
         _replayTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
             Interval = TimeSpan.FromMilliseconds(8)
@@ -273,17 +279,18 @@ public partial class MainWindow : Window
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
             };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             row.Children.Add(new TextBlock
             {
                 Text = field.Label,
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                TextWrapping = TextWrapping.Wrap
             });
 
             TextBox box = new()
             {
-                Width = 90,
+                MinWidth = 90,
                 Margin = new Thickness(8, 0, 0, 0),
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
             };
@@ -302,12 +309,13 @@ public partial class MainWindow : Window
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
             };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             row.Children.Add(new TextBlock
             {
                 Text = field.Label,
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                TextWrapping = TextWrapping.Wrap
             });
 
             StackPanel sliderPanel = new()
@@ -374,12 +382,13 @@ public partial class MainWindow : Window
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
         };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         row.Children.Add(new TextBlock
         {
             Text = "Haptic Strength",
-            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            TextWrapping = TextWrapping.Wrap
         });
 
         StackPanel sliderPanel = new()
@@ -533,7 +542,8 @@ public partial class MainWindow : Window
         {
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
             MaxDropDownHeight = 420,
-            ItemsSource = _keyActionChoices
+            ItemsSource = _keyActionChoices,
+            ItemTemplate = KeyActionChoiceTemplate
         };
     }
 
@@ -1929,6 +1939,7 @@ public partial class MainWindow : Window
         AddActionSection(options, "System and Media");
         string[] systemAndMedia =
         {
+            TerminalActionValue,
             "EMOJI",
             "VOICE",
             "VOL_UP",
@@ -4309,9 +4320,99 @@ public partial class MainWindow : Window
 
     private static string FormatSurfaceActionLabel(string action)
     {
+        return GetActionDisplayLabel(action);
+    }
+
+    private static string GetActionDisplayLabel(string action)
+    {
+        if (TryGetSpecialActionDisplayLabel(action, out string label))
+        {
+            return label;
+        }
+
         return AppLaunchActionHelper.TryParse(action, out _)
             ? AppLaunchActionHelper.GetKeymapDisplayLabel(action)
             : action;
+    }
+
+    private static bool TryGetSpecialActionDisplayLabel(string? action, out string label)
+    {
+        label = string.Empty;
+        if (!AppLaunchActionHelper.TryParse(action, out AppLaunchActionSpec spec))
+        {
+            return false;
+        }
+
+        if (string.Equals(spec.FileName, TerminalLauncherCommand, StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(spec.Arguments))
+        {
+            label = "Terminal";
+            return true;
+        }
+
+        return false;
+    }
+
+    private static IDataTemplate CreateKeyActionChoiceTemplate()
+    {
+        return new FuncDataTemplate<object?>((value, _) =>
+        {
+            if (value is KeyActionChoice choice)
+            {
+                if (choice.IsSeparator)
+                {
+                    Grid grid = new()
+                    {
+                        ColumnDefinitions = new ColumnDefinitions("*,Auto,*"),
+                        Margin = new Thickness(6, 2)
+                    };
+
+                    Border leftRule = new()
+                    {
+                        Height = 1,
+                        Background = new SolidColorBrush(Color.Parse("#9FB3C1")),
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        Margin = new Thickness(0, 0, 8, 0)
+                    };
+                    grid.Children.Add(leftRule);
+
+                    TextBlock title = new()
+                    {
+                        Text = choice.Label,
+                        Foreground = new SolidColorBrush(Color.Parse("#4A5B68")),
+                        FontSize = 11,
+                        FontWeight = FontWeight.SemiBold,
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                    };
+                    Grid.SetColumn(title, 1);
+                    grid.Children.Add(title);
+
+                    Border rightRule = new()
+                    {
+                        Height = 1,
+                        Background = new SolidColorBrush(Color.Parse("#9FB3C1")),
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        Margin = new Thickness(8, 0, 0, 0)
+                    };
+                    Grid.SetColumn(rightRule, 2);
+                    grid.Children.Add(rightRule);
+                    return grid;
+                }
+
+                return new TextBlock
+                {
+                    Text = choice.Label,
+                    Margin = new Thickness(6, 2),
+                    Foreground = new SolidColorBrush(Color.Parse("#1E2328"))
+                };
+            }
+
+            return new TextBlock
+            {
+                Text = value?.ToString() ?? string.Empty,
+                Margin = new Thickness(6, 2)
+            };
+        });
     }
 
     private sealed record DeviceChoice(string Label, string? StableId)
@@ -4342,16 +4443,14 @@ public partial class MainWindow : Window
     {
         public static KeyActionChoice Action(string value)
         {
-            string label = AppLaunchActionHelper.TryParse(value, out _)
-                ? AppLaunchActionHelper.GetKeymapDisplayLabel(value)
-                : value;
+            string label = GetActionDisplayLabel(value);
             return new KeyActionChoice(label, value, IsSeparator: false);
         }
 
         public static KeyActionChoice Section(string title)
         {
             string key = title.Replace(' ', '_');
-            return new KeyActionChoice($"--- {title} ---", $"__section__{key}", IsSeparator: true);
+            return new KeyActionChoice(title, $"__section__{key}", IsSeparator: true);
         }
 
         public override string ToString()
