@@ -62,6 +62,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private bool _suppressActionComboFiltering;
     private bool _deferredKeyActionOptionsScheduled;
     private bool _suppressGestureShortcutEditorEvents;
+    private bool _suppressAppLauncherEditorEvents;
     private TrackpadLayoutPreset _preset;
     private ColumnLayoutSettings[] _columnSettings;
     private readonly RawInputContext _rawInputContext = new();
@@ -284,7 +285,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         GestureShortcutWinToggle.Unchecked += OnGestureShortcutEditorChanged;
         GestureShortcutKeyCombo.SelectionChanged += OnGestureShortcutKeySelectionChanged;
         GestureShortcutApplyButton.Click += OnGestureShortcutApplyClicked;
-        GestureShortcutResetButton.Click += OnGestureShortcutResetClicked;
+        AppLauncherFileBox.TextChanged += OnAppLauncherEditorChanged;
+        AppLauncherBrowseButton.Click += OnAppLauncherBrowseClicked;
         CustomButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
         CustomButtonAddRightButton.Click += OnCustomButtonAddRightClicked;
         CustomButtonDeleteButton.Click += OnCustomButtonDeleteClicked;
@@ -836,7 +838,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
             if (combo.SelectedValue is string selectedValue && !string.IsNullOrWhiteSpace(selectedValue))
             {
-                combo.Text = selectedValue;
+                combo.Text = GetActionOptionDisplay(selectedValue);
                 return;
             }
 
@@ -853,6 +855,27 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         return option.Display.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
                option.Value.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
                option.Group.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static string GetActionOptionDisplay(string value)
+    {
+        return AppLaunchActionHelper.TryParse(value, out _)
+            ? AppLaunchActionHelper.GetKeymapDisplayLabel(value)
+            : value;
+    }
+
+    private static string GetActionOptionGroup(string value, string fallbackGroup)
+    {
+        return AppLaunchActionHelper.TryParse(value, out _)
+            ? "App Launch"
+            : fallbackGroup;
+    }
+
+    private static string GetActionSurfaceLabel(string value)
+    {
+        return AppLaunchActionHelper.TryParse(value, out _)
+            ? AppLaunchActionHelper.GetKeymapDisplayLabel(value)
+            : value;
     }
 
     private static void ClearActionComboFilter(ListCollectionView view)
@@ -1015,21 +1038,25 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private void RefreshGestureShortcutEditorUi()
     {
         _suppressGestureShortcutEditorEvents = true;
+        _suppressAppLauncherEditorEvents = true;
         try
         {
             if (!HasKeymapSelection())
             {
-                GestureShortcutCtrlToggle.IsChecked = false;
-                GestureShortcutShiftToggle.IsChecked = false;
-                GestureShortcutAltToggle.IsChecked = false;
-                GestureShortcutWinToggle.IsChecked = false;
-                GestureShortcutKeyCombo.SelectedItem = null;
+                ClearGestureShortcutEditorState();
+                AppLauncherFileBox.Text = string.Empty;
             }
             else
             {
                 string selectedAction = ReadGestureActionSelection(GetShortcutTargetCombo(), "None");
-                if (DispatchShortcutHelper.TryReadShortcut(selectedAction, out DispatchModifierFlags modifiers, out string keyLabel))
+                if (AppLaunchActionHelper.TryParse(selectedAction, out AppLaunchActionSpec spec))
                 {
+                    ClearGestureShortcutEditorState();
+                    AppLauncherFileBox.Text = spec.FileName;
+                }
+                else if (DispatchShortcutHelper.TryReadShortcut(selectedAction, out DispatchModifierFlags modifiers, out string keyLabel))
+                {
+                    AppLauncherFileBox.Text = string.Empty;
                     GestureShortcutCtrlToggle.IsChecked = (modifiers & (
                         DispatchModifierFlags.Ctrl |
                         DispatchModifierFlags.LeftCtrl |
@@ -1050,20 +1077,18 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                 }
                 else
                 {
-                    GestureShortcutCtrlToggle.IsChecked = false;
-                    GestureShortcutShiftToggle.IsChecked = false;
-                    GestureShortcutAltToggle.IsChecked = false;
-                    GestureShortcutWinToggle.IsChecked = false;
-                    GestureShortcutKeyCombo.SelectedItem = null;
+                    ClearGestureShortcutEditorState();
+                    AppLauncherFileBox.Text = string.Empty;
                 }
             }
         }
         finally
         {
             _suppressGestureShortcutEditorEvents = false;
+            _suppressAppLauncherEditorEvents = false;
         }
 
-        UpdateGestureShortcutPreview();
+        UpdateActionBuilderPreview();
     }
 
     private void OnGestureShortcutEditorChanged(object sender, RoutedEventArgs e)
@@ -1073,7 +1098,14 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
-        UpdateGestureShortcutPreview();
+        if (sender is RadioButton)
+        {
+            RefreshGestureShortcutEditorUi();
+            return;
+        }
+
+        ClearAppLauncherEditorState();
+        UpdateActionBuilderPreview();
     }
 
     private void OnGestureShortcutKeySelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1083,19 +1115,18 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
-        UpdateGestureShortcutPreview();
+        ClearAppLauncherEditorState();
+        UpdateActionBuilderPreview();
     }
 
-    private void UpdateGestureShortcutPreview()
+    private void UpdateActionBuilderPreview()
     {
-        string preview = BuildGestureShortcutPreview();
-        GestureShortcutPreviewText.Text = string.IsNullOrEmpty(preview)
-            ? "Shortcut: none"
-            : $"Shortcut: {preview}";
-        GestureShortcutApplyButton.IsEnabled = HasKeymapSelection() && !string.IsNullOrEmpty(preview);
+        string action = BuildActionBuilderAction(out string preview);
+        GestureShortcutPreviewText.Text = preview;
+        GestureShortcutApplyButton.IsEnabled = HasKeymapSelection() && !string.IsNullOrEmpty(action);
     }
 
-    private string BuildGestureShortcutPreview()
+    private string BuildGestureShortcutAction()
     {
         if (GestureShortcutKeyCombo.SelectedItem is not string selectedKey ||
             !DispatchShortcutHelper.TryNormalizeShortcutKeyLabel(selectedKey, out string keyLabel))
@@ -1129,36 +1160,111 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             : DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel);
     }
 
+    private string BuildActionBuilderAction(out string preview)
+    {
+        string appAction = BuildAppLauncherAction();
+        if (!string.IsNullOrEmpty(appAction))
+        {
+            preview = AppLaunchActionHelper.GetDisplayLabel(appAction);
+            return appAction;
+        }
+
+        string shortcut = BuildGestureShortcutAction();
+        if (!string.IsNullOrEmpty(shortcut))
+        {
+            preview = $"Shortcut: {shortcut}";
+            return shortcut;
+        }
+
+        preview = "Shortcut: none";
+        return string.Empty;
+    }
+
     private void OnGestureShortcutApplyClicked(object sender, RoutedEventArgs e)
     {
-        string shortcut = BuildGestureShortcutPreview();
-        if (!HasKeymapSelection() || string.IsNullOrEmpty(shortcut))
+        string action = BuildActionBuilderAction(out string preview);
+        if (!HasKeymapSelection() || string.IsNullOrEmpty(action))
+        {
+            GestureShortcutPreviewText.Text = preview;
+            return;
+        }
+
+        EnsureActionOption(action);
+        GetShortcutTargetCombo().SelectedValue = action;
+        RefreshGestureShortcutEditorUi();
+    }
+
+    private void ClearGestureShortcutEditorState()
+    {
+        GestureShortcutCtrlToggle.IsChecked = false;
+        GestureShortcutShiftToggle.IsChecked = false;
+        GestureShortcutAltToggle.IsChecked = false;
+        GestureShortcutWinToggle.IsChecked = false;
+        GestureShortcutKeyCombo.SelectedItem = null;
+    }
+
+    private void OnAppLauncherEditorChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_suppressAppLauncherEditorEvents)
         {
             return;
         }
 
-        EnsureActionOption(shortcut);
-        GetShortcutTargetCombo().SelectedValue = shortcut;
-        UpdateGestureShortcutPreview();
+        if (!string.IsNullOrWhiteSpace(AppLauncherFileBox.Text))
+        {
+            _suppressGestureShortcutEditorEvents = true;
+            try
+            {
+                ClearGestureShortcutEditorState();
+            }
+            finally
+            {
+                _suppressGestureShortcutEditorEvents = false;
+            }
+        }
+
+        UpdateActionBuilderPreview();
     }
 
-    private void OnGestureShortcutResetClicked(object sender, RoutedEventArgs e)
+    private void OnAppLauncherBrowseClicked(object sender, RoutedEventArgs e)
     {
-        _suppressGestureShortcutEditorEvents = true;
+        OpenFileDialog dialog = new()
+        {
+            CheckFileExists = true,
+            Filter = "Applications|*.exe;*.lnk;*.bat;*.cmd|All files (*.*)|*.*",
+            Title = "Select application or shortcut"
+        };
+
+        if (dialog.ShowDialog(this) != true || string.IsNullOrWhiteSpace(dialog.FileName))
+        {
+            return;
+        }
+
+        AppLauncherFileBox.Text = dialog.FileName;
+    }
+
+    private void ClearAppLauncherEditorState()
+    {
+        _suppressAppLauncherEditorEvents = true;
         try
         {
-            GestureShortcutCtrlToggle.IsChecked = false;
-            GestureShortcutShiftToggle.IsChecked = false;
-            GestureShortcutAltToggle.IsChecked = false;
-            GestureShortcutWinToggle.IsChecked = false;
-            GestureShortcutKeyCombo.SelectedItem = null;
+            AppLauncherFileBox.Text = string.Empty;
         }
         finally
         {
-            _suppressGestureShortcutEditorEvents = false;
+            _suppressAppLauncherEditorEvents = false;
+        }
+    }
+
+    private string BuildAppLauncherAction()
+    {
+        string fileName = AppLauncherFileBox.Text?.Trim() ?? string.Empty;
+        if (fileName.Length == 0)
+        {
+            return string.Empty;
         }
 
-        UpdateGestureShortcutPreview();
+        return AppLaunchActionHelper.CreateActionLabel(fileName);
     }
 
     private ComboBox GetShortcutTargetCombo()
@@ -2265,7 +2371,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private static void AddKeyActionOption(List<KeyActionOption> options, string value, string group)
     {
-        options.Add(new KeyActionOption(value, value, group));
+        options.Add(new KeyActionOption(value, GetActionOptionDisplay(value), GetActionOptionGroup(value, group)));
     }
 
     private void EnsureActionOption(string? action)
@@ -2290,7 +2396,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         try
         {
-            _keyActionOptions.Add(new KeyActionOption(action, action, "Custom"));
+            _keyActionOptions.Add(new KeyActionOption(
+                action,
+                GetActionOptionDisplay(action),
+                GetActionOptionGroup(action, "Custom")));
             _keyActionOptionLookup.Add(action);
             RefreshActionComboViews();
             return true;
@@ -2872,8 +2981,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         for (int i = 0; i < buttons.Count; i++)
         {
             CustomButton button = buttons[i];
-            string primary = string.IsNullOrWhiteSpace(button.Primary?.Label) ? "None" : button.Primary.Label;
-            string? hold = button.Hold?.Label;
+            string primary = string.IsNullOrWhiteSpace(button.Primary?.Label)
+                ? "None"
+                : GetActionSurfaceLabel(button.Primary.Label);
+            string? hold = string.IsNullOrWhiteSpace(button.Hold?.Label)
+                ? null
+                : GetActionSurfaceLabel(button.Hold.Label);
             string label = string.IsNullOrWhiteSpace(hold) ? primary : $"{primary}\n{hold}";
             output[i] = new SurfaceCustomButton(button.Id, button.Rect, label);
         }
@@ -2895,8 +3008,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                 string storageKey = GridKeyPosition.StorageKey(side, row, col);
                 string defaultLabel = labels[row][col];
                 KeyMapping mapping = _keymap.ResolveMapping(layer, storageKey, defaultLabel);
-                string primary = string.IsNullOrWhiteSpace(mapping.Primary.Label) ? defaultLabel : mapping.Primary.Label;
-                string? hold = mapping.Hold?.Label;
+                string primary = string.IsNullOrWhiteSpace(mapping.Primary.Label)
+                    ? defaultLabel
+                    : GetActionSurfaceLabel(mapping.Primary.Label);
+                string? hold = string.IsNullOrWhiteSpace(mapping.Hold?.Label)
+                    ? null
+                    : GetActionSurfaceLabel(mapping.Hold.Label);
                 output[row][col] = string.IsNullOrWhiteSpace(hold) ? primary : $"{primary}\n{hold}";
             }
         }
