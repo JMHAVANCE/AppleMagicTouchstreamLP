@@ -335,7 +335,15 @@
                       <ComboBox x:Name="GestureShortcutKeyCombo"
                                 Grid.Column="1"
                                 Height="28"
-                                Margin="8,0,0,0" />
+                                Margin="8,0,0,0"
+                                DisplayMemberPath="Display"
+                                SelectedValuePath="Value"
+                                MaxDropDownHeight="420"
+                                ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                        <ComboBox.GroupStyle>
+                          <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                        </ComboBox.GroupStyle>
+                      </ComboBox>
                       <Button x:Name="GestureShortcutApplyButton"
                               Grid.Column="2"
                               Content="Apply"

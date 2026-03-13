@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private const string TerminalLauncherCommand = "x-terminal-emulator";
     private static readonly string TerminalActionValue = AppLaunchActionHelper.CreateActionLabel(TerminalLauncherCommand);
     private static readonly IDataTemplate KeyActionChoiceTemplate = CreateKeyActionChoiceTemplate();
+    private static readonly IDataTemplate ShortcutKeyChoiceTemplate = CreateShortcutKeyChoiceTemplate();
     private readonly LinuxAppRuntime _runtime = new();
     private readonly LinuxDesktopRuntimeController _desktopRuntime;
     private KeyLayout _leftRenderedLayout = new(Array.Empty<NormalizedRect[]>(), Array.Empty<string[]>());
@@ -110,6 +111,7 @@ public partial class MainWindow : Window
     private readonly Canvas _rightPreviewCanvas;
     private readonly DispatcherTimer _replayTimer;
     private List<KeyActionChoice> _keyActionChoices = BuildKeyActionChoices();
+    private readonly List<ShortcutKeyChoice> _shortcutKeyChoices = BuildShortcutKeyChoices();
     private HashSet<string> _keyActionChoiceLookup = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, TextBox> _typingTuningTextBoxes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Slider> _typingTuningSliders = new(StringComparer.Ordinal);
@@ -241,6 +243,7 @@ public partial class MainWindow : Window
         _rightPreviewCanvas = RequireControl<Canvas>("RightPreviewCanvas");
         _keymapPrimaryCombo.ItemTemplate = KeyActionChoiceTemplate;
         _keymapHoldCombo.ItemTemplate = KeyActionChoiceTemplate;
+        _gestureShortcutKeyCombo.ItemTemplate = ShortcutKeyChoiceTemplate;
         _replayTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
             Interval = TimeSpan.FromMilliseconds(8)
@@ -993,7 +996,7 @@ public partial class MainWindow : Window
 
     private void InitializeGestureShortcutEditor()
     {
-        _gestureShortcutKeyCombo.ItemsSource = DispatchShortcutHelper.ShortcutKeyLabels;
+        _gestureShortcutKeyCombo.ItemsSource = _shortcutKeyChoices;
         _shortcutTargetPrimaryRadio.IsChecked = true;
         RefreshGestureShortcutEditorUi();
     }
@@ -1036,7 +1039,7 @@ public partial class MainWindow : Window
                         DispatchModifierFlags.Meta |
                         DispatchModifierFlags.LeftMeta |
                         DispatchModifierFlags.RightMeta)) != 0;
-                    _gestureShortcutKeyCombo.SelectedItem = keyLabel;
+                    _gestureShortcutKeyCombo.SelectedItem = SelectShortcutKeyChoice(_shortcutKeyChoices, keyLabel);
                 }
                 else
                 {
@@ -1072,6 +1075,22 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (_gestureShortcutKeyCombo.SelectedItem is ShortcutKeyChoice { IsSeparator: true })
+        {
+            _suppressGestureShortcutEditorEvents = true;
+            try
+            {
+                _gestureShortcutKeyCombo.SelectedItem = null;
+            }
+            finally
+            {
+                _suppressGestureShortcutEditorEvents = false;
+            }
+
+            UpdateActionBuilderPreview();
+            return;
+        }
+
         ClearAppLauncherEditorState();
         UpdateActionBuilderPreview();
     }
@@ -1085,8 +1104,9 @@ public partial class MainWindow : Window
 
     private string BuildGestureShortcutAction()
     {
-        if (_gestureShortcutKeyCombo.SelectedItem is not string selectedKey ||
-            !DispatchShortcutHelper.TryNormalizeShortcutKeyLabel(selectedKey, out string keyLabel))
+        if (_gestureShortcutKeyCombo.SelectedItem is not ShortcutKeyChoice selectedChoice ||
+            selectedChoice.IsSeparator ||
+            !DispatchShortcutHelper.TryNormalizeShortcutKeyLabel(selectedChoice.Value, out string keyLabel))
         {
             return string.Empty;
         }
@@ -1872,20 +1892,29 @@ public partial class MainWindow : Window
             AddKeyActionChoice(options, navigationAndEditing[i]);
         }
 
-        AddActionSection(options, "Modifiers and Modes");
-        string[] modifiersAndModes =
+        AddActionSection(options, "Modifiers");
+        string[] modifiers =
         {
             "Shift",
             "Chordal Shift",
             "Ctrl",
             "Alt",
             "LWin",
-            "RWin",
+            "RWin"
+        };
+        for (int i = 0; i < modifiers.Length; i++)
+        {
+            AddKeyActionChoice(options, modifiers[i]);
+        }
+
+        AddActionSection(options, "Modes");
+        string[] modes =
+        {
             "Typing Toggle"
         };
-        for (int i = 0; i < modifiersAndModes.Length; i++)
+        for (int i = 0; i < modes.Length; i++)
         {
-            AddKeyActionChoice(options, modifiersAndModes[i]);
+            AddKeyActionChoice(options, modes[i]);
         }
 
         AddActionSection(options, "Symbols");
@@ -1972,6 +2001,70 @@ public partial class MainWindow : Window
     private static void AddActionSection(List<KeyActionChoice> choices, string title)
     {
         choices.Add(KeyActionChoice.Section(title));
+    }
+
+    private static List<ShortcutKeyChoice> BuildShortcutKeyChoices()
+    {
+        List<ShortcutKeyChoice> choices = [];
+        string? currentSection = null;
+        IReadOnlyList<string> labels = DispatchShortcutHelper.ShortcutKeyLabels;
+        for (int i = 0; i < labels.Count; i++)
+        {
+            string value = labels[i];
+            string section = GetShortcutKeySection(value);
+            if (!string.Equals(currentSection, section, StringComparison.Ordinal))
+            {
+                currentSection = section;
+                choices.Add(ShortcutKeyChoice.Section(section));
+            }
+
+            choices.Add(ShortcutKeyChoice.Action(value));
+        }
+
+        return choices;
+    }
+
+    private static string GetShortcutKeySection(string value)
+    {
+        if (value.Length == 1 && value[0] is >= 'A' and <= 'Z')
+        {
+            return "Letters A-Z";
+        }
+
+        if (value.Length == 1 && value[0] is >= '0' and <= '9')
+        {
+            return "Digits 0-9";
+        }
+
+        if (value.Length > 1 && value[0] == 'F' && int.TryParse(value.AsSpan(1), out _))
+        {
+            return "Function Keys";
+        }
+
+        return value switch
+        {
+            ";" or "=" or "," or "-" or "." or "/" or "`" or "[" or "\\" or "]" or "'" => "Symbols",
+            _ => "Navigation and Editing"
+        };
+    }
+
+    private static ShortcutKeyChoice? SelectShortcutKeyChoice(IEnumerable<ShortcutKeyChoice> choices, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        foreach (ShortcutKeyChoice choice in choices)
+        {
+            if (!choice.IsSeparator &&
+                string.Equals(choice.Value, value, StringComparison.OrdinalIgnoreCase))
+            {
+                return choice;
+            }
+        }
+
+        return null;
     }
 
     private static bool IsUnsupportedLayerActionChoice(string value)
@@ -4419,6 +4512,72 @@ public partial class MainWindow : Window
         });
     }
 
+    private static IDataTemplate CreateShortcutKeyChoiceTemplate()
+    {
+        return new FuncDataTemplate<object?>((value, _) =>
+        {
+            if (value is ShortcutKeyChoice choice)
+            {
+                if (choice.IsSeparator)
+                {
+                    Grid grid = new()
+                    {
+                        ColumnDefinitions = new ColumnDefinitions("*,Auto,*"),
+                        Margin = new Thickness(6, 2)
+                    };
+
+                    Border leftRule = new()
+                    {
+                        Height = 1,
+                        Background = new SolidColorBrush(Color.Parse("#9FB3C1")),
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        Margin = new Thickness(0, 0, 8, 0)
+                    };
+                    grid.Children.Add(leftRule);
+
+                    Border chip = new()
+                    {
+                        CornerRadius = new CornerRadius(6),
+                        Padding = new Thickness(8, 2),
+                        Background = new SolidColorBrush(Color.Parse("#21323B")),
+                        BorderBrush = new SolidColorBrush(Color.Parse("#5C7482")),
+                        BorderThickness = new Thickness(1),
+                        Child = new TextBlock
+                        {
+                            Text = choice.Label,
+                            Foreground = new SolidColorBrush(Color.Parse("#DCE6EC")),
+                            FontSize = 12,
+                            FontWeight = FontWeight.SemiBold
+                        }
+                    };
+                    Grid.SetColumn(chip, 1);
+                    grid.Children.Add(chip);
+
+                    Border rightRule = new()
+                    {
+                        Height = 1,
+                        Background = new SolidColorBrush(Color.Parse("#9FB3C1")),
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        Margin = new Thickness(8, 0, 0, 0)
+                    };
+                    Grid.SetColumn(rightRule, 2);
+                    grid.Children.Add(rightRule);
+
+                    return grid;
+                }
+
+                return new TextBlock
+                {
+                    Text = choice.Label,
+                    Margin = new Thickness(10, 2),
+                    Foreground = new SolidColorBrush(Color.Parse("#F1F5F8"))
+                };
+            }
+
+            return new TextBlock();
+        });
+    }
+
     private sealed record DeviceChoice(string Label, string? StableId)
     {
         public override string ToString()
@@ -4455,6 +4614,25 @@ public partial class MainWindow : Window
         {
             string key = title.Replace(' ', '_');
             return new KeyActionChoice(title, $"__section__{key}", IsSeparator: true);
+        }
+
+        public override string ToString()
+        {
+            return Label;
+        }
+    }
+
+    private sealed record ShortcutKeyChoice(string Label, string Value, bool IsSeparator)
+    {
+        public static ShortcutKeyChoice Action(string value)
+        {
+            return new ShortcutKeyChoice(value, value, IsSeparator: false);
+        }
+
+        public static ShortcutKeyChoice Section(string title)
+        {
+            string key = title.Replace(' ', '_');
+            return new ShortcutKeyChoice(title, $"__section__{key}", IsSeparator: true);
         }
 
         public override string ToString()

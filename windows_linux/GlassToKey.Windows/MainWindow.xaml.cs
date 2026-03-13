@@ -1030,7 +1030,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void InitializeGestureShortcutEditor()
     {
-        GestureShortcutKeyCombo.ItemsSource = DispatchShortcutHelper.ShortcutKeyLabels;
+        ListCollectionView view = new(BuildShortcutKeyOptions());
+        view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ShortcutKeyOption.Group)));
+        GestureShortcutKeyCombo.ItemsSource = view;
         ShortcutTargetPrimaryRadio.IsChecked = true;
         RefreshGestureShortcutEditorUi();
     }
@@ -1073,7 +1075,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                         DispatchModifierFlags.Meta |
                         DispatchModifierFlags.LeftMeta |
                         DispatchModifierFlags.RightMeta)) != 0;
-                    GestureShortcutKeyCombo.SelectedItem = keyLabel;
+                    GestureShortcutKeyCombo.SelectedValue = keyLabel;
                 }
                 else
                 {
@@ -1128,7 +1130,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private string BuildGestureShortcutAction()
     {
-        if (GestureShortcutKeyCombo.SelectedItem is not string selectedKey ||
+        if (GestureShortcutKeyCombo.SelectedValue is not string selectedKey ||
             !DispatchShortcutHelper.TryNormalizeShortcutKeyLabel(selectedKey, out string keyLabel))
         {
             return string.Empty;
@@ -2286,19 +2288,27 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             AddKeyActionOption(options, navigationAndEditing[i], "Navigation & Editing");
         }
 
-        string[] modifiersAndModes =
+        string[] modifiers =
         {
             "Shift",
             "Chordal Shift",
             "Ctrl",
             "Alt",
             "LWin",
-            "RWin",
+            "RWin"
+        };
+        for (int i = 0; i < modifiers.Length; i++)
+        {
+            AddKeyActionOption(options, modifiers[i], "Modifiers");
+        }
+
+        string[] modes =
+        {
             "Typing Toggle"
         };
-        for (int i = 0; i < modifiersAndModes.Length; i++)
+        for (int i = 0; i < modes.Length; i++)
         {
-            AddKeyActionOption(options, modifiersAndModes[i], "Modifiers & Modes");
+            AddKeyActionOption(options, modes[i], "Modes");
         }
 
         string[] symbols =
@@ -2374,6 +2384,43 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private static void AddKeyActionOption(List<KeyActionOption> options, string value, string group)
     {
         options.Add(new KeyActionOption(value, GetActionOptionDisplay(value), GetActionOptionGroup(value, group)));
+    }
+
+    private static List<ShortcutKeyOption> BuildShortcutKeyOptions()
+    {
+        List<ShortcutKeyOption> options = new(DispatchShortcutHelper.ShortcutKeyLabels.Count);
+        IReadOnlyList<string> labels = DispatchShortcutHelper.ShortcutKeyLabels;
+        for (int i = 0; i < labels.Count; i++)
+        {
+            string value = labels[i];
+            options.Add(new ShortcutKeyOption(value, value, GetShortcutKeyOptionGroup(value)));
+        }
+
+        return options;
+    }
+
+    private static string GetShortcutKeyOptionGroup(string value)
+    {
+        if (value.Length == 1 && value[0] is >= 'A' and <= 'Z')
+        {
+            return "Letters A-Z";
+        }
+
+        if (value.Length == 1 && value[0] is >= '0' and <= '9')
+        {
+            return "Numbers 0-9";
+        }
+
+        if (value.Length > 1 && value[0] == 'F' && int.TryParse(value.AsSpan(1), out _))
+        {
+            return "Function Keys";
+        }
+
+        return value switch
+        {
+            ";" or "=" or "," or "-" or "." or "/" or "`" or "[" or "\\" or "]" or "'" => "Symbols & Punctuation",
+            _ => "Navigation & Editing"
+        };
     }
 
     private void EnsureActionOption(string? action)
@@ -4767,6 +4814,20 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private sealed class KeyActionOption
     {
         public KeyActionOption(string value, string display, string group)
+        {
+            Value = value;
+            Display = display;
+            Group = group;
+        }
+
+        public string Value { get; }
+        public string Display { get; }
+        public string Group { get; }
+    }
+
+    private sealed class ShortcutKeyOption
+    {
+        public ShortcutKeyOption(string value, string display, string group)
         {
             Value = value;
             Display = display;
