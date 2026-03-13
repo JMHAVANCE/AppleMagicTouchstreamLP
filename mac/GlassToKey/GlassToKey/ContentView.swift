@@ -1764,17 +1764,22 @@ struct ContentView: View {
                             )
                         }
                         HStack(spacing: 8) {
-                            Button("Auto Splay (4 Fingers)") {
+                            Button {
                                 onAutoSplay()
+                            } label: {
+                                Text("Auto Splay (4 Fingers)")
+                                    .frame(maxWidth: .infinity)
                             }
-                                .buttonStyle(.bordered)
-                                .disabled(!isAutoSplaySupportedPreset)
-                            Spacer()
-                            Button("e v e n s p a c i n g") {
+                            .buttonStyle(.bordered)
+                            .disabled(!isAutoSplaySupportedPreset)
+                            Button {
                                 onEvenSpacing()
+                            } label: {
+                                Text("e v e n s p a c i n g")
+                                    .frame(maxWidth: .infinity)
                             }
-                                .buttonStyle(.bordered)
-                                .disabled(!isEvenSpacingAvailable)
+                            .buttonStyle(.bordered)
+                            .disabled(!isEvenSpacingAvailable)
                         }
                     } else {
                         Text("No columns available for this layout.")
@@ -1819,6 +1824,7 @@ struct ContentView: View {
         @State private var shortcutKeyLabel = ""
         @State private var appLaunchTarget = ""
         @State private var appLaunchArguments = ""
+        private let shortcutBuilderActionButtonWidth: CGFloat = 84
 
         private var hasEditableSelection: Bool {
             buttonSelection != nil || keySelection != nil
@@ -2103,14 +2109,7 @@ struct ContentView: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .disabled(!hasEditableSelection)
-                    LazyVGrid(
-                        columns: [
-                            GridItem(.flexible(), spacing: 8),
-                            GridItem(.flexible(), spacing: 8)
-                        ],
-                        alignment: .leading,
-                        spacing: 8
-                    ) {
+                    HStack(spacing: 8) {
                         ForEach(ShortcutModifierToken.ordered, id: \.self) { modifier in
                             Toggle(modifier.rawValue, isOn: shortcutModifierBinding(modifier))
                                 .toggleStyle(.button)
@@ -2135,6 +2134,7 @@ struct ContentView: View {
                             applyBuiltAction()
                         }
                         .buttonStyle(.bordered)
+                        .frame(width: shortcutBuilderActionButtonWidth)
                         .disabled(!hasEditableSelection || builtAction == nil)
                     }
                     HStack(spacing: 8) {
@@ -2148,6 +2148,7 @@ struct ContentView: View {
                             browseForAppTarget()
                         }
                         .buttonStyle(.bordered)
+                        .frame(width: shortcutBuilderActionButtonWidth)
                         .disabled(!hasEditableSelection)
                     }
                     Text(actionBuilderPreview)
@@ -2259,14 +2260,20 @@ struct ContentView: View {
 
         private var addButtonsRow: some View {
             HStack(spacing: 8) {
-                Button("Add Left") {
+                Button {
                     onAddCustomButton(.left)
+                } label: {
+                    Text("Add Left")
+                        .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
-                Button("Add Right") {
+                .buttonStyle(.bordered)
+                Button {
                     onAddCustomButton(.right)
+                } label: {
+                    Text("Add Right")
+                        .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
+                .buttonStyle(.bordered)
             }
         }
 
