@@ -340,7 +340,7 @@ public static class DispatchShortcutHelper
             DispatchModifierFlags.RightCtrl => "RightCtrl",
             DispatchModifierFlags.Alt => "Alt",
             DispatchModifierFlags.LeftAlt => "LeftAlt",
-            DispatchModifierFlags.RightAlt => "RightAlt",
+            DispatchModifierFlags.RightAlt => "AltGr",
             DispatchModifierFlags.Meta => "Win",
             DispatchModifierFlags.LeftMeta => "LeftWin",
             DispatchModifierFlags.RightMeta => "RightWin",

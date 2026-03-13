@@ -281,6 +281,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         GestureShortcutShiftToggle.Unchecked += OnGestureShortcutEditorChanged;
         GestureShortcutAltToggle.Checked += OnGestureShortcutEditorChanged;
         GestureShortcutAltToggle.Unchecked += OnGestureShortcutEditorChanged;
+        GestureShortcutAltGrToggle.Checked += OnGestureShortcutEditorChanged;
+        GestureShortcutAltGrToggle.Unchecked += OnGestureShortcutEditorChanged;
         GestureShortcutWinToggle.Checked += OnGestureShortcutEditorChanged;
         GestureShortcutWinToggle.Unchecked += OnGestureShortcutEditorChanged;
         GestureShortcutKeyCombo.SelectionChanged += OnGestureShortcutKeySelectionChanged;
@@ -861,7 +863,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         return AppLaunchActionHelper.TryParse(value, out _)
             ? AppLaunchActionHelper.GetKeymapDisplayLabel(value)
-            : value;
+            : GetNormalizedActionDisplayLabel(value);
     }
 
     private static string GetActionOptionGroup(string value, string fallbackGroup)
@@ -875,7 +877,24 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         return AppLaunchActionHelper.TryParse(value, out _)
             ? AppLaunchActionHelper.GetKeymapDisplayLabel(value)
-            : value;
+            : GetNormalizedActionDisplayLabel(value);
+    }
+
+    private static string GetNormalizedActionDisplayLabel(string value)
+    {
+        if (DispatchShortcutHelper.TryReadShortcut(value, out DispatchModifierFlags modifiers, out string keyLabel))
+        {
+            return DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel);
+        }
+
+        if (value.Equals("RAlt", StringComparison.OrdinalIgnoreCase) ||
+            value.Equals("RightAlt", StringComparison.OrdinalIgnoreCase) ||
+            value.Equals("AltGr", StringComparison.OrdinalIgnoreCase))
+        {
+            return "AltGr";
+        }
+
+        return value;
     }
 
     private static void ClearActionComboFilter(ListCollectionView view)
@@ -1069,8 +1088,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                         DispatchModifierFlags.RightShift)) != 0;
                     GestureShortcutAltToggle.IsChecked = (modifiers & (
                         DispatchModifierFlags.Alt |
-                        DispatchModifierFlags.LeftAlt |
-                        DispatchModifierFlags.RightAlt)) != 0;
+                        DispatchModifierFlags.LeftAlt)) != 0;
+                    GestureShortcutAltGrToggle.IsChecked = (modifiers & DispatchModifierFlags.RightAlt) != 0;
                     GestureShortcutWinToggle.IsChecked = (modifiers & (
                         DispatchModifierFlags.Meta |
                         DispatchModifierFlags.LeftMeta |
@@ -1104,6 +1123,35 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             RefreshGestureShortcutEditorUi();
             return;
+        }
+
+        if (ReferenceEquals(sender, GestureShortcutAltToggle) &&
+            GestureShortcutAltToggle.IsChecked == true &&
+            GestureShortcutAltGrToggle.IsChecked == true)
+        {
+            _suppressGestureShortcutEditorEvents = true;
+            try
+            {
+                GestureShortcutAltGrToggle.IsChecked = false;
+            }
+            finally
+            {
+                _suppressGestureShortcutEditorEvents = false;
+            }
+        }
+        else if (ReferenceEquals(sender, GestureShortcutAltGrToggle) &&
+                 GestureShortcutAltGrToggle.IsChecked == true &&
+                 GestureShortcutAltToggle.IsChecked == true)
+        {
+            _suppressGestureShortcutEditorEvents = true;
+            try
+            {
+                GestureShortcutAltToggle.IsChecked = false;
+            }
+            finally
+            {
+                _suppressGestureShortcutEditorEvents = false;
+            }
         }
 
         ClearAppLauncherEditorState();
@@ -1150,6 +1198,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         if (GestureShortcutAltToggle.IsChecked == true)
         {
             modifiers |= DispatchModifierFlags.Alt;
+        }
+
+        if (GestureShortcutAltGrToggle.IsChecked == true)
+        {
+            modifiers |= DispatchModifierFlags.RightAlt;
         }
 
         if (GestureShortcutWinToggle.IsChecked == true)
@@ -1201,6 +1254,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         GestureShortcutCtrlToggle.IsChecked = false;
         GestureShortcutShiftToggle.IsChecked = false;
         GestureShortcutAltToggle.IsChecked = false;
+        GestureShortcutAltGrToggle.IsChecked = false;
         GestureShortcutWinToggle.IsChecked = false;
         GestureShortcutKeyCombo.SelectedItem = null;
     }
@@ -2293,6 +2347,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "Shift",
             "Ctrl",
             "Alt",
+            "AltGr",
             "LWin",
             "RWin"
         };

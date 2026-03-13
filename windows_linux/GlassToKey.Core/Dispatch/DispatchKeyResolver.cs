@@ -100,7 +100,8 @@ internal static class DispatchKeyResolver
             return true;
         }
 
-        if (label.Equals("RAlt", StringComparison.OrdinalIgnoreCase) ||
+        if (label.Equals("AltGr", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("RAlt", StringComparison.OrdinalIgnoreCase) ||
             label.Equals("RightAlt", StringComparison.OrdinalIgnoreCase))
         {
             virtualKey = 0xA5;

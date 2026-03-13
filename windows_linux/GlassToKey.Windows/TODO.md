@@ -1,7 +1,8 @@
 ## Current:
-- Please add `AltGr` to the Primary/Hold Dropdown and also to the Shortcut Builder! Users want to be able to `r_alt+n` > ñ
-- I would like to test `r_alt+n` in shortcut builder.. does it fire? why not?
-- Remove `LWin` and `Rwin` from dropdowns, make them alias to `Win` or `Windows` instead~
+- Can you give me a functional list of all selftest being done right now and what the expected behavior is?
+- Please add `AltGr` to the Primary/Hold Dropdown and also add a button to the Shortcut Builder! Users want to be able to `r_alt+n` > ñ, etc
+- I would like to test `r_alt+n` in shortcut builder.. But it doesnt dipatch anything? Also mapping a key to AltGr + N key doesnt dispatch. 
+- Remove `LWin` and ` Rwin` from dropdowns, make them alias to `Win` instead~
 ---
 - presets: add a preset for mx(19.05x19.05mm) and choc(18x17mm) key dimmensions.
 - independent column scale for x and y. (Starts "linked" but you can "break the chain" like in photoshop)
