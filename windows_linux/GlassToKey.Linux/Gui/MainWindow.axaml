@@ -381,10 +381,16 @@
                           ColumnDefinitions="*,*">
                       <Button x:Name="MxSpacingButton"
                               Margin="0,0,6,0"
+                              HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Center"
+                              VerticalContentAlignment="Center"
                               Content="mx spacing" />
                       <Button x:Name="ChocSpacingButton"
                               Grid.Column="1"
                               Margin="6,0,0,0"
+                              HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Center"
+                              VerticalContentAlignment="Center"
                               Content="choc spacing" />
                     </Grid>
 
