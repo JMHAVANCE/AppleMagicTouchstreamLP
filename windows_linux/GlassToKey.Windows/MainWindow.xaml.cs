@@ -2500,8 +2500,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "Space",
             "Tab",
             "Enter",
-            "Ret",
-            "Backspace",
             "Back",
             "Escape",
             "Caps Lock",
@@ -2628,6 +2626,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         for (int i = 0; i < labels.Count; i++)
         {
             string value = labels[i];
+            if (value.Equals("Backspace", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             options.Add(new ShortcutKeyOption(value, value, GetShortcutKeyOptionGroup(value)));
         }
 

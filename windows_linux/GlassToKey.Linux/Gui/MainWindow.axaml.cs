@@ -2104,8 +2104,6 @@ public partial class MainWindow : Window
             "Space",
             "Tab",
             "Enter",
-            "Ret",
-            "Backspace",
             "Back",
             "Escape",
             "Caps Lock",
@@ -2234,6 +2232,11 @@ public partial class MainWindow : Window
         for (int i = 0; i < labels.Count; i++)
         {
             string value = labels[i];
+            if (string.Equals(value, "Backspace", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             string section = GetShortcutKeySection(value);
             if (!string.Equals(currentSection, section, StringComparison.Ordinal))
             {
