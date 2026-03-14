@@ -331,7 +331,6 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
                       </Grid.ColumnDefinitions>
                       <ToggleButton x:Name="GestureShortcutCtrlToggle"
                                     Content="Ctrl"
@@ -347,13 +346,8 @@
                                     Content="Alt"
                                     Height="28"
                                     Style="{StaticResource ShortcutModifierToggleStyle}" />
-                      <ToggleButton x:Name="GestureShortcutAltGrToggle"
-                                    Grid.Column="3"
-                                    Content="AltGr"
-                                    Height="28"
-                                    Style="{StaticResource ShortcutModifierToggleStyle}" />
                       <ToggleButton x:Name="GestureShortcutWinToggle"
-                                    Grid.Column="4"
+                                    Grid.Column="3"
                                     Content="Win"
                                     Height="28"
                                     Style="{StaticResource ShortcutModifierToggleStyle}" />
