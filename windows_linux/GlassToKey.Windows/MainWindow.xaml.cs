@@ -61,10 +61,14 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private readonly HashSet<string> _keyActionOptionLookup = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _deferredKeyActionOptions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ComboBox, ListCollectionView> _actionViewsByCombo = new();
+    private readonly Dictionary<ToggleButton, ShortcutModifierSpec> _shortcutModifierSpecsByButton = new();
+    private readonly Dictionary<ToggleButton, ShortcutModifierVariant> _shortcutModifierVariantsByButton = new();
+    private readonly DispatcherTimer _shortcutModifierHoldTimer;
     private bool _suppressActionComboFiltering;
     private bool _deferredKeyActionOptionsScheduled;
     private bool _suppressGestureShortcutEditorEvents;
     private bool _suppressAppLauncherEditorEvents;
+    private ToggleButton? _shortcutModifierPressedButton;
     private TrackpadLayoutPreset _preset;
     private ColumnLayoutSettings[] _columnSettings;
     private readonly RawInputContext _rawInputContext = new();
@@ -148,6 +152,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     internal MainWindow(ReaderOptions options, TouchRuntimeService? runtimeService = null)
     {
         InitializeComponent();
+        _shortcutModifierHoldTimer = new DispatcherTimer(DispatcherPriority.Input)
+        {
+            Interval = TimeSpan.FromMilliseconds(450)
+        };
+        _shortcutModifierHoldTimer.Tick += OnShortcutModifierHoldTimerTick;
         _globalClickSuppressor.ClickObserved += OnGlobalClickObserved;
         _options = options;
         _runtimeService = runtimeService;
@@ -285,12 +294,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         GestureShortcutShiftToggle.Unchecked += OnGestureShortcutEditorChanged;
         GestureShortcutAltToggle.Checked += OnGestureShortcutEditorChanged;
         GestureShortcutAltToggle.Unchecked += OnGestureShortcutEditorChanged;
-        GestureShortcutAltGrToggle.Checked += OnGestureShortcutEditorChanged;
-        GestureShortcutAltGrToggle.Unchecked += OnGestureShortcutEditorChanged;
         GestureShortcutWinToggle.Checked += OnGestureShortcutEditorChanged;
         GestureShortcutWinToggle.Unchecked += OnGestureShortcutEditorChanged;
         GestureShortcutKeyCombo.SelectionChanged += OnGestureShortcutKeySelectionChanged;
         GestureShortcutApplyButton.Click += OnGestureShortcutApplyClicked;
+        InitializeShortcutModifierButtons();
         AppLauncherFileBox.TextChanged += OnAppLauncherEditorChanged;
         AppLauncherBrowseButton.Click += OnAppLauncherBrowseClicked;
         CustomButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
@@ -1061,6 +1069,244 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RefreshGestureShortcutEditorUi();
     }
 
+    private void InitializeShortcutModifierButtons()
+    {
+        RegisterShortcutModifierButton(new ShortcutModifierSpec(
+            GestureShortcutCtrlToggle,
+            genericLabel: "Ctrl",
+            leftLabel: "Left Ctrl",
+            rightLabel: "Right Ctrl",
+            genericFlag: DispatchModifierFlags.Ctrl,
+            leftFlag: DispatchModifierFlags.LeftCtrl,
+            rightFlag: DispatchModifierFlags.RightCtrl));
+        RegisterShortcutModifierButton(new ShortcutModifierSpec(
+            GestureShortcutShiftToggle,
+            genericLabel: "Shift",
+            leftLabel: "Left Shift",
+            rightLabel: "Right Shift",
+            genericFlag: DispatchModifierFlags.Shift,
+            leftFlag: DispatchModifierFlags.LeftShift,
+            rightFlag: DispatchModifierFlags.RightShift));
+        RegisterShortcutModifierButton(new ShortcutModifierSpec(
+            GestureShortcutAltToggle,
+            genericLabel: "Alt",
+            leftLabel: "Left Alt",
+            rightLabel: "AltGr",
+            genericFlag: DispatchModifierFlags.Alt,
+            leftFlag: DispatchModifierFlags.LeftAlt,
+            rightFlag: DispatchModifierFlags.RightAlt));
+        RegisterShortcutModifierButton(new ShortcutModifierSpec(
+            GestureShortcutWinToggle,
+            genericLabel: "Win",
+            leftLabel: "Left Win",
+            rightLabel: "Right Win",
+            genericFlag: DispatchModifierFlags.Meta,
+            leftFlag: DispatchModifierFlags.LeftMeta,
+            rightFlag: DispatchModifierFlags.RightMeta));
+    }
+
+    private void RegisterShortcutModifierButton(ShortcutModifierSpec spec)
+    {
+        _shortcutModifierSpecsByButton.Add(spec.Button, spec);
+        _shortcutModifierVariantsByButton[spec.Button] = ShortcutModifierVariant.Generic;
+        spec.Button.ToolTip = "Click to toggle. Hold to choose general, left, or right.";
+        spec.Button.ContextMenu = BuildShortcutModifierContextMenu(spec.Button);
+        spec.Button.PreviewMouseLeftButtonDown += OnShortcutModifierPreviewMouseLeftButtonDown;
+        spec.Button.PreviewMouseLeftButtonUp += OnShortcutModifierPreviewMouseLeftButtonUp;
+        spec.Button.LostMouseCapture += OnShortcutModifierLostMouseCapture;
+        UpdateShortcutModifierButtonContent(spec.Button);
+    }
+
+    private ContextMenu BuildShortcutModifierContextMenu(ToggleButton button)
+    {
+        ContextMenu menu = new();
+        menu.Opened += OnShortcutModifierContextMenuOpened;
+        menu.Items.Add(BuildShortcutModifierMenuItem(ShortcutModifierVariant.Generic));
+        menu.Items.Add(BuildShortcutModifierMenuItem(ShortcutModifierVariant.Left));
+        menu.Items.Add(BuildShortcutModifierMenuItem(ShortcutModifierVariant.Right));
+        menu.PlacementTarget = button;
+        return menu;
+    }
+
+    private MenuItem BuildShortcutModifierMenuItem(ShortcutModifierVariant variant)
+    {
+        MenuItem item = new()
+        {
+            IsCheckable = true,
+            Tag = variant
+        };
+        item.Click += OnShortcutModifierMenuItemClicked;
+        return item;
+    }
+
+    private void OnShortcutModifierPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not ToggleButton button ||
+            !_shortcutModifierSpecsByButton.ContainsKey(button))
+        {
+            return;
+        }
+
+        _shortcutModifierPressedButton = button;
+        _shortcutModifierHoldTimer.Stop();
+        _shortcutModifierHoldTimer.Start();
+        button.Focus();
+        button.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void OnShortcutModifierPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not ToggleButton button ||
+            !ReferenceEquals(_shortcutModifierPressedButton, button))
+        {
+            return;
+        }
+
+        _shortcutModifierHoldTimer.Stop();
+        _shortcutModifierPressedButton = null;
+        button.ReleaseMouseCapture();
+        if (button.IsMouseOver)
+        {
+            button.IsChecked = button.IsChecked != true;
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnShortcutModifierLostMouseCapture(object sender, MouseEventArgs e)
+    {
+        if (sender is ToggleButton button &&
+            ReferenceEquals(_shortcutModifierPressedButton, button))
+        {
+            _shortcutModifierHoldTimer.Stop();
+            _shortcutModifierPressedButton = null;
+        }
+    }
+
+    private void OnShortcutModifierHoldTimerTick(object? sender, EventArgs e)
+    {
+        _shortcutModifierHoldTimer.Stop();
+        ToggleButton? button = _shortcutModifierPressedButton;
+        if (button == null ||
+            !_shortcutModifierSpecsByButton.TryGetValue(button, out _) ||
+            button.ContextMenu == null)
+        {
+            return;
+        }
+
+        _shortcutModifierPressedButton = null;
+        button.ReleaseMouseCapture();
+        button.ContextMenu.PlacementTarget = button;
+        button.ContextMenu.IsOpen = true;
+    }
+
+    private void OnShortcutModifierContextMenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu menu ||
+            menu.PlacementTarget is not ToggleButton button ||
+            !_shortcutModifierSpecsByButton.TryGetValue(button, out ShortcutModifierSpec? spec) ||
+            spec is null)
+        {
+            return;
+        }
+
+        ShortcutModifierVariant selectedVariant = GetShortcutModifierVariant(button);
+        foreach (object? item in menu.Items)
+        {
+            if (item is not MenuItem menuItem ||
+                menuItem.Tag is not ShortcutModifierVariant variant)
+            {
+                continue;
+            }
+
+            menuItem.Header = $"Use {spec.LabelFor(variant)}";
+            menuItem.IsChecked = variant == selectedVariant;
+        }
+    }
+
+    private void OnShortcutModifierMenuItemClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem item ||
+            item.Tag is not ShortcutModifierVariant variant ||
+            ItemsControl.ItemsControlFromItemContainer(item) is not ContextMenu menu ||
+            menu.PlacementTarget is not ToggleButton button)
+        {
+            return;
+        }
+
+        _suppressGestureShortcutEditorEvents = true;
+        try
+        {
+            SetShortcutModifierState(button, isChecked: true, variant);
+        }
+        finally
+        {
+            _suppressGestureShortcutEditorEvents = false;
+        }
+
+        ClearAppLauncherEditorState();
+        UpdateActionBuilderPreview();
+    }
+
+    private void SetShortcutModifierState(ToggleButton button, bool isChecked, ShortcutModifierVariant variant)
+    {
+        _shortcutModifierVariantsByButton[button] = variant;
+        UpdateShortcutModifierButtonContent(button);
+        button.IsChecked = isChecked;
+    }
+
+    private void ResetShortcutModifierState(ToggleButton button)
+    {
+        SetShortcutModifierState(button, isChecked: false, ShortcutModifierVariant.Generic);
+    }
+
+    private ShortcutModifierVariant GetShortcutModifierVariant(ToggleButton button)
+    {
+        return _shortcutModifierVariantsByButton.TryGetValue(button, out ShortcutModifierVariant variant)
+            ? variant
+            : ShortcutModifierVariant.Generic;
+    }
+
+    private void UpdateShortcutModifierButtonContent(ToggleButton button)
+    {
+        if (_shortcutModifierSpecsByButton.TryGetValue(button, out ShortcutModifierSpec? spec) &&
+            spec is not null)
+        {
+            button.Content = spec.LabelFor(GetShortcutModifierVariant(button));
+        }
+    }
+
+    private void ApplyShortcutModifierState(ToggleButton button, DispatchModifierFlags modifiers)
+    {
+        if (!_shortcutModifierSpecsByButton.TryGetValue(button, out ShortcutModifierSpec? spec) ||
+            spec is null)
+        {
+            return;
+        }
+
+        bool hasGeneric = (modifiers & spec.GenericFlag) != 0;
+        bool hasLeft = (modifiers & spec.LeftFlag) != 0;
+        bool hasRight = (modifiers & spec.RightFlag) != 0;
+        ShortcutModifierVariant variant =
+            hasLeft && !hasRight ? ShortcutModifierVariant.Left :
+            hasRight && !hasLeft ? ShortcutModifierVariant.Right :
+            ShortcutModifierVariant.Generic;
+        SetShortcutModifierState(button, hasGeneric || hasLeft || hasRight, variant);
+    }
+
+    private void AppendShortcutModifierFlag(ToggleButton button, ref DispatchModifierFlags modifiers)
+    {
+        if (button.IsChecked != true ||
+            !_shortcutModifierSpecsByButton.TryGetValue(button, out ShortcutModifierSpec? spec) ||
+            spec is null)
+        {
+            return;
+        }
+
+        modifiers |= spec.FlagFor(GetShortcutModifierVariant(button));
+    }
+
     private void RefreshGestureShortcutEditorUi()
     {
         _suppressGestureShortcutEditorEvents = true;
@@ -1083,22 +1329,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                 else if (DispatchShortcutHelper.TryReadShortcut(selectedAction, out DispatchModifierFlags modifiers, out string keyLabel))
                 {
                     AppLauncherFileBox.Text = string.Empty;
-                    GestureShortcutCtrlToggle.IsChecked = (modifiers & (
-                        DispatchModifierFlags.Ctrl |
-                        DispatchModifierFlags.LeftCtrl |
-                        DispatchModifierFlags.RightCtrl)) != 0;
-                    GestureShortcutShiftToggle.IsChecked = (modifiers & (
-                        DispatchModifierFlags.Shift |
-                        DispatchModifierFlags.LeftShift |
-                        DispatchModifierFlags.RightShift)) != 0;
-                    GestureShortcutAltToggle.IsChecked = (modifiers & (
-                        DispatchModifierFlags.Alt |
-                        DispatchModifierFlags.LeftAlt)) != 0;
-                    GestureShortcutAltGrToggle.IsChecked = (modifiers & DispatchModifierFlags.RightAlt) != 0;
-                    GestureShortcutWinToggle.IsChecked = (modifiers & (
-                        DispatchModifierFlags.Meta |
-                        DispatchModifierFlags.LeftMeta |
-                        DispatchModifierFlags.RightMeta)) != 0;
+                    ApplyShortcutModifierState(GestureShortcutCtrlToggle, modifiers);
+                    ApplyShortcutModifierState(GestureShortcutShiftToggle, modifiers);
+                    ApplyShortcutModifierState(GestureShortcutAltToggle, modifiers);
+                    ApplyShortcutModifierState(GestureShortcutWinToggle, modifiers);
                     GestureShortcutKeyCombo.SelectedValue = keyLabel;
                 }
                 else
@@ -1128,35 +1362,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             RefreshGestureShortcutEditorUi();
             return;
-        }
-
-        if (ReferenceEquals(sender, GestureShortcutAltToggle) &&
-            GestureShortcutAltToggle.IsChecked == true &&
-            GestureShortcutAltGrToggle.IsChecked == true)
-        {
-            _suppressGestureShortcutEditorEvents = true;
-            try
-            {
-                GestureShortcutAltGrToggle.IsChecked = false;
-            }
-            finally
-            {
-                _suppressGestureShortcutEditorEvents = false;
-            }
-        }
-        else if (ReferenceEquals(sender, GestureShortcutAltGrToggle) &&
-                 GestureShortcutAltGrToggle.IsChecked == true &&
-                 GestureShortcutAltToggle.IsChecked == true)
-        {
-            _suppressGestureShortcutEditorEvents = true;
-            try
-            {
-                GestureShortcutAltToggle.IsChecked = false;
-            }
-            finally
-            {
-                _suppressGestureShortcutEditorEvents = false;
-            }
         }
 
         ClearAppLauncherEditorState();
@@ -1190,30 +1395,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         DispatchModifierFlags modifiers = DispatchModifierFlags.None;
-        if (GestureShortcutCtrlToggle.IsChecked == true)
-        {
-            modifiers |= DispatchModifierFlags.Ctrl;
-        }
-
-        if (GestureShortcutShiftToggle.IsChecked == true)
-        {
-            modifiers |= DispatchModifierFlags.Shift;
-        }
-
-        if (GestureShortcutAltToggle.IsChecked == true)
-        {
-            modifiers |= DispatchModifierFlags.Alt;
-        }
-
-        if (GestureShortcutAltGrToggle.IsChecked == true)
-        {
-            modifiers |= DispatchModifierFlags.RightAlt;
-        }
-
-        if (GestureShortcutWinToggle.IsChecked == true)
-        {
-            modifiers |= DispatchModifierFlags.Meta;
-        }
+        AppendShortcutModifierFlag(GestureShortcutCtrlToggle, ref modifiers);
+        AppendShortcutModifierFlag(GestureShortcutShiftToggle, ref modifiers);
+        AppendShortcutModifierFlag(GestureShortcutAltToggle, ref modifiers);
+        AppendShortcutModifierFlag(GestureShortcutWinToggle, ref modifiers);
 
         return modifiers == DispatchModifierFlags.None
             ? string.Empty
@@ -1256,11 +1441,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ClearGestureShortcutEditorState()
     {
-        GestureShortcutCtrlToggle.IsChecked = false;
-        GestureShortcutShiftToggle.IsChecked = false;
-        GestureShortcutAltToggle.IsChecked = false;
-        GestureShortcutAltGrToggle.IsChecked = false;
-        GestureShortcutWinToggle.IsChecked = false;
+        ResetShortcutModifierState(GestureShortcutCtrlToggle);
+        ResetShortcutModifierState(GestureShortcutShiftToggle);
+        ResetShortcutModifierState(GestureShortcutAltToggle);
+        ResetShortcutModifierState(GestureShortcutWinToggle);
         GestureShortcutKeyCombo.SelectedItem = null;
     }
 
@@ -5058,6 +5242,62 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         public string Value { get; }
         public string Display { get; }
         public string Group { get; }
+    }
+
+    private enum ShortcutModifierVariant : byte
+    {
+        Generic = 0,
+        Left = 1,
+        Right = 2
+    }
+
+    private sealed class ShortcutModifierSpec
+    {
+        public ShortcutModifierSpec(
+            ToggleButton button,
+            string genericLabel,
+            string leftLabel,
+            string rightLabel,
+            DispatchModifierFlags genericFlag,
+            DispatchModifierFlags leftFlag,
+            DispatchModifierFlags rightFlag)
+        {
+            Button = button;
+            GenericLabel = genericLabel;
+            LeftLabel = leftLabel;
+            RightLabel = rightLabel;
+            GenericFlag = genericFlag;
+            LeftFlag = leftFlag;
+            RightFlag = rightFlag;
+        }
+
+        public ToggleButton Button { get; }
+        public string GenericLabel { get; }
+        public string LeftLabel { get; }
+        public string RightLabel { get; }
+        public DispatchModifierFlags GenericFlag { get; }
+        public DispatchModifierFlags LeftFlag { get; }
+        public DispatchModifierFlags RightFlag { get; }
+
+        public string LabelFor(ShortcutModifierVariant variant)
+        {
+            return variant switch
+            {
+                ShortcutModifierVariant.Left => LeftLabel,
+                ShortcutModifierVariant.Right => RightLabel,
+                _ => GenericLabel
+            };
+        }
+
+        public DispatchModifierFlags FlagFor(ShortcutModifierVariant variant)
+        {
+            return variant switch
+            {
+                ShortcutModifierVariant.Left => LeftFlag,
+                ShortcutModifierVariant.Right => RightFlag,
+                _ => GenericFlag
+            };
+        }
     }
 
     private readonly record struct DecoderProfileOption(TrackpadDecoderProfile? Profile, string Label)
