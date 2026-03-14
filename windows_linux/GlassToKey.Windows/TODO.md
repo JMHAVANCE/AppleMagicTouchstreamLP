@@ -1,5 +1,6 @@
 ## Current:
-- independent column scale for x and y. (Starts "linked" but you can "break the chain" like in photoshop)
+- Can we change "Column Scale (%)" into 2 fields: Column Scale X% and Column Scale Y%?
+- Aside from the physical deminsions of MX and Choc keycaps, they also have a physical space between them that I want those buttons to default. Please look up those deminsions online!
 ---
 - Can we add 3-finger tap? this one should be easy to differentiate between typing fast, right? (Do you need an .atpcap?)
 ---

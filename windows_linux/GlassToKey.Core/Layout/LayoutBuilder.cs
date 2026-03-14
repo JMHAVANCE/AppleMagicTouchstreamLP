@@ -67,12 +67,6 @@ public static class LayoutBuilder
             ? columnSettings
             : ColumnLayoutDefaults.DefaultSettings(columns);
 
-        double[] columnScales = new double[columns];
-        for (int i = 0; i < columns; i++)
-        {
-            columnScales[i] = settings[i].Scale;
-        }
-
         PointMm[] adjustedAnchors = preset.ColumnAnchorsMm;
         double spacingXmm = keyWidthMm * (Math.Clamp(keySpacingPercent, 0.0, 200.0) / 100.0);
         double spacingYmm = keyHeightMm * (Math.Clamp(keySpacingPercent, 0.0, 200.0) / 100.0);
@@ -84,9 +78,8 @@ public static class LayoutBuilder
             for (int col = 0; col < columns; col++)
             {
                 PointMm anchor = adjustedAnchors[col];
-                double scale = columnScales[col];
-                double widthMm = keyWidthMm * scale;
-                double heightMm = keyHeightMm * scale;
+                double widthMm = keyWidthMm * settings[col].ScaleX;
+                double heightMm = keyHeightMm * settings[col].ScaleY;
                 double rowSpacing = heightMm * (settings[col].RowSpacingPercent / 100.0);
                 double xMm = anchor.X;
                 double yMm = anchor.Y + row * (heightMm + rowSpacing + spacingYmm);

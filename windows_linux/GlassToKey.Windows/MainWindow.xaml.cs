@@ -987,7 +987,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             KeyPaddingBox,
             AutocorrectBlacklistBox,
             AutocorrectOverridesBox,
-            ColumnScaleBox,
+            ColumnScaleXBox,
+            ColumnScaleYBox,
             ColumnOffsetXBox,
             ColumnOffsetYBox,
             ColumnRotationBox
@@ -1603,7 +1604,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             {
                 ColumnLayoutSettings item = source[c];
                 list.Add(new ColumnLayoutSettings(
-                    scale: item.Scale,
+                    scaleX: item.ScaleX,
+                    scaleY: item.ScaleY,
                     offsetXPercent: item.OffsetXPercent,
                     offsetYPercent: item.OffsetYPercent,
                     rowSpacingPercent: item.RowSpacingPercent,
@@ -1623,7 +1625,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             {
                 ColumnLayoutSettings item = activeList[i];
                 snapshot.ColumnSettings.Add(new ColumnLayoutSettings(
-                    scale: item.Scale,
+                    scaleX: item.ScaleX,
+                    scaleY: item.ScaleY,
                     offsetXPercent: item.OffsetXPercent,
                     offsetYPercent: item.OffsetYPercent,
                     rowSpacingPercent: item.RowSpacingPercent,
@@ -1938,7 +1941,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         bool allowsColumnSettings = _preset.AllowsColumnSettings;
         ColumnLayoutColumnCombo.IsEnabled = allowsColumnSettings;
-        ColumnScaleBox.IsEnabled = allowsColumnSettings;
+        ColumnScaleXBox.IsEnabled = allowsColumnSettings;
+        ColumnScaleYBox.IsEnabled = allowsColumnSettings;
         ColumnOffsetXBox.IsEnabled = allowsColumnSettings;
         ColumnOffsetYBox.IsEnabled = allowsColumnSettings;
         ColumnRotationBox.IsEnabled = allowsColumnSettings;
@@ -1969,8 +1973,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         if (!_preset.AllowsColumnSettings)
         {
-            ColumnScaleBox.Text = FormatNumber(_preset.FixedKeyScale * 100.0);
-            ColumnScaleBox.ToolTip = "Fixed layout scale.";
+            ColumnScaleXBox.Text = FormatNumber(_preset.FixedKeyScale * 100.0);
+            ColumnScaleYBox.Text = FormatNumber(_preset.FixedKeyScale * 100.0);
+            ColumnScaleXBox.ToolTip = "Fixed layout X scale.";
+            ColumnScaleYBox.ToolTip = "Fixed layout Y scale.";
             ColumnOffsetXBox.Text = "0";
             ColumnOffsetYBox.Text = "0";
             ColumnRotationBox.Text = "0";
@@ -1980,20 +1986,27 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         int col = ColumnLayoutColumnCombo.SelectedIndex;
         if (col < 0 || col >= _columnSettings.Length)
         {
-            ColumnScaleBox.Text = "100";
-            ColumnScaleBox.ToolTip = null;
+            ColumnScaleXBox.Text = "100";
+            ColumnScaleYBox.Text = "100";
+            ColumnScaleXBox.ToolTip = null;
+            ColumnScaleYBox.ToolTip = null;
             ColumnOffsetXBox.Text = "0";
             ColumnOffsetYBox.Text = "0";
             ColumnRotationBox.Text = "0";
             return;
         }
 
-        double maxScale = RuntimeConfigurationFactory.GetMaxColumnScaleForPreset(_preset);
+        double maxScaleX = RuntimeConfigurationFactory.GetMaxColumnScaleXForPreset(_preset);
+        double maxScaleY = RuntimeConfigurationFactory.GetMaxColumnScaleYForPreset(_preset);
         ColumnLayoutSettings settings = _columnSettings[col];
-        ColumnScaleBox.Text = FormatNumber(settings.Scale * 100.0);
-        ColumnScaleBox.ToolTip =
-            $"Scale range: {FormatNumber(RuntimeConfigurationFactory.MinColumnScale * 100.0)}% - {FormatNumber(maxScale * 100.0)}% " +
-            "(based on Magic Trackpad 2 dimensions 160.0mm x 114.9mm).";
+        ColumnScaleXBox.Text = FormatNumber(settings.ScaleX * 100.0);
+        ColumnScaleYBox.Text = FormatNumber(settings.ScaleY * 100.0);
+        ColumnScaleXBox.ToolTip =
+            $"Scale range: {FormatNumber(RuntimeConfigurationFactory.MinColumnScale * 100.0)}% - {FormatNumber(maxScaleX * 100.0)}% " +
+            "(based on Magic Trackpad 2 width 160.0mm).";
+        ColumnScaleYBox.ToolTip =
+            $"Scale range: {FormatNumber(RuntimeConfigurationFactory.MinColumnScale * 100.0)}% - {FormatNumber(maxScaleY * 100.0)}% " +
+            "(based on Magic Trackpad 2 height 114.9mm and preset row count).";
         ColumnOffsetXBox.Text = FormatNumber(settings.OffsetXPercent);
         ColumnOffsetYBox.Text = FormatNumber(settings.OffsetYPercent);
         ColumnRotationBox.Text = FormatNumber(settings.RotationDegrees);
@@ -2024,16 +2037,25 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         ColumnLayoutSettings target = _columnSettings[selectedColumn];
-        double maxScale = RuntimeConfigurationFactory.GetMaxColumnScaleForPreset(_preset);
-        double nextScalePercent = ReadDouble(ColumnScaleBox, target.Scale * 100.0);
-        double nextScale = Math.Clamp(nextScalePercent / 100.0, RuntimeConfigurationFactory.MinColumnScale, maxScale);
+        double maxScaleX = RuntimeConfigurationFactory.GetMaxColumnScaleXForPreset(_preset);
+        double maxScaleY = RuntimeConfigurationFactory.GetMaxColumnScaleYForPreset(_preset);
+        double nextScaleXPercent = ReadDouble(ColumnScaleXBox, target.ScaleX * 100.0);
+        double nextScaleYPercent = ReadDouble(ColumnScaleYBox, target.ScaleY * 100.0);
+        double nextScaleX = Math.Clamp(nextScaleXPercent / 100.0, RuntimeConfigurationFactory.MinColumnScale, maxScaleX);
+        double nextScaleY = Math.Clamp(nextScaleYPercent / 100.0, RuntimeConfigurationFactory.MinColumnScale, maxScaleY);
         double nextOffsetX = ReadDouble(ColumnOffsetXBox, target.OffsetXPercent);
         double nextOffsetY = ReadDouble(ColumnOffsetYBox, target.OffsetYPercent);
         double nextRotation = Math.Clamp(ReadDouble(ColumnRotationBox, target.RotationDegrees), 0.0, 360.0);
 
-        if (Math.Abs(nextScale - target.Scale) > 0.00001)
+        if (Math.Abs(nextScaleX - target.ScaleX) > 0.00001)
         {
-            target.Scale = nextScale;
+            target.ScaleX = nextScaleX;
+            changed = true;
+        }
+
+        if (Math.Abs(nextScaleY - target.ScaleY) > 0.00001)
+        {
+            target.ScaleY = nextScaleY;
             changed = true;
         }
 
@@ -2055,7 +2077,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             changed = true;
         }
 
-        ColumnScaleBox.Text = FormatNumber(target.Scale * 100.0);
+        ColumnScaleXBox.Text = FormatNumber(target.ScaleX * 100.0);
+        ColumnScaleYBox.Text = FormatNumber(target.ScaleY * 100.0);
         ColumnOffsetXBox.Text = FormatNumber(target.OffsetXPercent);
         ColumnOffsetYBox.Text = FormatNumber(target.OffsetYPercent);
         ColumnRotationBox.Text = FormatNumber(target.RotationDegrees);
