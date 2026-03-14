@@ -130,6 +130,28 @@ internal static class SelfTestRunner
             return false;
         }
 
+        if (!WindowsVirtualKeyMapper.TryMapSemanticCode(DispatchSemanticCode.Up, out ushort upKey) ||
+            upKey != 0x26 ||
+            !WindowsVirtualKeyMapper.IsExtendedVirtualKey(upKey))
+        {
+            failure = "Up did not map to an extended navigation virtual key";
+            return false;
+        }
+
+        if (!WindowsVirtualKeyMapper.TryMapSemanticCode(DispatchSemanticCode.Left, out ushort leftKey) ||
+            leftKey != 0x25 ||
+            !WindowsVirtualKeyMapper.IsExtendedVirtualKey(leftKey))
+        {
+            failure = "Left did not map to an extended navigation virtual key";
+            return false;
+        }
+
+        if (!WindowsVirtualKeyMapper.IsExtendedVirtualKey(rightMetaKey))
+        {
+            failure = "RightMeta should be treated as an extended virtual key";
+            return false;
+        }
+
         if (!DispatchKeyResolver.TryResolveModifierVirtualKey("Win", out ushort winKey) ||
             winKey != 0x5B)
         {

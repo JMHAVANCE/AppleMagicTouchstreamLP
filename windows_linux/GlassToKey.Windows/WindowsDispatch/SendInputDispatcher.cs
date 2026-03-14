@@ -826,7 +826,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         }
 
         uint prefix = (mapped >> 8) & 0xFF;
-        extended = prefix is 0xE0 or 0xE1;
+        extended = prefix is 0xE0 or 0xE1 || WindowsVirtualKeyMapper.IsExtendedVirtualKey(virtualKey);
         return true;
     }
 
