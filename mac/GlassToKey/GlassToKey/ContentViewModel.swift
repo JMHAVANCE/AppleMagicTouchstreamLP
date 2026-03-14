@@ -202,7 +202,7 @@ enum ShortcutModifierToken: String, CaseIterable, Hashable, Codable {
             return .control
         case "shift":
             return .shift
-        case "alt", "option":
+        case "option":
             return .option
         case "cmd", "command", "meta", "super", "win":
             return .command
@@ -2105,7 +2105,6 @@ enum KeyActionCatalog {
                 "+",
                 "=",
                 "`",
-                "EmDash",
                 "—"
             ])
         ]
@@ -2170,10 +2169,6 @@ enum KeyActionCatalog {
             normalizedLabel = brightnessUpLabel
         case "BRIGHT_DOWN":
             normalizedLabel = brightnessDownLabel
-        case "Alt":
-            normalizedLabel = "Option"
-        case "LWin", "RWin":
-            normalizedLabel = "Cmd"
         case "EmDash":
             normalizedLabel = "—"
         default:
