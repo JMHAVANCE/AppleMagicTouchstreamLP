@@ -3433,14 +3433,19 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return 0.0;
         }
 
+        double scaleX = keyWidthMm / KeyWidthMm;
+        if (Math.Abs(scaleX - 1.0) < 0.00001)
+        {
+            return 0.0;
+        }
+
         double[] targetAnchorsMm = new double[anchors.Length];
         targetAnchorsMm[0] = anchors[0].X;
 
         for (int i = 1; i < anchors.Length; i++)
         {
             double baseGapMm = anchors[i].X - anchors[i - 1].X;
-            double baseExtraGapMm = baseGapMm - KeyWidthMm;
-            double desiredGapMm = baseExtraGapMm + keyWidthMm + (keyWidthMm * spacingScale);
+            double desiredGapMm = (baseGapMm * scaleX) + (keyWidthMm * spacingScale);
             targetAnchorsMm[i] = targetAnchorsMm[i - 1] + desiredGapMm;
         }
 

@@ -1,7 +1,4 @@
 ## Current:
-- If user clicks "mx size" can you scale the spacing to physical mx spacing? (base/choc spacing looks good!)
-- Can we change it from "mx size" and "choc size" to "mx spacing" and "choc spacing"
----
 - If you click and old "Shift" it shows "left shift, right shift" options to pick from!, same with ctrl, win (and alt?)
 ---
 - Can we add 3-finger tap? this one should be easy to differentiate between typing fast, right? (Do you need an .atpcap?)
