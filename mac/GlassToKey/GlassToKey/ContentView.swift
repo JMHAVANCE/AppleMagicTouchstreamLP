@@ -2046,6 +2046,18 @@ struct ContentView: View {
             clearShortcutBuilderState()
         }
 
+        private func highlightedSectionLabel(_ title: String) -> some View {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(Color.accentColor.opacity(0.12))
+                )
+        }
+
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
                 EqualSplitFormRow {
@@ -2060,9 +2072,6 @@ struct ContentView: View {
                     .labelsHidden()
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                Text("Select a button or key on the trackpad to edit.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                 EqualSplitFormRow {
                     Text("Primary Action")
                 } field: {
@@ -2098,9 +2107,7 @@ struct ContentView: View {
                     .disabled(!hasEditableSelection)
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Shortcut Builder")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    highlightedSectionLabel("Shortcut Builder")
                     Picker("", selection: $actionBuilderTarget) {
                         ForEach(ActionBuilderTarget.allCases) { target in
                             Text(target.rawValue).tag(target)
@@ -2174,9 +2181,7 @@ struct ContentView: View {
                         showSlider: false
                     )
                 }
-                Text("Custom Buttons")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                highlightedSectionLabel("Custom Buttons")
                 addButtonsRow
                 if let selection = buttonSelection {
                     VStack(alignment: .leading, spacing: 6) {
