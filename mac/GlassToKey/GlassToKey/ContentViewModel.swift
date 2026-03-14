@@ -9,6 +9,7 @@ import Carbon
 import CoreGraphics
 import Darwin
 import Foundation
+import IOKit.hidsystem
 import OpenMultitouchSupport
 import OpenMultitouchSupportXCF
 import QuartzCore
@@ -26,6 +27,16 @@ typealias LayeredKeyMappings = [Int: [String: KeyMapping]]
 typealias LayoutLayeredKeyMappings = [String: LayeredKeyMappings]
 typealias KeyGeometryOverrides = [String: KeyGeometryOverride]
 typealias LayoutKeyGeometryOverrides = [String: KeyGeometryOverrides]
+
+enum KeyboardModifierFlags {
+    // macOS exposes right Option as a distinct device-side modifier bit.
+    static let leftOption = CGEventFlags.maskAlternate.union(
+        CGEventFlags(rawValue: UInt64(NX_DEVICELALTKEYMASK))
+    )
+    static let rightOption = CGEventFlags.maskAlternate.union(
+        CGEventFlags(rawValue: UInt64(NX_DEVICERALTKEYMASK))
+    )
+}
 
 enum KeyLayerConfig {
     static let baseLayer = 0
@@ -179,9 +190,10 @@ enum ShortcutModifierToken: String, CaseIterable, Hashable, Codable {
     case control = "Ctrl"
     case shift = "Shift"
     case option = "Option"
+    case altGr = "AltGr"
     case command = "Cmd"
 
-    static let ordered: [ShortcutModifierToken] = [.control, .shift, .option, .command]
+    static let ordered: [ShortcutModifierToken] = [.control, .shift, .option, .altGr, .command]
 
     var flags: CGEventFlags {
         switch self {
@@ -190,7 +202,9 @@ enum ShortcutModifierToken: String, CaseIterable, Hashable, Codable {
         case .shift:
             return .maskShift
         case .option:
-            return .maskAlternate
+            return KeyboardModifierFlags.leftOption
+        case .altGr:
+            return KeyboardModifierFlags.rightOption
         case .command:
             return .maskCommand
         }
@@ -202,8 +216,10 @@ enum ShortcutModifierToken: String, CaseIterable, Hashable, Codable {
             return .control
         case "shift":
             return .shift
-        case "option":
+        case "option", "alt":
             return .option
+        case "altgr", "alt gr", "right option", "right-option", "rightoption", "ralt":
+            return .altGr
         case "cmd", "command", "meta", "super", "win":
             return .command
         default:
@@ -1707,6 +1723,7 @@ enum LayoutCustomButtonStorage {
 }
 
 enum KeyActionCatalog {
+    static let altGrLabel = "AltGr"
     static let voiceLabel = "Voice"
     static let typingToggleLabel = "Typing Toggle"
     static let typingToggleDisplayLabel = "Typing\nToggle"
@@ -1818,7 +1835,8 @@ enum KeyActionCatalog {
         "E": (CGKeyCode(kVK_ANSI_E), []),
         "R": (CGKeyCode(kVK_ANSI_R), []),
         "T": (CGKeyCode(kVK_ANSI_T), []),
-        "Option": (CGKeyCode(kVK_Option), []),
+        "Option": (CGKeyCode(kVK_Option), KeyboardModifierFlags.leftOption),
+        altGrLabel: (CGKeyCode(kVK_RightOption), KeyboardModifierFlags.rightOption),
         "Shift": (CGKeyCode(kVK_Shift), []),
         "A": (CGKeyCode(kVK_ANSI_A), []),
         "S": (CGKeyCode(kVK_ANSI_S), []),
@@ -2066,6 +2084,7 @@ enum KeyActionCatalog {
                 "Shift",
                 "Ctrl",
                 "Option",
+                altGrLabel,
                 "Cmd",
                 "Emoji",
                 voiceLabel,
@@ -2161,6 +2180,8 @@ enum KeyActionCatalog {
             normalizedLabel = "Emoji"
         case "VOICE":
             normalizedLabel = voiceLabel
+        case "Right Option", "RightOption", "RAlt":
+            normalizedLabel = altGrLabel
         case "VOL_UP":
             normalizedLabel = volumeUpLabel
         case "VOL_DOWN":
