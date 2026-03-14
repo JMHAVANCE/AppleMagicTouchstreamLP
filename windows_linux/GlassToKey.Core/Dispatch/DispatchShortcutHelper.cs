@@ -251,6 +251,14 @@ public static class DispatchShortcutHelper
 
     public static string FormatShortcut(DispatchModifierFlags modifiers, string keyLabel)
     {
+        return FormatShortcut(modifiers, keyLabel, ShortcutDisplayConvention.Windows);
+    }
+
+    public static string FormatShortcut(
+        DispatchModifierFlags modifiers,
+        string keyLabel,
+        ShortcutDisplayConvention convention)
+    {
         if (string.IsNullOrWhiteSpace(keyLabel))
         {
             return string.Empty;
@@ -266,7 +274,7 @@ public static class DispatchShortcutHelper
                 continue;
             }
 
-            string label = ToDisplayLabel(flag);
+            string label = ToDisplayLabel(flag, convention);
             if (!string.IsNullOrEmpty(label))
             {
                 parts[count++] = label;
@@ -286,6 +294,43 @@ public static class DispatchShortcutHelper
 
         materialized[count] = keyLabel.Trim();
         return string.Join("+", materialized);
+    }
+
+    public static string GetModifierDisplayLabel(
+        DispatchModifierFlags flag,
+        ShortcutDisplayConvention convention = ShortcutDisplayConvention.Windows)
+    {
+        return ToDisplayLabel(flag, convention);
+    }
+
+    public static bool TryFormatActionDisplayLabel(
+        string action,
+        ShortcutDisplayConvention convention,
+        out string formatted)
+    {
+        formatted = string.Empty;
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            return false;
+        }
+
+        if (TryReadShortcut(action, out DispatchModifierFlags modifiers, out string keyLabel))
+        {
+            formatted = FormatShortcut(modifiers, keyLabel, convention);
+            return true;
+        }
+
+        if (DispatchSemanticResolver.TryResolveModifierCode(action, out DispatchSemanticCode modifierCode))
+        {
+            DispatchModifierFlags flag = ToModifierFlag(modifierCode);
+            if (flag != DispatchModifierFlags.None)
+            {
+                formatted = GetModifierDisplayLabel(flag, convention);
+                return !string.IsNullOrEmpty(formatted);
+            }
+        }
+
+        return false;
     }
 
     public static DispatchModifierFlags ToModifierFlag(DispatchSemanticCode code)
@@ -328,7 +373,7 @@ public static class DispatchShortcutHelper
         };
     }
 
-    private static string ToDisplayLabel(DispatchModifierFlags flag)
+    private static string ToDisplayLabel(DispatchModifierFlags flag, ShortcutDisplayConvention convention)
     {
         return flag switch
         {
@@ -341,9 +386,9 @@ public static class DispatchShortcutHelper
             DispatchModifierFlags.Alt => "Alt",
             DispatchModifierFlags.LeftAlt => "LeftAlt",
             DispatchModifierFlags.RightAlt => "AltGr",
-            DispatchModifierFlags.Meta => "Win",
-            DispatchModifierFlags.LeftMeta => "LeftWin",
-            DispatchModifierFlags.RightMeta => "RightWin",
+            DispatchModifierFlags.Meta => convention == ShortcutDisplayConvention.Linux ? "Super" : "Win",
+            DispatchModifierFlags.LeftMeta => convention == ShortcutDisplayConvention.Linux ? "LeftSuper" : "LeftWin",
+            DispatchModifierFlags.RightMeta => convention == ShortcutDisplayConvention.Linux ? "RightSuper" : "RightWin",
             _ => string.Empty
         };
     }

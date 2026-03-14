@@ -115,19 +115,24 @@ internal static class DispatchKeyResolver
         }
 
         if (label.Equals("Win", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("Meta", StringComparison.OrdinalIgnoreCase))
+            label.Equals("Meta", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("Super", StringComparison.OrdinalIgnoreCase))
         {
             virtualKey = 0x5B;
             return true;
         }
 
-        if (label.Equals("LWin", StringComparison.OrdinalIgnoreCase))
+        if (label.Equals("LWin", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("LSuper", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("LeftSuper", StringComparison.OrdinalIgnoreCase))
         {
             virtualKey = 0x5B;
             return true;
         }
 
-        if (label.Equals("RWin", StringComparison.OrdinalIgnoreCase))
+        if (label.Equals("RWin", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("RSuper", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("RightSuper", StringComparison.OrdinalIgnoreCase))
         {
             virtualKey = 0x5C;
             return true;

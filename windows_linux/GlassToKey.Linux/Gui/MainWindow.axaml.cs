@@ -71,6 +71,8 @@ public partial class MainWindow : Window
     private readonly Button _keymapClearSelectionButton;
     private readonly Button _columnAutoSplayButton;
     private readonly Button _columnEvenSpaceButton;
+    private readonly Button _mxSpacingButton;
+    private readonly Button _chocSpacingButton;
     private readonly TextBlock _keymapSelectionText;
     private readonly TextBlock _autocorrectRuntimeStateText;
     private readonly TextBlock _autocorrectLastCorrectedValueText;
@@ -111,9 +113,12 @@ public partial class MainWindow : Window
     private readonly Canvas _leftPreviewCanvas;
     private readonly Canvas _rightPreviewCanvas;
     private readonly DispatcherTimer _replayTimer;
+    private readonly DispatcherTimer _shortcutModifierHoldTimer;
     private List<KeyActionChoice> _keyActionChoices = BuildKeyActionChoices();
     private readonly List<ShortcutKeyChoice> _shortcutKeyChoices = BuildShortcutKeyChoices();
     private HashSet<string> _keyActionChoiceLookup = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<ToggleButton, ShortcutModifierSpec> _shortcutModifierSpecsByButton = new();
+    private readonly Dictionary<ToggleButton, ShortcutModifierVariant> _shortcutModifierVariantsByButton = new();
     private readonly Dictionary<string, TextBox> _typingTuningTextBoxes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Slider> _typingTuningSliders = new(StringComparer.Ordinal);
     private readonly Dictionary<string, TextBlock> _typingTuningSliderValueTexts = new(StringComparer.Ordinal);
@@ -133,6 +138,7 @@ public partial class MainWindow : Window
     private bool _suppressReplaySpeedEvents;
     private bool _hasSelectedKey;
     private bool _hasSelectedCustomButton;
+    private ToggleButton? _shortcutModifierPressedButton;
     private TrackpadSide _selectedKeySide = TrackpadSide.Left;
     private int _selectedKeyRow = -1;
     private int _selectedKeyColumn = -1;
@@ -204,6 +210,8 @@ public partial class MainWindow : Window
         _keymapClearSelectionButton = RequireControl<Button>("KeymapClearSelectionButton");
         _columnAutoSplayButton = RequireControl<Button>("ColumnAutoSplayButton");
         _columnEvenSpaceButton = RequireControl<Button>("ColumnEvenSpaceButton");
+        _mxSpacingButton = RequireControl<Button>("MxSpacingButton");
+        _chocSpacingButton = RequireControl<Button>("ChocSpacingButton");
         _keymapSelectionText = RequireControl<TextBlock>("KeymapSelectionText");
         _autocorrectRuntimeStateText = RequireControl<TextBlock>("AutocorrectRuntimeStateText");
         _autocorrectLastCorrectedValueText = RequireControl<TextBlock>("AutocorrectLastCorrectedValueText");
@@ -250,8 +258,14 @@ public partial class MainWindow : Window
         {
             Interval = TimeSpan.FromMilliseconds(8)
         };
+        _shortcutModifierHoldTimer = new DispatcherTimer(DispatcherPriority.Input)
+        {
+            Interval = TimeSpan.FromMilliseconds(400)
+        };
+        _shortcutModifierHoldTimer.Tick += OnShortcutModifierHoldTimerTick;
         BuildTypingTuningControls();
         BuildGestureControls();
+        InitializeShortcutModifierButtons();
         InitializeGestureShortcutEditor();
         _desktopRuntime.PreviewSnapshotChanged += OnPreviewSnapshotChanged;
         _desktopRuntime.RuntimeSnapshotChanged += OnRuntimeSnapshotChanged;
@@ -611,6 +625,8 @@ public partial class MainWindow : Window
         _columnRotationBox.KeyDown += OnColumnLayoutKeyDown;
         _columnAutoSplayButton.Click += OnColumnAutoSplayClick;
         _columnEvenSpaceButton.Click += OnColumnEvenSpaceClick;
+        _mxSpacingButton.Click += OnMxSpacingClick;
+        _chocSpacingButton.Click += OnChocSpacingClick;
         _leftPreviewCanvas.PointerPressed += OnLeftPreviewPointerPressed;
         _rightPreviewCanvas.PointerPressed += OnRightPreviewPointerPressed;
         _keymapLayerCombo.SelectionChanged += OnKeymapLayerSelectionChanged;
@@ -1005,6 +1021,204 @@ public partial class MainWindow : Window
         RefreshGestureShortcutEditorUi();
     }
 
+    private void InitializeShortcutModifierButtons()
+    {
+        RegisterShortcutModifierButton(_gestureShortcutCtrlToggle, ShortcutModifierCatalog.Ctrl);
+        RegisterShortcutModifierButton(_gestureShortcutShiftToggle, ShortcutModifierCatalog.Shift);
+        RegisterShortcutModifierButton(_gestureShortcutAltToggle, ShortcutModifierCatalog.Alt);
+        RegisterShortcutModifierButton(_gestureShortcutWinToggle, ShortcutModifierCatalog.Meta(ShortcutDisplayConvention.Linux));
+    }
+
+    private void RegisterShortcutModifierButton(ToggleButton button, ShortcutModifierSpec spec)
+    {
+        _shortcutModifierSpecsByButton.Add(button, spec);
+        _shortcutModifierVariantsByButton[button] = ShortcutModifierVariant.Generic;
+        ToolTip.SetTip(button, "Click to toggle. Hold to choose general, left, or right.");
+        button.ContextMenu = BuildShortcutModifierContextMenu(button);
+        button.PointerPressed += OnShortcutModifierPointerPressed;
+        button.PointerReleased += OnShortcutModifierPointerReleased;
+        button.PointerCaptureLost += OnShortcutModifierPointerCaptureLost;
+        UpdateShortcutModifierButtonContent(button);
+    }
+
+    private ContextMenu BuildShortcutModifierContextMenu(ToggleButton button)
+    {
+        ContextMenu menu = new();
+        menu.Opened += OnShortcutModifierContextMenuOpened;
+        menu.Items.Add(BuildShortcutModifierMenuItem(button, ShortcutModifierVariant.Generic));
+        menu.Items.Add(BuildShortcutModifierMenuItem(button, ShortcutModifierVariant.Left));
+        menu.Items.Add(BuildShortcutModifierMenuItem(button, ShortcutModifierVariant.Right));
+        return menu;
+    }
+
+    private MenuItem BuildShortcutModifierMenuItem(ToggleButton button, ShortcutModifierVariant variant)
+    {
+        MenuItem item = new()
+        {
+            Tag = new ShortcutModifierMenuTag(button, variant)
+        };
+        item.Click += OnShortcutModifierMenuItemClick;
+        return item;
+    }
+
+    private void OnShortcutModifierPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not ToggleButton button ||
+            !_shortcutModifierSpecsByButton.ContainsKey(button) ||
+            !e.GetCurrentPoint(button).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        _shortcutModifierPressedButton = button;
+        _shortcutModifierHoldTimer.Stop();
+        _shortcutModifierHoldTimer.Start();
+        e.Pointer.Capture(button);
+        e.Handled = true;
+    }
+
+    private void OnShortcutModifierPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (sender is not ToggleButton button ||
+            !ReferenceEquals(_shortcutModifierPressedButton, button))
+        {
+            return;
+        }
+
+        _shortcutModifierHoldTimer.Stop();
+        _shortcutModifierPressedButton = null;
+        if (e.Pointer.Captured == button)
+        {
+            e.Pointer.Capture(null);
+        }
+
+        if (button.IsPointerOver)
+        {
+            button.IsChecked = button.IsChecked != true;
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnShortcutModifierPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (sender is ToggleButton button &&
+            ReferenceEquals(_shortcutModifierPressedButton, button))
+        {
+            _shortcutModifierHoldTimer.Stop();
+            _shortcutModifierPressedButton = null;
+        }
+    }
+
+    private void OnShortcutModifierHoldTimerTick(object? sender, EventArgs e)
+    {
+        _shortcutModifierHoldTimer.Stop();
+        ToggleButton? button = _shortcutModifierPressedButton;
+        if (button?.ContextMenu == null ||
+            !_shortcutModifierSpecsByButton.ContainsKey(button))
+        {
+            return;
+        }
+
+        _shortcutModifierPressedButton = null;
+        button.ContextMenu.Open(button);
+    }
+
+    private void OnShortcutModifierContextMenuOpened(object? sender, EventArgs e)
+    {
+        if (sender is not ContextMenu menu)
+        {
+            return;
+        }
+
+        foreach (object? item in menu.Items)
+        {
+            if (item is not MenuItem menuItem ||
+                menuItem.Tag is not ShortcutModifierMenuTag tag ||
+                !_shortcutModifierSpecsByButton.TryGetValue(tag.Button, out ShortcutModifierSpec? spec))
+            {
+                continue;
+            }
+
+            ShortcutModifierVariant selectedVariant = GetShortcutModifierVariant(tag.Button);
+            string prefix = tag.Variant == selectedVariant ? "• " : string.Empty;
+            menuItem.Header = $"{prefix}Use {spec.LabelFor(tag.Variant)}";
+        }
+    }
+
+    private void OnShortcutModifierMenuItemClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem item ||
+            item.Tag is not ShortcutModifierMenuTag tag)
+        {
+            return;
+        }
+
+        _suppressGestureShortcutEditorEvents = true;
+        try
+        {
+            SetShortcutModifierState(tag.Button, isChecked: true, tag.Variant);
+        }
+        finally
+        {
+            _suppressGestureShortcutEditorEvents = false;
+        }
+
+        ClearAppLauncherEditorState();
+        UpdateActionBuilderPreview();
+    }
+
+    private void SetShortcutModifierState(ToggleButton button, bool isChecked, ShortcutModifierVariant variant)
+    {
+        _shortcutModifierVariantsByButton[button] = variant;
+        UpdateShortcutModifierButtonContent(button);
+        button.IsChecked = isChecked;
+    }
+
+    private void ResetShortcutModifierState(ToggleButton button)
+    {
+        SetShortcutModifierState(button, isChecked: false, ShortcutModifierVariant.Generic);
+    }
+
+    private ShortcutModifierVariant GetShortcutModifierVariant(ToggleButton button)
+    {
+        return _shortcutModifierVariantsByButton.TryGetValue(button, out ShortcutModifierVariant variant)
+            ? variant
+            : ShortcutModifierVariant.Generic;
+    }
+
+    private void UpdateShortcutModifierButtonContent(ToggleButton button)
+    {
+        if (_shortcutModifierSpecsByButton.TryGetValue(button, out ShortcutModifierSpec? spec))
+        {
+            button.Content = spec.LabelFor(GetShortcutModifierVariant(button));
+        }
+    }
+
+    private void ApplyShortcutModifierState(ToggleButton button, DispatchModifierFlags modifiers)
+    {
+        if (!_shortcutModifierSpecsByButton.TryGetValue(button, out ShortcutModifierSpec? spec))
+        {
+            return;
+        }
+
+        bool hasGeneric = (modifiers & spec.GenericFlag) != 0;
+        bool hasLeft = (modifiers & spec.LeftFlag) != 0;
+        bool hasRight = (modifiers & spec.RightFlag) != 0;
+        SetShortcutModifierState(button, hasGeneric || hasLeft || hasRight, spec.VariantFrom(modifiers));
+    }
+
+    private void AppendShortcutModifierFlag(ToggleButton button, ref DispatchModifierFlags modifiers)
+    {
+        if (button.IsChecked != true ||
+            !_shortcutModifierSpecsByButton.TryGetValue(button, out ShortcutModifierSpec? spec))
+        {
+            return;
+        }
+
+        modifiers |= spec.FlagFor(GetShortcutModifierVariant(button));
+    }
+
     private void RefreshGestureShortcutEditorUi()
     {
         _suppressGestureShortcutEditorEvents = true;
@@ -1027,22 +1241,10 @@ public partial class MainWindow : Window
                 else if (DispatchShortcutHelper.TryReadShortcut(selectedAction, out DispatchModifierFlags modifiers, out string keyLabel))
                 {
                     _appLauncherFileBox.Text = string.Empty;
-                    _gestureShortcutCtrlToggle.IsChecked = (modifiers & (
-                        DispatchModifierFlags.Ctrl |
-                        DispatchModifierFlags.LeftCtrl |
-                        DispatchModifierFlags.RightCtrl)) != 0;
-                    _gestureShortcutShiftToggle.IsChecked = (modifiers & (
-                        DispatchModifierFlags.Shift |
-                        DispatchModifierFlags.LeftShift |
-                        DispatchModifierFlags.RightShift)) != 0;
-                    _gestureShortcutAltToggle.IsChecked = (modifiers & (
-                        DispatchModifierFlags.Alt |
-                        DispatchModifierFlags.LeftAlt |
-                        DispatchModifierFlags.RightAlt)) != 0;
-                    _gestureShortcutWinToggle.IsChecked = (modifiers & (
-                        DispatchModifierFlags.Meta |
-                        DispatchModifierFlags.LeftMeta |
-                        DispatchModifierFlags.RightMeta)) != 0;
+                    ApplyShortcutModifierState(_gestureShortcutCtrlToggle, modifiers);
+                    ApplyShortcutModifierState(_gestureShortcutShiftToggle, modifiers);
+                    ApplyShortcutModifierState(_gestureShortcutAltToggle, modifiers);
+                    ApplyShortcutModifierState(_gestureShortcutWinToggle, modifiers);
                     _gestureShortcutKeyCombo.SelectedItem = SelectShortcutKeyChoice(_shortcutKeyChoices, keyLabel);
                 }
                 else
@@ -1065,6 +1267,12 @@ public partial class MainWindow : Window
     {
         if (_suppressGestureShortcutEditorEvents)
         {
+            return;
+        }
+
+        if (sender is RadioButton)
+        {
+            RefreshGestureShortcutEditorUi();
             return;
         }
 
@@ -1116,29 +1324,14 @@ public partial class MainWindow : Window
         }
 
         DispatchModifierFlags modifiers = DispatchModifierFlags.None;
-        if (_gestureShortcutCtrlToggle.IsChecked == true)
-        {
-            modifiers |= DispatchModifierFlags.Ctrl;
-        }
-
-        if (_gestureShortcutShiftToggle.IsChecked == true)
-        {
-            modifiers |= DispatchModifierFlags.Shift;
-        }
-
-        if (_gestureShortcutAltToggle.IsChecked == true)
-        {
-            modifiers |= DispatchModifierFlags.Alt;
-        }
-
-        if (_gestureShortcutWinToggle.IsChecked == true)
-        {
-            modifiers |= DispatchModifierFlags.Meta;
-        }
+        AppendShortcutModifierFlag(_gestureShortcutCtrlToggle, ref modifiers);
+        AppendShortcutModifierFlag(_gestureShortcutShiftToggle, ref modifiers);
+        AppendShortcutModifierFlag(_gestureShortcutAltToggle, ref modifiers);
+        AppendShortcutModifierFlag(_gestureShortcutWinToggle, ref modifiers);
 
         return modifiers == DispatchModifierFlags.None
             ? string.Empty
-            : DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel);
+            : DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel, ShortcutDisplayConvention.Linux);
     }
 
     private string BuildActionBuilderAction(out string preview)
@@ -1188,10 +1381,10 @@ public partial class MainWindow : Window
 
     private void ClearGestureShortcutEditorState()
     {
-        _gestureShortcutCtrlToggle.IsChecked = false;
-        _gestureShortcutShiftToggle.IsChecked = false;
-        _gestureShortcutAltToggle.IsChecked = false;
-        _gestureShortcutWinToggle.IsChecked = false;
+        ResetShortcutModifierState(_gestureShortcutCtrlToggle);
+        ResetShortcutModifierState(_gestureShortcutShiftToggle);
+        ResetShortcutModifierState(_gestureShortcutAltToggle);
+        ResetShortcutModifierState(_gestureShortcutWinToggle);
         _gestureShortcutKeyCombo.SelectedItem = null;
     }
 
@@ -1388,6 +1581,8 @@ public partial class MainWindow : Window
         _columnRotationBox.IsEnabled = allowsColumnSettings;
         _columnAutoSplayButton.IsEnabled = allowsColumnSettings && ColumnLayoutTuning.IsAutoSplaySupported(preset);
         _columnEvenSpaceButton.IsEnabled = allowsColumnSettings && preset.Columns >= 3;
+        _mxSpacingButton.IsEnabled = allowsColumnSettings;
+        _chocSpacingButton.IsEnabled = allowsColumnSettings;
         _keyPaddingBox.Text = FormatNumber(keyPadding);
 
         int previous = _columnLayoutColumnCombo.SelectedIndex;
@@ -1922,7 +2117,8 @@ public partial class MainWindow : Window
             "Shift",
             "Ctrl",
             "Alt",
-            "Win"
+            "AltGr",
+            "Super"
         };
         for (int i = 0; i < modifiers.Length; i++)
         {
@@ -4452,9 +4648,103 @@ public partial class MainWindow : Window
             return label;
         }
 
+        if (DispatchShortcutHelper.TryFormatActionDisplayLabel(action, ShortcutDisplayConvention.Linux, out string shortcutLabel))
+        {
+            return shortcutLabel;
+        }
+
         return AppLaunchActionHelper.TryParse(action, out _)
             ? AppLaunchActionHelper.GetKeymapDisplayLabel(action)
             : action;
+    }
+
+    private void OnMxSpacingClick(object? sender, RoutedEventArgs e)
+    {
+        ApplyAllKeySizePreset(LayoutKeySizePresetTuning.MxKeyWidthMm, LayoutKeySizePresetTuning.MxKeyHeightMm);
+    }
+
+    private void OnChocSpacingClick(object? sender, RoutedEventArgs e)
+    {
+        ApplyAllKeySizePreset(KeyWidthMm, KeyHeightMm);
+    }
+
+    private void ApplyAllKeySizePreset(double keyWidthMm, double keyHeightMm)
+    {
+        if (IsReplayMode)
+        {
+            return;
+        }
+
+        TrackpadLayoutPreset preset = GetSelectedPreset();
+        LinuxHostSettings settings = _runtime.LoadSettings();
+        settings.LayoutPresetName = preset.Name;
+        settings.SharedProfile ??= UserSettings.LoadBundledDefaultsOrDefault();
+        settings.SharedProfile.LayoutPresetName = preset.Name;
+
+        bool layoutChanged = ApplyColumnLayoutFromUi(settings.SharedProfile, preset);
+        bool sizingChanged = LayoutKeySizePresetTuning.ApplyKeySizePreset(
+            preset,
+            _columnSettings,
+            TrackpadWidthMm,
+            KeyWidthMm,
+            KeyHeightMm,
+            keyWidthMm,
+            keyHeightMm,
+            RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(settings.SharedProfile, preset));
+        bool geometryChanged = ClearKeySizePresetOverrides();
+
+        if (layoutChanged || sizingChanged)
+        {
+            RuntimeConfigurationFactory.SaveColumnSettingsForPreset(settings.SharedProfile, preset, _columnSettings);
+            settings.Normalize();
+            _runtime.SaveSettings(settings);
+        }
+
+        if (geometryChanged && !TryPersistEditedKeymap(out string error))
+        {
+            ShowNoticeDialog("Keymap Save Failed", error);
+            return;
+        }
+
+        if (!layoutChanged && !sizingChanged && !geometryChanged)
+        {
+            return;
+        }
+
+        RenderLayoutsFromCurrentKeymap();
+        EnsureSelectedKeyStillValid();
+        RefreshColumnLayoutEditor();
+        RefreshKeymapEditor();
+        ApplyPreviewSnapshot(_previewSnapshot);
+    }
+
+    private bool ClearKeySizePresetOverrides()
+    {
+        bool changed = false;
+        changed |= ClearKeySizePresetOverridesForLayout(TrackpadSide.Left, _leftRenderedLayout);
+        changed |= ClearKeySizePresetOverridesForLayout(TrackpadSide.Right, _rightRenderedLayout);
+        return changed;
+    }
+
+    private bool ClearKeySizePresetOverridesForLayout(TrackpadSide side, KeyLayout layout)
+    {
+        bool changed = false;
+        for (int row = 0; row < layout.Rects.Length; row++)
+        {
+            for (int column = 0; column < layout.Rects[row].Length; column++)
+            {
+                string storageKey = GridKeyPosition.StorageKey(side, row, column);
+                KeyGeometryOverride geometry = _renderedKeymap.ResolveKeyGeometry(storageKey);
+                if (Math.Abs(geometry.WidthScale - 1.0) > 0.00001 ||
+                    Math.Abs(geometry.HeightScale - 1.0) > 0.00001)
+                {
+                    _renderedKeymap.SetKeyGeometry(storageKey, geometry.RotationDegrees);
+                    changed = true;
+                }
+            }
+        }
+
+        return changed;
     }
 
     private static bool TryGetSpecialActionDisplayLabel(string? action, out string label)
@@ -4665,6 +4955,8 @@ public partial class MainWindow : Window
             return Label;
         }
     }
+
+    private readonly record struct ShortcutModifierMenuTag(ToggleButton Button, ShortcutModifierVariant Variant);
 
     private sealed record ReplaySpeedOption(double Speed, string Label)
     {

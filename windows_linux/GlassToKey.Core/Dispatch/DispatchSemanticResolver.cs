@@ -232,18 +232,23 @@ internal static class DispatchSemanticResolver
                 return true;
             case "LWIN":
             case "LMETA":
+            case "LSUPER":
             case "LEFTWIN":
             case "LEFTMETA":
+            case "LEFTSUPER":
                 code = DispatchSemanticCode.LeftMeta;
                 return true;
             case "RWIN":
             case "RMETA":
+            case "RSUPER":
             case "RIGHTWIN":
             case "RIGHTMETA":
+            case "RIGHTSUPER":
                 code = DispatchSemanticCode.RightMeta;
                 return true;
             case "WIN":
             case "META":
+            case "SUPER":
                 code = DispatchSemanticCode.Meta;
                 return true;
             default:

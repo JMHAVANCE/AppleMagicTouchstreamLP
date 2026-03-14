@@ -369,7 +369,20 @@
                              Grid.Column="1"
                              Margin="12,8,0,0" />
 
-                    <Separator Grid.Row="5"
+                    <Grid Grid.Row="5"
+                          Grid.ColumnSpan="2"
+                          Margin="0,12,0,0"
+                          ColumnDefinitions="*,*">
+                      <Button x:Name="MxSpacingButton"
+                              Margin="0,0,6,0"
+                              Content="mx spacing" />
+                      <Button x:Name="ChocSpacingButton"
+                              Grid.Column="1"
+                              Margin="6,0,0,0"
+                              Content="choc spacing" />
+                    </Grid>
+
+                    <Separator Grid.Row="6"
                                Grid.ColumnSpan="2"
                                Margin="0,8,0,2" />
                     </Grid>
@@ -420,6 +433,12 @@
                                         Classes="shortcutModifierToggle"
                                         Content="Super" />
                         </Grid>
+                        <TextBlock Text="Click to toggle. Hold to choose general, left, or right."
+                                   Foreground="#8FB6CF"
+                                   FontSize="11"
+                                   FontStyle="Italic"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
                         <Grid ColumnDefinitions="Auto,*,Auto">
                           <TextBlock Text="Key"
                                      Classes="shortcutFieldLabel"

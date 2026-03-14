@@ -1071,50 +1071,22 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void InitializeShortcutModifierButtons()
     {
-        RegisterShortcutModifierButton(new ShortcutModifierSpec(
-            GestureShortcutCtrlToggle,
-            genericLabel: "Ctrl",
-            leftLabel: "Left Ctrl",
-            rightLabel: "Right Ctrl",
-            genericFlag: DispatchModifierFlags.Ctrl,
-            leftFlag: DispatchModifierFlags.LeftCtrl,
-            rightFlag: DispatchModifierFlags.RightCtrl));
-        RegisterShortcutModifierButton(new ShortcutModifierSpec(
-            GestureShortcutShiftToggle,
-            genericLabel: "Shift",
-            leftLabel: "Left Shift",
-            rightLabel: "Right Shift",
-            genericFlag: DispatchModifierFlags.Shift,
-            leftFlag: DispatchModifierFlags.LeftShift,
-            rightFlag: DispatchModifierFlags.RightShift));
-        RegisterShortcutModifierButton(new ShortcutModifierSpec(
-            GestureShortcutAltToggle,
-            genericLabel: "Alt",
-            leftLabel: "Left Alt",
-            rightLabel: "AltGr",
-            genericFlag: DispatchModifierFlags.Alt,
-            leftFlag: DispatchModifierFlags.LeftAlt,
-            rightFlag: DispatchModifierFlags.RightAlt));
-        RegisterShortcutModifierButton(new ShortcutModifierSpec(
-            GestureShortcutWinToggle,
-            genericLabel: "Win",
-            leftLabel: "Left Win",
-            rightLabel: "Right Win",
-            genericFlag: DispatchModifierFlags.Meta,
-            leftFlag: DispatchModifierFlags.LeftMeta,
-            rightFlag: DispatchModifierFlags.RightMeta));
+        RegisterShortcutModifierButton(GestureShortcutCtrlToggle, ShortcutModifierCatalog.Ctrl);
+        RegisterShortcutModifierButton(GestureShortcutShiftToggle, ShortcutModifierCatalog.Shift);
+        RegisterShortcutModifierButton(GestureShortcutAltToggle, ShortcutModifierCatalog.Alt);
+        RegisterShortcutModifierButton(GestureShortcutWinToggle, ShortcutModifierCatalog.Meta(ShortcutDisplayConvention.Windows));
     }
 
-    private void RegisterShortcutModifierButton(ShortcutModifierSpec spec)
+    private void RegisterShortcutModifierButton(ToggleButton button, ShortcutModifierSpec spec)
     {
-        _shortcutModifierSpecsByButton.Add(spec.Button, spec);
-        _shortcutModifierVariantsByButton[spec.Button] = ShortcutModifierVariant.Generic;
-        spec.Button.ToolTip = "Click to toggle. Hold to choose general, left, or right.";
-        spec.Button.ContextMenu = BuildShortcutModifierContextMenu(spec.Button);
-        spec.Button.PreviewMouseLeftButtonDown += OnShortcutModifierPreviewMouseLeftButtonDown;
-        spec.Button.PreviewMouseLeftButtonUp += OnShortcutModifierPreviewMouseLeftButtonUp;
-        spec.Button.LostMouseCapture += OnShortcutModifierLostMouseCapture;
-        UpdateShortcutModifierButtonContent(spec.Button);
+        _shortcutModifierSpecsByButton.Add(button, spec);
+        _shortcutModifierVariantsByButton[button] = ShortcutModifierVariant.Generic;
+        button.ToolTip = "Click to toggle. Hold to choose general, left, or right.";
+        button.ContextMenu = BuildShortcutModifierContextMenu(button);
+        button.PreviewMouseLeftButtonDown += OnShortcutModifierPreviewMouseLeftButtonDown;
+        button.PreviewMouseLeftButtonUp += OnShortcutModifierPreviewMouseLeftButtonUp;
+        button.LostMouseCapture += OnShortcutModifierLostMouseCapture;
+        UpdateShortcutModifierButtonContent(button);
     }
 
     private ContextMenu BuildShortcutModifierContextMenu(ToggleButton button)
@@ -1288,11 +1260,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         bool hasGeneric = (modifiers & spec.GenericFlag) != 0;
         bool hasLeft = (modifiers & spec.LeftFlag) != 0;
         bool hasRight = (modifiers & spec.RightFlag) != 0;
-        ShortcutModifierVariant variant =
-            hasLeft && !hasRight ? ShortcutModifierVariant.Left :
-            hasRight && !hasLeft ? ShortcutModifierVariant.Right :
-            ShortcutModifierVariant.Generic;
-        SetShortcutModifierState(button, hasGeneric || hasLeft || hasRight, variant);
+        SetShortcutModifierState(button, hasGeneric || hasLeft || hasRight, spec.VariantFrom(modifiers));
     }
 
     private void AppendShortcutModifierFlag(ToggleButton button, ref DispatchModifierFlags modifiers)
@@ -3568,78 +3536,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private bool ApplyLayoutKeySizePreset(double keyWidthMm, double keyHeightMm)
     {
-        bool changed = false;
-        double targetScaleX = keyWidthMm / KeyWidthMm;
-        double targetScaleY = keyHeightMm / KeyHeightMm;
-        double spacingScale = Math.Clamp(RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(_settings, _preset), 0.0, 200.0) / 100.0;
-
-        if (!_preset.AllowsColumnSettings || _columnSettings.Length == 0)
-        {
-            return changed;
-        }
-
-        for (int i = 0; i < _columnSettings.Length; i++)
-        {
-            ColumnLayoutSettings settings = _columnSettings[i];
-            if (Math.Abs(settings.ScaleX - targetScaleX) > 0.00001)
-            {
-                settings.ScaleX = targetScaleX;
-                changed = true;
-            }
-
-            if (Math.Abs(settings.ScaleY - targetScaleY) > 0.00001)
-            {
-                settings.ScaleY = targetScaleY;
-                changed = true;
-            }
-
-            double targetOffsetX = ComputeHorizontalPitchOffsetPercent(i, keyWidthMm, spacingScale);
-            if (Math.Abs(settings.OffsetXPercent - targetOffsetX) > 0.00001)
-            {
-                settings.OffsetXPercent = targetOffsetX;
-                changed = true;
-            }
-        }
-
-        return changed;
-    }
-
-    private double ComputeHorizontalPitchOffsetPercent(int column, double keyWidthMm, double spacingScale)
-    {
-        if (column < 0 || column >= _preset.ColumnAnchorsMm.Length)
-        {
-            return 0.0;
-        }
-
-        PointMm[] anchors = _preset.ColumnAnchorsMm;
-        if (anchors.Length <= 1)
-        {
-            return 0.0;
-        }
-
-        double scaleX = keyWidthMm / KeyWidthMm;
-        if (Math.Abs(scaleX - 1.0) < 0.00001)
-        {
-            return 0.0;
-        }
-
-        double[] targetAnchorsMm = new double[anchors.Length];
-        targetAnchorsMm[0] = anchors[0].X;
-
-        for (int i = 1; i < anchors.Length; i++)
-        {
-            double baseGapMm = anchors[i].X - anchors[i - 1].X;
-            double desiredGapMm = (baseGapMm * scaleX) + (keyWidthMm * spacingScale);
-            targetAnchorsMm[i] = targetAnchorsMm[i - 1] + desiredGapMm;
-        }
-
-        double baselineRightMm = anchors[^1].X + KeyWidthMm;
-        double baselineCenterMm = (anchors[0].X + baselineRightMm) * 0.5;
-        double adjustedRightMm = targetAnchorsMm[^1] + keyWidthMm;
-        double adjustedCenterMm = (targetAnchorsMm[0] + adjustedRightMm) * 0.5;
-        double centerOffsetMm = baselineCenterMm - adjustedCenterMm;
-        double targetAnchorMm = targetAnchorsMm[column] + centerOffsetMm;
-        return ((targetAnchorMm - anchors[column].X) / TrackpadWidthMm) * 100.0;
+        return LayoutKeySizePresetTuning.ApplyKeySizePreset(
+            _preset,
+            _columnSettings,
+            TrackpadWidthMm,
+            KeyWidthMm,
+            KeyHeightMm,
+            keyWidthMm,
+            keyHeightMm,
+            RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(_settings, _preset));
     }
 
     private bool ClearKeySizePresetOverrides()
@@ -5242,62 +5147,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         public string Value { get; }
         public string Display { get; }
         public string Group { get; }
-    }
-
-    private enum ShortcutModifierVariant : byte
-    {
-        Generic = 0,
-        Left = 1,
-        Right = 2
-    }
-
-    private sealed class ShortcutModifierSpec
-    {
-        public ShortcutModifierSpec(
-            ToggleButton button,
-            string genericLabel,
-            string leftLabel,
-            string rightLabel,
-            DispatchModifierFlags genericFlag,
-            DispatchModifierFlags leftFlag,
-            DispatchModifierFlags rightFlag)
-        {
-            Button = button;
-            GenericLabel = genericLabel;
-            LeftLabel = leftLabel;
-            RightLabel = rightLabel;
-            GenericFlag = genericFlag;
-            LeftFlag = leftFlag;
-            RightFlag = rightFlag;
-        }
-
-        public ToggleButton Button { get; }
-        public string GenericLabel { get; }
-        public string LeftLabel { get; }
-        public string RightLabel { get; }
-        public DispatchModifierFlags GenericFlag { get; }
-        public DispatchModifierFlags LeftFlag { get; }
-        public DispatchModifierFlags RightFlag { get; }
-
-        public string LabelFor(ShortcutModifierVariant variant)
-        {
-            return variant switch
-            {
-                ShortcutModifierVariant.Left => LeftLabel,
-                ShortcutModifierVariant.Right => RightLabel,
-                _ => GenericLabel
-            };
-        }
-
-        public DispatchModifierFlags FlagFor(ShortcutModifierVariant variant)
-        {
-            return variant switch
-            {
-                ShortcutModifierVariant.Left => LeftFlag,
-                ShortcutModifierVariant.Right => RightFlag,
-                _ => GenericFlag
-            };
-        }
     }
 
     private readonly record struct DecoderProfileOption(TrackpadDecoderProfile? Profile, string Label)
