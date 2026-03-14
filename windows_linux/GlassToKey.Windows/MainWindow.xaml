@@ -234,11 +234,17 @@
                   <Button x:Name="ColumnAutoSplayButton"
                           Content="Auto Splay (4+ Fingers)"
                           Height="26"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Center"
+                          VerticalContentAlignment="Center"
                           Margin="0,0,6,0" />
                   <Button x:Name="ColumnEvenSpaceButton"
                           Grid.Column="1"
                           Content="e v e n s p a c e"
                           Height="26"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Center"
+                          VerticalContentAlignment="Center"
                           Margin="6,0,0,0" />
                 </Grid>
               </StackPanel>

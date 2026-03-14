@@ -1,12 +1,5 @@
 # TODO:
-- We recently implemented these features in windows and they are lacking and incomplete for Linux. Here are my notes. CAREFULLY move what is needed into core and make Host specific adjustments to Linux for Windows Parity
-{
-    0. Super in Shortcut Builder gets added to keymap as Win but should remain Super.
-    1. Add "mx spacing" and "choc spacing" buttons to Keymap Tuning with the corresponding logic from windows to adjust the spacing % to scale up to MX. Please do your research in our codebase, it's flawless in Windows.
-    2. I would like to adjut Shortcut Builder to mirror how Windows works more closely, where you can click a button to toggle it on, or hold a button to get dropdowns with left/right options, including AltGr (Whic h may be Super+ in Linux?) Please analyze our codebase, it's flawless in Windows and I want a clean Linux implementation with a shared core.
-}
--------
-- 50 / 50 buttons should be 100% width split 50% / 50% { Auto Splay, e v e n s p a c e, mx spacing, choc spacing}
+- Ctrl, Shift, Alt, Super do not match the description: when you click they DO toggle but nothing happens when I HOLD (should present sided options: Left Shift, Right Shift) please see windows.
 ---
 - Test AltGr on Linux
 1. You said Super+N then N should send the international letter? I can't get it to work now, (because it's set to Win?)

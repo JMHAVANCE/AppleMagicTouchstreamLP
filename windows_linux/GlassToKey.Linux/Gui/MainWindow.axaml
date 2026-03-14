@@ -301,10 +301,16 @@
                         Margin="0,10,0,0"
                         ColumnDefinitions="*,*">
                     <Button x:Name="ColumnAutoSplayButton"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
                             Content="Auto Splay (4+ Fingers)" />
                     <Button x:Name="ColumnEvenSpaceButton"
                             Grid.Column="1"
                             Margin="8,0,0,0"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
                             Content="e v e n s p a c e" />
                   </Grid>
                   </Grid>
