@@ -10,6 +10,7 @@
 ## TODO:
 - `Keyboard / Mouse` mode should just be about state machine
 - `Suppress Mouse in Keyboard mode` should be an OPTION *******
+- `Click & Drag Columns` allow user to drag columns around if "edit keymap" is enabled. Show different toggles if `edit keymap` is enabled? (more consistent GUI /w mac?)
 ---
 - When the config opens, it opens maximized Can we have it opened windowed, unless the user maximizes it — and then remember their choice? Or would we have to add a bunch of nonsense to track that? (It wont be worth it in that case)
 - Tune velocity / drag cancel on windows /w codex

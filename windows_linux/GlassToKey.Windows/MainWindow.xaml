@@ -352,6 +352,13 @@
                                     Height="28"
                                     Style="{StaticResource ShortcutModifierToggleStyle}" />
                     </Grid>
+                    <TextBlock Margin="0,4,0,0"
+                               Text="Click to toggle. Hold to choose general, left, or right."
+                               Foreground="#8fb6cf"
+                               FontSize="11"
+                               FontStyle="Italic"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap" />
                     <Grid Margin="0,10,0,0">
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
