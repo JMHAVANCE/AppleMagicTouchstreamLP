@@ -17,6 +17,26 @@ internal static class WindowsVirtualKeyMapper
         return false;
     }
 
+    public static bool IsExtendedVirtualKey(ushort virtualKey)
+    {
+        return virtualKey is
+            0x21 or // PageUp
+            0x22 or // PageDown
+            0x23 or // End
+            0x24 or // Home
+            0x25 or // Left
+            0x26 or // Up
+            0x27 or // Right
+            0x28 or // Down
+            0x2D or // Insert
+            0x2E or // Delete
+            0x5B or // LeftWin
+            0x5C or // RightWin
+            0x5D or // Apps
+            0xA3 or // RightCtrl
+            0xA5;   // RightAlt / AltGr
+    }
+
     private static ushort[] BuildSemanticTable()
     {
         ushort[] table = new ushort[(int)DispatchSemanticCode.BrightnessUp + 1];

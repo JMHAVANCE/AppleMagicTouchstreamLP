@@ -222,6 +222,7 @@ internal static class DispatchSemanticResolver
             case "LEFTALT":
                 code = DispatchSemanticCode.LeftAlt;
                 return true;
+            case "ALTGR":
             case "RALT":
             case "RIGHTALT":
                 code = DispatchSemanticCode.RightAlt;

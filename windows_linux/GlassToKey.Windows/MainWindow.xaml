@@ -301,6 +301,7 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
                       </Grid.ColumnDefinitions>
                       <ToggleButton x:Name="GestureShortcutCtrlToggle"
                                     Content="Ctrl"
@@ -316,8 +317,13 @@
                                     Content="Alt"
                                     Height="28"
                                     Style="{StaticResource ShortcutModifierToggleStyle}" />
-                      <ToggleButton x:Name="GestureShortcutWinToggle"
+                      <ToggleButton x:Name="GestureShortcutAltGrToggle"
                                     Grid.Column="3"
+                                    Content="AltGr"
+                                    Height="28"
+                                    Style="{StaticResource ShortcutModifierToggleStyle}" />
+                      <ToggleButton x:Name="GestureShortcutWinToggle"
+                                    Grid.Column="4"
                                     Content="Win"
                                     Height="28"
                                     Style="{StaticResource ShortcutModifierToggleStyle}" />
@@ -335,7 +341,15 @@
                       <ComboBox x:Name="GestureShortcutKeyCombo"
                                 Grid.Column="1"
                                 Height="28"
-                                Margin="8,0,0,0" />
+                                Margin="8,0,0,0"
+                                DisplayMemberPath="Display"
+                                SelectedValuePath="Value"
+                                MaxDropDownHeight="420"
+                                ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                        <ComboBox.GroupStyle>
+                          <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                        </ComboBox.GroupStyle>
+                      </ComboBox>
                       <Button x:Name="GestureShortcutApplyButton"
                               Grid.Column="2"
                               Content="Apply"

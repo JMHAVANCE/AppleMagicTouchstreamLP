@@ -281,6 +281,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         GestureShortcutShiftToggle.Unchecked += OnGestureShortcutEditorChanged;
         GestureShortcutAltToggle.Checked += OnGestureShortcutEditorChanged;
         GestureShortcutAltToggle.Unchecked += OnGestureShortcutEditorChanged;
+        GestureShortcutAltGrToggle.Checked += OnGestureShortcutEditorChanged;
+        GestureShortcutAltGrToggle.Unchecked += OnGestureShortcutEditorChanged;
         GestureShortcutWinToggle.Checked += OnGestureShortcutEditorChanged;
         GestureShortcutWinToggle.Unchecked += OnGestureShortcutEditorChanged;
         GestureShortcutKeyCombo.SelectionChanged += OnGestureShortcutKeySelectionChanged;
@@ -861,7 +863,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         return AppLaunchActionHelper.TryParse(value, out _)
             ? AppLaunchActionHelper.GetKeymapDisplayLabel(value)
-            : value;
+            : GetNormalizedActionDisplayLabel(value);
     }
 
     private static string GetActionOptionGroup(string value, string fallbackGroup)
@@ -875,7 +877,24 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         return AppLaunchActionHelper.TryParse(value, out _)
             ? AppLaunchActionHelper.GetKeymapDisplayLabel(value)
-            : value;
+            : GetNormalizedActionDisplayLabel(value);
+    }
+
+    private static string GetNormalizedActionDisplayLabel(string value)
+    {
+        if (DispatchShortcutHelper.TryReadShortcut(value, out DispatchModifierFlags modifiers, out string keyLabel))
+        {
+            return DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel);
+        }
+
+        if (value.Equals("RAlt", StringComparison.OrdinalIgnoreCase) ||
+            value.Equals("RightAlt", StringComparison.OrdinalIgnoreCase) ||
+            value.Equals("AltGr", StringComparison.OrdinalIgnoreCase))
+        {
+            return "AltGr";
+        }
+
+        return value;
     }
 
     private static void ClearActionComboFilter(ListCollectionView view)
@@ -1030,7 +1049,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void InitializeGestureShortcutEditor()
     {
-        GestureShortcutKeyCombo.ItemsSource = DispatchShortcutHelper.ShortcutKeyLabels;
+        ListCollectionView view = new(BuildShortcutKeyOptions());
+        view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ShortcutKeyOption.Group)));
+        GestureShortcutKeyCombo.ItemsSource = view;
         ShortcutTargetPrimaryRadio.IsChecked = true;
         RefreshGestureShortcutEditorUi();
     }
@@ -1067,13 +1088,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                         DispatchModifierFlags.RightShift)) != 0;
                     GestureShortcutAltToggle.IsChecked = (modifiers & (
                         DispatchModifierFlags.Alt |
-                        DispatchModifierFlags.LeftAlt |
-                        DispatchModifierFlags.RightAlt)) != 0;
+                        DispatchModifierFlags.LeftAlt)) != 0;
+                    GestureShortcutAltGrToggle.IsChecked = (modifiers & DispatchModifierFlags.RightAlt) != 0;
                     GestureShortcutWinToggle.IsChecked = (modifiers & (
                         DispatchModifierFlags.Meta |
                         DispatchModifierFlags.LeftMeta |
                         DispatchModifierFlags.RightMeta)) != 0;
-                    GestureShortcutKeyCombo.SelectedItem = keyLabel;
+                    GestureShortcutKeyCombo.SelectedValue = keyLabel;
                 }
                 else
                 {
@@ -1104,6 +1125,35 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
+        if (ReferenceEquals(sender, GestureShortcutAltToggle) &&
+            GestureShortcutAltToggle.IsChecked == true &&
+            GestureShortcutAltGrToggle.IsChecked == true)
+        {
+            _suppressGestureShortcutEditorEvents = true;
+            try
+            {
+                GestureShortcutAltGrToggle.IsChecked = false;
+            }
+            finally
+            {
+                _suppressGestureShortcutEditorEvents = false;
+            }
+        }
+        else if (ReferenceEquals(sender, GestureShortcutAltGrToggle) &&
+                 GestureShortcutAltGrToggle.IsChecked == true &&
+                 GestureShortcutAltToggle.IsChecked == true)
+        {
+            _suppressGestureShortcutEditorEvents = true;
+            try
+            {
+                GestureShortcutAltToggle.IsChecked = false;
+            }
+            finally
+            {
+                _suppressGestureShortcutEditorEvents = false;
+            }
+        }
+
         ClearAppLauncherEditorState();
         UpdateActionBuilderPreview();
     }
@@ -1128,7 +1178,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private string BuildGestureShortcutAction()
     {
-        if (GestureShortcutKeyCombo.SelectedItem is not string selectedKey ||
+        if (GestureShortcutKeyCombo.SelectedValue is not string selectedKey ||
             !DispatchShortcutHelper.TryNormalizeShortcutKeyLabel(selectedKey, out string keyLabel))
         {
             return string.Empty;
@@ -1148,6 +1198,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         if (GestureShortcutAltToggle.IsChecked == true)
         {
             modifiers |= DispatchModifierFlags.Alt;
+        }
+
+        if (GestureShortcutAltGrToggle.IsChecked == true)
+        {
+            modifiers |= DispatchModifierFlags.RightAlt;
         }
 
         if (GestureShortcutWinToggle.IsChecked == true)
@@ -1199,6 +1254,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         GestureShortcutCtrlToggle.IsChecked = false;
         GestureShortcutShiftToggle.IsChecked = false;
         GestureShortcutAltToggle.IsChecked = false;
+        GestureShortcutAltGrToggle.IsChecked = false;
         GestureShortcutWinToggle.IsChecked = false;
         GestureShortcutKeyCombo.SelectedItem = null;
     }
@@ -1365,6 +1421,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             return;
         }
+
+        ClearSelectionForEditing();
+        RefreshKeymapEditor();
 
         if (!TryImportSettingsBundle(dialog.FileName, out string error))
         {
@@ -2266,6 +2325,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "Backspace",
             "Back",
             "Escape",
+            "Caps Lock",
             "Delete",
             "Insert",
             "Home",
@@ -2282,21 +2342,24 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             AddKeyActionOption(options, navigationAndEditing[i], "Navigation & Editing");
         }
 
-        string[] modifiersAndModes =
+        string[] modifiers =
         {
             "Shift",
-            "Chordal Shift",
             "Ctrl",
             "Alt",
-            "LWin",
-            "RWin",
-            "Typing Toggle",
-            "TT"
+            "AltGr",
+            "Win"
         };
-        for (int i = 0; i < modifiersAndModes.Length; i++)
+        for (int i = 0; i < modifiers.Length; i++)
         {
-            AddKeyActionOption(options, modifiersAndModes[i], "Modifiers & Modes");
+            AddKeyActionOption(options, modifiers[i], "Modifiers");
         }
+
+        string[] modes =
+        {
+            "Chordal Shift",
+            "Typing Toggle"
+        };
 
         string[] symbols =
         {
@@ -2331,7 +2394,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "_",
             "+",
             "EmDash",
-            "â€”",
             "=",
             "`"
         };
@@ -2354,6 +2416,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "BRIGHT_UP",
             "BRIGHT_DOWN"
         };
+
+        for (int i = 0; i < modes.Length; i++)
+        {
+            AddKeyActionOption(options, modes[i], "Modes");
+        }
+
         for (int i = 0; i < systemAndMedia.Length; i++)
         {
             AddKeyActionOption(options, systemAndMedia[i], "System & Media");
@@ -2372,6 +2440,43 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private static void AddKeyActionOption(List<KeyActionOption> options, string value, string group)
     {
         options.Add(new KeyActionOption(value, GetActionOptionDisplay(value), GetActionOptionGroup(value, group)));
+    }
+
+    private static List<ShortcutKeyOption> BuildShortcutKeyOptions()
+    {
+        List<ShortcutKeyOption> options = new(DispatchShortcutHelper.ShortcutKeyLabels.Count);
+        IReadOnlyList<string> labels = DispatchShortcutHelper.ShortcutKeyLabels;
+        for (int i = 0; i < labels.Count; i++)
+        {
+            string value = labels[i];
+            options.Add(new ShortcutKeyOption(value, value, GetShortcutKeyOptionGroup(value)));
+        }
+
+        return options;
+    }
+
+    private static string GetShortcutKeyOptionGroup(string value)
+    {
+        if (value.Length == 1 && value[0] is >= 'A' and <= 'Z')
+        {
+            return "Letters A-Z";
+        }
+
+        if (value.Length == 1 && value[0] is >= '0' and <= '9')
+        {
+            return "Numbers 0-9";
+        }
+
+        if (value.Length > 1 && value[0] == 'F' && int.TryParse(value.AsSpan(1), out _))
+        {
+            return "Function Keys";
+        }
+
+        return value switch
+        {
+            ";" or "=" or "," or "-" or "." or "/" or "`" or "[" or "\\" or "]" or "'" => "Symbols & Punctuation",
+            _ => "Navigation & Editing"
+        };
     }
 
     private void EnsureActionOption(string? action)
@@ -4765,6 +4870,20 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private sealed class KeyActionOption
     {
         public KeyActionOption(string value, string display, string group)
+        {
+            Value = value;
+            Display = display;
+            Group = group;
+        }
+
+        public string Value { get; }
+        public string Display { get; }
+        public string Group { get; }
+    }
+
+    private sealed class ShortcutKeyOption
+    {
+        public ShortcutKeyOption(string value, string display, string group)
         {
             Value = value;
             Display = display;

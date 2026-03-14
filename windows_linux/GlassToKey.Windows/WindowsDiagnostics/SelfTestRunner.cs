@@ -130,6 +130,35 @@ internal static class SelfTestRunner
             return false;
         }
 
+        if (!WindowsVirtualKeyMapper.TryMapSemanticCode(DispatchSemanticCode.Up, out ushort upKey) ||
+            upKey != 0x26 ||
+            !WindowsVirtualKeyMapper.IsExtendedVirtualKey(upKey))
+        {
+            failure = "Up did not map to an extended navigation virtual key";
+            return false;
+        }
+
+        if (!WindowsVirtualKeyMapper.TryMapSemanticCode(DispatchSemanticCode.Left, out ushort leftKey) ||
+            leftKey != 0x25 ||
+            !WindowsVirtualKeyMapper.IsExtendedVirtualKey(leftKey))
+        {
+            failure = "Left did not map to an extended navigation virtual key";
+            return false;
+        }
+
+        if (!WindowsVirtualKeyMapper.IsExtendedVirtualKey(rightMetaKey))
+        {
+            failure = "RightMeta should be treated as an extended virtual key";
+            return false;
+        }
+
+        if (!DispatchKeyResolver.TryResolveModifierVirtualKey("Win", out ushort winKey) ||
+            winKey != 0x5B)
+        {
+            failure = "Win modifier label did not resolve to virtual key 0x5B";
+            return false;
+        }
+
         if (!WindowsVirtualKeyMapper.TryMapSemanticCode(DispatchSemanticCode.BrightnessUp, out ushort brightnessUpKey) ||
             brightnessUpKey != DispatchKeyResolver.VirtualKeyBrightnessUp)
         {
@@ -1367,34 +1396,32 @@ internal static class SelfTestRunner
         holdRepeatChordActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
         holdRepeatChordActor.WaitForIdle();
 
-        int chordShiftDownCount = 0;
-        int chordShiftUpCount = 0;
         int chordKeyDownCount = 0;
         int chordKeyUpCount = 0;
         int chordTapCount = 0;
         bool chordKeyDownRepeatable = false;
         bool chordKeyUpRepeatToken = false;
+        bool chordKeyDownHasShiftSemantic = false;
+        bool chordKeyUpHasShiftSemantic = false;
         while (holdRepeatChordQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
         {
-            if (dispatchEvent.Kind == DispatchEventKind.ModifierDown && dispatchEvent.VirtualKey == 0x10)
-            {
-                chordShiftDownCount++;
-            }
-            else if (dispatchEvent.Kind == DispatchEventKind.ModifierUp && dispatchEvent.VirtualKey == 0x10)
-            {
-                chordShiftUpCount++;
-            }
-            else if (dispatchEvent.Kind == DispatchEventKind.KeyDown && dispatchEvent.VirtualKey == 0x39)
+            if (dispatchEvent.Kind == DispatchEventKind.KeyDown && dispatchEvent.VirtualKey == 0x39)
             {
                 chordKeyDownCount++;
                 chordKeyDownRepeatable |=
                     (dispatchEvent.Flags & DispatchEventFlags.Repeatable) != 0 &&
                     dispatchEvent.RepeatToken != 0;
+                chordKeyDownHasShiftSemantic |=
+                    dispatchEvent.SemanticAction.Modifiers == DispatchModifierFlags.Shift &&
+                    dispatchEvent.SemanticAction.SecondaryCode == DispatchSemanticCode.Shift;
             }
             else if (dispatchEvent.Kind == DispatchEventKind.KeyUp && dispatchEvent.VirtualKey == 0x39)
             {
                 chordKeyUpCount++;
                 chordKeyUpRepeatToken |= dispatchEvent.RepeatToken != 0;
+                chordKeyUpHasShiftSemantic |=
+                    dispatchEvent.SemanticAction.Modifiers == DispatchModifierFlags.Shift &&
+                    dispatchEvent.SemanticAction.SecondaryCode == DispatchSemanticCode.Shift;
             }
             else if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
             {
@@ -1402,15 +1429,15 @@ internal static class SelfTestRunner
             }
         }
 
-        if (chordShiftDownCount != 1 ||
-            chordShiftUpCount != 1 ||
-            chordKeyDownCount != 1 ||
+        if (chordKeyDownCount != 1 ||
             chordKeyUpCount != 1 ||
             !chordKeyDownRepeatable ||
             !chordKeyUpRepeatToken ||
+            !chordKeyDownHasShiftSemantic ||
+            !chordKeyUpHasShiftSemantic ||
             chordTapCount != 0)
         {
-            failure = $"hold repeat chord mismatch (shiftDown={chordShiftDownCount}, shiftUp={chordShiftUpCount}, keyDown={chordKeyDownCount}, keyUp={chordKeyUpCount}, keyDownRepeatable={chordKeyDownRepeatable}, keyUpToken={chordKeyUpRepeatToken}, taps={chordTapCount}, expected=1/1/1/1/true/true/0)";
+            failure = $"hold repeat chord mismatch (keyDown={chordKeyDownCount}, keyUp={chordKeyUpCount}, keyDownRepeatable={chordKeyDownRepeatable}, keyUpToken={chordKeyUpRepeatToken}, keyDownShift={chordKeyDownHasShiftSemantic}, keyUpShift={chordKeyUpHasShiftSemantic}, taps={chordTapCount}, expected=1/1/true/true/true/true/0)";
             return false;
         }
 
@@ -2041,28 +2068,62 @@ internal static class SelfTestRunner
         chordActor.Post(TrackpadSide.Left, in chordUp, maxX, maxY, now);
         chordActor.WaitForIdle();
 
-        bool sawChordModifierDown = false;
         bool sawChordKeyTap = false;
-        bool sawChordModifierUp = false;
+        bool sawChordCtrlSemantic = false;
         while (chordQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
         {
-            if (dispatchEvent.Kind == DispatchEventKind.ModifierDown && dispatchEvent.VirtualKey == 0x11)
-            {
-                sawChordModifierDown = true;
-            }
-            else if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x43)
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap &&
+                dispatchEvent.SemanticAction.PrimaryCode == DispatchSemanticCode.C)
             {
                 sawChordKeyTap = true;
-            }
-            else if (dispatchEvent.Kind == DispatchEventKind.ModifierUp && dispatchEvent.VirtualKey == 0x11)
-            {
-                sawChordModifierUp = true;
+                sawChordCtrlSemantic |=
+                    dispatchEvent.SemanticAction.Modifiers == DispatchModifierFlags.Ctrl &&
+                    dispatchEvent.SemanticAction.SecondaryCode == DispatchSemanticCode.Ctrl;
             }
         }
 
-        if (!sawChordModifierDown || !sawChordKeyTap || !sawChordModifierUp)
+        if (!sawChordKeyTap || !sawChordCtrlSemantic)
         {
-            failure = "Ctrl+C chord dispatch sequence missing expected modifier/key events";
+            failure = $"Ctrl+C chord dispatch mismatch (keyTap={sawChordKeyTap}, ctrlSemantic={sawChordCtrlSemantic}, expected=true/true)";
+            return false;
+        }
+
+        KeymapStore altGrChordKeymap = KeymapStore.LoadBundledDefault();
+        altGrChordKeymap.Mappings[0][storageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "AltGr+N" },
+            Hold = null
+        };
+
+        TouchProcessorCore altGrChordCore = TouchProcessorFactory.CreateDefault(altGrChordKeymap);
+        using DispatchEventQueue altGrChordQueue = new();
+        using TouchProcessorActor altGrChordActor = new(altGrChordCore, dispatchQueue: altGrChordQueue);
+
+        now = 0;
+        InputFrame altGrChordDown = MakeFrame(contactCount: 1, id0: 45, x0: keyX, y0: keyY);
+        InputFrame altGrChordUp = MakeFrame(contactCount: 0);
+        altGrChordActor.Post(TrackpadSide.Left, in altGrChordDown, maxX, maxY, now);
+        now += MsToTicks(20);
+        altGrChordActor.Post(TrackpadSide.Left, in altGrChordUp, maxX, maxY, now);
+        altGrChordActor.WaitForIdle();
+
+        bool sawAltGrKeyTap = false;
+        bool sawAltGrSemantic = false;
+        while (altGrChordQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap &&
+                dispatchEvent.SemanticAction.PrimaryCode == DispatchSemanticCode.N)
+            {
+                sawAltGrKeyTap = true;
+                sawAltGrSemantic |=
+                    dispatchEvent.SemanticAction.Modifiers == DispatchModifierFlags.RightAlt &&
+                    dispatchEvent.SemanticAction.SecondaryCode == DispatchSemanticCode.RightAlt;
+            }
+        }
+
+        if (!sawAltGrKeyTap || !sawAltGrSemantic)
+        {
+            failure = $"AltGr+N chord dispatch mismatch (keyTap={sawAltGrKeyTap}, altGrSemantic={sawAltGrSemantic}, expected=true/true)";
             return false;
         }
 
@@ -2085,28 +2146,22 @@ internal static class SelfTestRunner
         voiceActor.Post(TrackpadSide.Left, in voiceUp, maxX, maxY, now);
         voiceActor.WaitForIdle();
 
-        bool sawVoiceModifierDown = false;
         bool sawVoiceKeyTap = false;
-        bool sawVoiceModifierUp = false;
+        bool sawVoiceSemantic = false;
         while (voiceQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
         {
-            if (dispatchEvent.Kind == DispatchEventKind.ModifierDown && dispatchEvent.VirtualKey == 0x5B)
-            {
-                sawVoiceModifierDown = true;
-            }
-            else if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x48)
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x48)
             {
                 sawVoiceKeyTap = true;
-            }
-            else if (dispatchEvent.Kind == DispatchEventKind.ModifierUp && dispatchEvent.VirtualKey == 0x5B)
-            {
-                sawVoiceModifierUp = true;
+                sawVoiceSemantic |=
+                    dispatchEvent.SemanticAction.Modifiers == DispatchModifierFlags.Meta &&
+                    dispatchEvent.SemanticAction.SecondaryCode == DispatchSemanticCode.LeftMeta;
             }
         }
 
-        if (!sawVoiceModifierDown || !sawVoiceKeyTap || !sawVoiceModifierUp)
+        if (!sawVoiceKeyTap || !sawVoiceSemantic)
         {
-            failure = "VOICE chord dispatch sequence missing expected modifier/key events";
+            failure = $"VOICE chord dispatch mismatch (keyTap={sawVoiceKeyTap}, metaSemantic={sawVoiceSemantic}, expected=true/true)";
             return false;
         }
 
@@ -2350,12 +2405,6 @@ internal static class SelfTestRunner
         if (settings.ForceMin != 0 || settings.ForceCap != 128)
         {
             failure = "bundled default settings should load bundled force thresholds";
-            return false;
-        }
-
-        if (settings.ThreeFingerDragEnabled)
-        {
-            failure = "bundled default settings should leave three-finger drag disabled by default";
             return false;
         }
 

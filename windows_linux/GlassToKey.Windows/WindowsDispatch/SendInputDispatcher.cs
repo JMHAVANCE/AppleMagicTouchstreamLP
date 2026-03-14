@@ -434,6 +434,17 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
 
     private void HandleModifierDown(ushort virtualKey)
     {
+        if (virtualKey == VirtualKeyRightMenu)
+        {
+            HandleAltGrModifierDown();
+            return;
+        }
+
+        HandleModifierDownCore(virtualKey);
+    }
+
+    private void HandleModifierDownCore(ushort virtualKey)
+    {
         if (virtualKey == 0)
         {
             return;
@@ -463,6 +474,17 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
 
     private void HandleModifierUp(ushort virtualKey)
     {
+        if (virtualKey == VirtualKeyRightMenu)
+        {
+            HandleAltGrModifierUp();
+            return;
+        }
+
+        HandleModifierUpCore(virtualKey);
+    }
+
+    private void HandleModifierUpCore(ushort virtualKey)
+    {
         if (virtualKey == 0)
         {
             return;
@@ -485,6 +507,19 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
             SendKeyboard(virtualKey, keyUp: true);
             _keyDown[vk] = false;
         }
+    }
+
+    private void HandleAltGrModifierDown()
+    {
+        // Windows keyboard layouts commonly treat AltGr as left Ctrl + right Alt.
+        HandleModifierDownCore(VirtualKeyLeftControl);
+        HandleModifierDownCore(VirtualKeyRightMenu);
+    }
+
+    private void HandleAltGrModifierUp()
+    {
+        HandleModifierUpCore(VirtualKeyRightMenu);
+        HandleModifierUpCore(VirtualKeyLeftControl);
     }
 
     private void ApplyShortcutModifiers(DispatchSemanticAction semanticAction)
@@ -791,7 +826,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         }
 
         uint prefix = (mapped >> 8) & 0xFF;
-        extended = prefix is 0xE0 or 0xE1;
+        extended = prefix is 0xE0 or 0xE1 || WindowsVirtualKeyMapper.IsExtendedVirtualKey(virtualKey);
         return true;
     }
 
