@@ -16,6 +16,7 @@ actor TouchProcessorEngine {
         case shift
         case control
         case option
+        case rightOption
         case command
     }
 
@@ -486,7 +487,8 @@ actor TouchProcessorEngine {
     private var disqualifiedTouches = TouchTable<Bool>()
     private var leftShiftTouchCount = 0
     private var controlTouchCount = 0
-    private var optionTouchCount = 0
+    private var leftOptionTouchCount = 0
+    private var rightOptionTouchCount = 0
     private var commandTouchCount = 0
     private var repeatEntries: [TouchKey: RepeatEntry] = [:]
     private var repeatLoopTask: Task<Void, Never>?
@@ -1661,7 +1663,8 @@ actor TouchProcessorEngine {
     private func hasActiveModifiers() -> Bool {
         leftShiftTouchCount > 0
             || controlTouchCount > 0
-            || optionTouchCount > 0
+            || leftOptionTouchCount > 0
+            || rightOptionTouchCount > 0
             || commandTouchCount > 0
             || isChordShiftActive(on: .left)
             || isChordShiftActive(on: .right)
@@ -3580,6 +3583,9 @@ actor TouchProcessorEngine {
         if code == CGKeyCode(kVK_Option) {
             return .option
         }
+        if code == CGKeyCode(kVK_RightOption) {
+            return .rightOption
+        }
         if code == CGKeyCode(kVK_Command) {
             return .command
         }
@@ -3589,6 +3595,7 @@ actor TouchProcessorEngine {
     private func isContinuousKey(_ binding: KeyBinding) -> Bool {
         guard case let .key(code, _) = binding.action else { return false }
         return code == CGKeyCode(kVK_Delete)
+            || code == CGKeyCode(kVK_Space)
             || code == CGKeyCode(kVK_LeftArrow)
             || code == CGKeyCode(kVK_RightArrow)
             || code == CGKeyCode(kVK_UpArrow)
@@ -3747,8 +3754,11 @@ actor TouchProcessorEngine {
         if controlTouchCount > 0 {
             modifierFlags.insert(.maskControl)
         }
-        if optionTouchCount > 0 {
-            modifierFlags.insert(.maskAlternate)
+        if leftOptionTouchCount > 0 {
+            modifierFlags.formUnion(KeyboardModifierFlags.leftOption)
+        }
+        if rightOptionTouchCount > 0 {
+            modifierFlags.formUnion(KeyboardModifierFlags.rightOption)
         }
         if commandTouchCount > 0 {
             modifierFlags.insert(.maskCommand)
@@ -3910,11 +3920,17 @@ actor TouchProcessorEngine {
             }
             controlTouchCount += 1
         case .option:
-            if optionTouchCount == 0 {
+            if leftOptionTouchCount == 0 {
                 playHapticIfNeeded(on: binding.side)
                 postKey(binding: binding, keyDown: true)
             }
-            optionTouchCount += 1
+            leftOptionTouchCount += 1
+        case .rightOption:
+            if rightOptionTouchCount == 0 {
+                playHapticIfNeeded(on: binding.side)
+                postKey(binding: binding, keyDown: true)
+            }
+            rightOptionTouchCount += 1
         case .command:
             if commandTouchCount == 0 {
                 playHapticIfNeeded(on: binding.side)
@@ -3937,8 +3953,13 @@ actor TouchProcessorEngine {
                 postKey(binding: binding, keyDown: false)
             }
         case .option:
-            optionTouchCount = max(0, optionTouchCount - 1)
-            if optionTouchCount == 0 {
+            leftOptionTouchCount = max(0, leftOptionTouchCount - 1)
+            if leftOptionTouchCount == 0 {
+                postKey(binding: binding, keyDown: false)
+            }
+        case .rightOption:
+            rightOptionTouchCount = max(0, rightOptionTouchCount - 1)
+            if rightOptionTouchCount == 0 {
                 postKey(binding: binding, keyDown: false)
             }
         case .command:
@@ -4010,19 +4031,33 @@ actor TouchProcessorEngine {
             postKey(binding: controlBinding, keyDown: false)
             controlTouchCount = 0
         }
-        if optionTouchCount > 0 {
+        if leftOptionTouchCount > 0 {
             let optionBinding = KeyBinding(
                 rect: .zero,
                 normalizedRect: NormalizedRect(x: 0, y: 0, width: 0, height: 0),
                 canvasSize: .zero,
                 label: "Option",
-                action: .key(code: CGKeyCode(kVK_Option), flags: []),
+                action: .key(code: CGKeyCode(kVK_Option), flags: KeyboardModifierFlags.leftOption),
                 position: nil,
                 side: .left,
                 holdAction: nil
             )
             postKey(binding: optionBinding, keyDown: false)
-            optionTouchCount = 0
+            leftOptionTouchCount = 0
+        }
+        if rightOptionTouchCount > 0 {
+            let optionBinding = KeyBinding(
+                rect: .zero,
+                normalizedRect: NormalizedRect(x: 0, y: 0, width: 0, height: 0),
+                canvasSize: .zero,
+                label: KeyActionCatalog.altGrLabel,
+                action: .key(code: CGKeyCode(kVK_RightOption), flags: KeyboardModifierFlags.rightOption),
+                position: nil,
+                side: .left,
+                holdAction: nil
+            )
+            postKey(binding: optionBinding, keyDown: false)
+            rightOptionTouchCount = 0
         }
         if commandTouchCount > 0 {
             let commandBinding = KeyBinding(
