@@ -26,6 +26,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private const double TrackpadHeightMm = RuntimeConfigurationFactory.TrackpadHeightMm;
     private const double KeyWidthMm = RuntimeConfigurationFactory.KeyWidthMm;
     private const double KeyHeightMm = RuntimeConfigurationFactory.KeyHeightMm;
+    private const double MxKeyWidthMm = 19.05;
+    private const double MxKeyHeightMm = 19.05;
     private const double ControlsPaneExpandedWidth = 360.0;
     private const double ControlsPaneCollapsedWidth = 0.0;
     private const double MinCustomButtonPercent = 5.0;
@@ -243,6 +245,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ForceCapSlider.ValueChanged += OnForceThresholdSliderChanged;
         KeymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         KeymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
+        MxSpacingButton.Click += OnMxSpacingClicked;
+        ChocSpacingButton.Click += OnChocSpacingClicked;
         FiveFingerSwipeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         FiveFingerSwipeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         FiveFingerSwipeUpGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
@@ -3320,6 +3324,43 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RebuildLayouts();
         ApplyCoreSettings();
         RefreshKeymapEditor();
+    }
+
+    private void OnMxSpacingClicked(object sender, RoutedEventArgs e)
+    {
+        ApplyAllKeySizePreset(MxKeyWidthMm, MxKeyHeightMm);
+    }
+
+    private void OnChocSpacingClicked(object sender, RoutedEventArgs e)
+    {
+        ApplyAllKeySizePreset(KeyWidthMm, KeyHeightMm);
+    }
+
+    private void ApplyAllKeySizePreset(double keyWidthMm, double keyHeightMm)
+    {
+        double widthScale = keyWidthMm / KeyWidthMm;
+        double heightScale = keyHeightMm / KeyHeightMm;
+
+        ApplyKeySizePresetForLayout(TrackpadSide.Left, _leftLayout, widthScale, heightScale);
+        ApplyKeySizePresetForLayout(TrackpadSide.Right, _rightLayout, widthScale, heightScale);
+
+        _keymap.Save();
+        RebuildLayouts();
+        ApplyCoreSettings();
+        RefreshKeymapEditor();
+    }
+
+    private void ApplyKeySizePresetForLayout(TrackpadSide side, KeyLayout layout, double widthScale, double heightScale)
+    {
+        for (int row = 0; row < layout.Rects.Length; row++)
+        {
+            for (int col = 0; col < layout.Rects[row].Length; col++)
+            {
+                string storageKey = GridKeyPosition.StorageKey(side, row, col);
+                KeyGeometryOverride geometry = _keymap.ResolveKeyGeometry(storageKey);
+                _keymap.SetKeyGeometry(storageKey, geometry.RotationDegrees, widthScale, heightScale);
+            }
+        }
     }
 
     private void OnCustomButtonAddLeftClicked(object sender, RoutedEventArgs e)
