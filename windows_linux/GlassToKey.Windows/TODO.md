@@ -1,7 +1,6 @@
 ## Current:
-- Can we change "Column Scale (%)" into 2 fields: Column Scale X% and Column Scale Y%?
-- should scale be set to 100 x/y if we click mx size/choc size
-- Aside from the physical deminsions of MX and Choc keycaps, they also have a physical space between them that I want those buttons to default. Please look up those deminsions online!
+- If user clicks "mx size" can you scale the spacing to physical mx spacing? (base/choc spacing looks good!)
+- Can we change it from "mx size" and "choc size" to "mx spacing" and "choc spacing"
 ---
 - If you click and old "Shift" it shows "left shift, right shift" options to pick from!, same with ctrl, win (and alt?)
 ---

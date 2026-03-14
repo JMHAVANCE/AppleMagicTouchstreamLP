@@ -3387,6 +3387,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         bool changed = false;
         double targetScaleX = keyWidthMm / KeyWidthMm;
         double targetScaleY = keyHeightMm / KeyHeightMm;
+        double spacingScale = Math.Clamp(RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(_settings, _preset), 0.0, 200.0) / 100.0;
 
         if (!_preset.AllowsColumnSettings || _columnSettings.Length == 0)
         {
@@ -3407,9 +3408,49 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                 settings.ScaleY = targetScaleY;
                 changed = true;
             }
+
+            double targetOffsetX = ComputeHorizontalPitchOffsetPercent(i, keyWidthMm, spacingScale);
+            if (Math.Abs(settings.OffsetXPercent - targetOffsetX) > 0.00001)
+            {
+                settings.OffsetXPercent = targetOffsetX;
+                changed = true;
+            }
         }
 
         return changed;
+    }
+
+    private double ComputeHorizontalPitchOffsetPercent(int column, double keyWidthMm, double spacingScale)
+    {
+        if (column < 0 || column >= _preset.ColumnAnchorsMm.Length)
+        {
+            return 0.0;
+        }
+
+        PointMm[] anchors = _preset.ColumnAnchorsMm;
+        if (anchors.Length <= 1)
+        {
+            return 0.0;
+        }
+
+        double[] targetAnchorsMm = new double[anchors.Length];
+        targetAnchorsMm[0] = anchors[0].X;
+
+        for (int i = 1; i < anchors.Length; i++)
+        {
+            double baseGapMm = anchors[i].X - anchors[i - 1].X;
+            double baseExtraGapMm = baseGapMm - KeyWidthMm;
+            double desiredGapMm = baseExtraGapMm + keyWidthMm + (keyWidthMm * spacingScale);
+            targetAnchorsMm[i] = targetAnchorsMm[i - 1] + desiredGapMm;
+        }
+
+        double baselineRightMm = anchors[^1].X + KeyWidthMm;
+        double baselineCenterMm = (anchors[0].X + baselineRightMm) * 0.5;
+        double adjustedRightMm = targetAnchorsMm[^1] + keyWidthMm;
+        double adjustedCenterMm = (targetAnchorsMm[0] + adjustedRightMm) * 0.5;
+        double centerOffsetMm = baselineCenterMm - adjustedCenterMm;
+        double targetAnchorMm = targetAnchorsMm[column] + centerOffsetMm;
+        return ((targetAnchorMm - anchors[column].X) / TrackpadWidthMm) * 100.0;
     }
 
     private bool ClearKeySizePresetOverrides()
