@@ -1,6 +1,4 @@
 # TODO:
-- GREAT! back to action/hold/gesture dropdowns: So here is how I know that you are wrong: Under `Modes` I can clearly see it says `Shift`. I can see it is *not* added at the bottom of the dropdown, where custom buttons added to the keymap show up.
--  In the Action/Hold/Gesture shared dropdown please rename the `Shift` under `Modes` to `Chordal Shift` while leaving the `Shift` under `Modifiers alone.
 - Please make all "Custom" actions added at the bottom with their own fancy `Custom` header~ (like in Windows)
 - What is the Difference between Super and AltGr in Linux?
 - I'm having a really hard time stopping glasstokey when running `dotnet run` do you think that is indicitave of actual installs or just testing?

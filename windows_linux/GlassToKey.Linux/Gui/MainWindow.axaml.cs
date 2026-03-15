@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private const double KeyHeightMm = 17.0;
     private const double MinCustomButtonPercent = 5.0;
     private const string TerminalLauncherCommand = "x-terminal-emulator";
+    private const string CustomActionSectionTitle = "Custom";
     private static readonly string TerminalActionValue = AppLaunchActionHelper.CreateActionLabel(TerminalLauncherCommand);
     private static readonly IDataTemplate KeyActionChoiceTemplate = CreateKeyActionChoiceTemplate();
     private static readonly IDataTemplate ShortcutKeyChoiceTemplate = CreateShortcutKeyChoiceTemplate();
@@ -2040,8 +2041,27 @@ public partial class MainWindow : Window
             return false;
         }
 
+        if (!HasActionSection(choices, CustomActionSectionTitle))
+        {
+            AddActionSection(choices, CustomActionSectionTitle);
+        }
+
         choices.Add(KeyActionChoice.Action(value));
         return true;
+    }
+
+    private static bool HasActionSection(IEnumerable<KeyActionChoice> choices, string title)
+    {
+        foreach (KeyActionChoice choice in choices)
+        {
+            if (choice.IsSeparator &&
+                string.Equals(choice.Label, title, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private Dictionary<string, string> CaptureGestureSelections()
