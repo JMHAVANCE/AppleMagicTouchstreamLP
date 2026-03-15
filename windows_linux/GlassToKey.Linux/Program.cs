@@ -223,12 +223,12 @@ internal static class Program
         Console.WriteLine("[Other Commands]:");
         Console.WriteLine($"  {CliName} print-keymap");
         Console.WriteLine($"  {CliName} list-devices");
-        Console.WriteLine($"  {CliName} swap-sides");
-        Console.WriteLine($"  {CliName} doctor");
-        Console.WriteLine();
         Console.WriteLine($"  {CliName} bind-left [device-node-or-stable-id]");
         Console.WriteLine($"  {CliName} bind-right [device-node-or-stable-id]");
         Console.WriteLine($"  {CliName} print-udev-rules");
+        Console.WriteLine($"  {CliName} swap-sides");
+        Console.WriteLine($"  {CliName} doctor");
+        Console.WriteLine();
     }
 
     private static int LaunchTrayHost()

@@ -50,11 +50,11 @@ GlassToKey Linux install complete.
 [Other Commands]:
   glasstokey print-keymap
   glasstokey list-devices
-  glasstokey swap-sides
-  glasstokey doctor
-
   glasstokey bind-left [device-node-or-stable-id]
   glasstokey bind-right [device-node-or-stable-id]
   glasstokey print-udev-rules
+  glasstokey swap-sides
+  glasstokey doctor
+
 EOF
 }
