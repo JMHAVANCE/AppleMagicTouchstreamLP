@@ -304,7 +304,7 @@
                   <Grid Margin="0,10,0,0"
                         HorizontalAlignment="Stretch"
                         ColumnDefinitions="*,*"
-                        RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                        RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                     <TextBlock Grid.Row="0"
                                Margin="0,8,0,0"
                                Text="Edit Column"
@@ -317,27 +317,27 @@
 
                   <TextBlock Grid.Row="1"
                              Margin="0,8,0,0"
-                             Text="Column Scale X (%)"
+                             Text="Column Spacing (%)"
                              VerticalAlignment="Center" />
-                  <TextBox x:Name="ColumnScaleXBox"
+                  <TextBox x:Name="KeyPaddingBox"
                            Grid.Row="1"
                            Grid.Column="1"
                            Margin="12,8,0,0" />
 
                   <TextBlock Grid.Row="2"
                              Margin="0,8,0,0"
-                             Text="Column Scale Y (%)"
+                             Text="Column Scale X (%)"
                              VerticalAlignment="Center" />
-                  <TextBox x:Name="ColumnScaleYBox"
+                  <TextBox x:Name="ColumnScaleXBox"
                            Grid.Row="2"
                            Grid.Column="1"
                            Margin="12,8,0,0" />
 
                   <TextBlock Grid.Row="3"
                              Margin="0,8,0,0"
-                             Text="Column Spacing (%)"
+                             Text="Column Scale Y (%)"
                              VerticalAlignment="Center" />
-                  <TextBox x:Name="KeyPaddingBox"
+                  <TextBox x:Name="ColumnScaleYBox"
                            Grid.Row="3"
                            Grid.Column="1"
                            Margin="12,8,0,0" />
@@ -371,6 +371,26 @@
 
                   <Grid Grid.Row="7"
                         Grid.ColumnSpan="2"
+                        Margin="0,12,0,0"
+                        ColumnDefinitions="*,*">
+                    <Button x:Name="MxSpacingButton"
+                            Classes="outlineActionButton"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Content="mx size" />
+                    <Button x:Name="ChocSpacingButton"
+                            Grid.Column="1"
+                            Classes="outlineActionButton"
+                            Margin="8,0,0,0"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Content="choc size" />
+                  </Grid>
+
+                  <Grid Grid.Row="8"
+                        Grid.ColumnSpan="2"
                         Margin="0,10,0,0"
                         ColumnDefinitions="*,*">
                     <Button x:Name="ColumnAutoSplayButton"
@@ -386,7 +406,7 @@
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
-                            Content="e v e n s p a c e" />
+                            Content="e v e n s p a c i n g" />
                   </Grid>
                   </Grid>
                 </Expander>
@@ -400,7 +420,7 @@
                               HorizontalAlignment="Stretch">
                     <Grid HorizontalAlignment="Stretch"
                           ColumnDefinitions="*,*"
-                          RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                          RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
                       <TextBlock x:Name="KeymapSelectionText"
                                  Grid.ColumnSpan="2"
                                  IsVisible="False"
@@ -445,28 +465,7 @@
                              Grid.Column="1"
                              Margin="12,8,0,0" />
 
-                    <Grid Grid.Row="5"
-                          Grid.ColumnSpan="2"
-                          Margin="0,12,0,0"
-                          ColumnDefinitions="*,*">
-                      <Button x:Name="MxSpacingButton"
-                              Classes="outlineActionButton"
-                              Margin="0,0,6,0"
-                              HorizontalAlignment="Stretch"
-                              HorizontalContentAlignment="Center"
-                              VerticalContentAlignment="Center"
-                              Content="mx spacing" />
-                      <Button x:Name="ChocSpacingButton"
-                              Grid.Column="1"
-                              Classes="outlineActionButton"
-                              Margin="6,0,0,0"
-                              HorizontalAlignment="Stretch"
-                              HorizontalContentAlignment="Center"
-                              VerticalContentAlignment="Center"
-                              Content="choc spacing" />
-                    </Grid>
-
-                    <Separator Grid.Row="6"
+                    <Separator Grid.Row="5"
                                Grid.ColumnSpan="2"
                                Margin="0,8,0,2" />
                     </Grid>

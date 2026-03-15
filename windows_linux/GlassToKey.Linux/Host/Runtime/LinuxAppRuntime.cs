@@ -201,13 +201,10 @@ public sealed class LinuxAppRuntime
             return false;
         }
 
-        string? windowsBundleError = null;
-
-        if (LooksLikeWindowsSettingsBundle(json) &&
-            TryImportWindowsSettingsBundle(json, fullPath, out LinuxHostSettings importedWindowsSettings, out windowsBundleError))
+        if (TryImportProfileBundle(json, fullPath, out LinuxHostSettings importedSettings, out string? bundleError))
         {
-            importedWindowsSettings.Normalize();
-            _settingsStore.Save(importedWindowsSettings);
+            importedSettings.Normalize();
+            _settingsStore.Save(importedSettings);
             message = $"GlassToKey settings and keymap imported from '{fullPath}'.";
             return true;
         }
@@ -215,7 +212,7 @@ public sealed class LinuxAppRuntime
         KeymapStore keymap = KeymapStore.LoadBundledDefault();
         if (!keymap.TryImportFromJson(json, out string error))
         {
-            message = $"Import '{fullPath}' could not be loaded: {windowsBundleError ?? error}";
+            message = $"Import '{fullPath}' could not be loaded: {bundleError ?? error}";
             return false;
         }
 
@@ -246,14 +243,8 @@ public sealed class LinuxAppRuntime
                 keymap = KeymapStore.LoadBundledDefault();
             }
 
-            WindowsSettingsBundleFile bundle = new()
-            {
-                Version = 1,
-                Settings = settings.GetSharedProfile().Clone(),
-                KeymapJson = keymap.SerializeToJson(writeIndented: false),
-                LeftTrackpadStableId = settings.LeftTrackpadStableId,
-                RightTrackpadStableId = settings.RightTrackpadStableId
-            };
+            GlassToKeyProfileBundle bundle = GlassToKeyProfileBundle.Create(settings.GetSharedProfile(), keymap);
+            bundle.SetHostExtension("linux", BuildLinuxHostExtension(settings));
 
             string? directory = Path.GetDirectoryName(path);
             if (!string.IsNullOrWhiteSpace(directory))
@@ -261,11 +252,7 @@ public sealed class LinuxAppRuntime
                 Directory.CreateDirectory(directory);
             }
 
-            string json = JsonSerializer.Serialize(bundle, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                WriteIndented = true
-            });
+            string json = bundle.SerializeToJson(writeIndented: true);
             File.WriteAllText(path, json);
             message = $"Exported GlassToKey profile to '{path}'.";
             return true;
@@ -277,7 +264,7 @@ public sealed class LinuxAppRuntime
         }
     }
 
-    private bool TryImportWindowsSettingsBundle(
+    private bool TryImportProfileBundle(
         string json,
         string sourcePath,
         out LinuxHostSettings settings,
@@ -286,51 +273,15 @@ public sealed class LinuxAppRuntime
         settings = new LinuxHostSettings();
         error = null;
 
-        WindowsSettingsBundleFile? bundle;
-        bool hasLeftTrackpadStableId = false;
-        bool hasRightTrackpadStableId = false;
-        string? importedLeftTrackpadStableId = null;
-        string? importedRightTrackpadStableId = null;
-        try
+        if (!GlassToKeyProfileBundle.TryParse(json, out GlassToKeyProfileBundle bundle, out string bundleParseError))
         {
-            using JsonDocument document = JsonDocument.Parse(json);
-            JsonElement root = document.RootElement;
-            if (TryGetPropertyIgnoreCase(root, nameof(WindowsSettingsBundleFile.LeftTrackpadStableId), out JsonElement leftTrackpadStableIdElement))
-            {
-                hasLeftTrackpadStableId = true;
-                importedLeftTrackpadStableId = leftTrackpadStableIdElement.ValueKind == JsonValueKind.Null
-                    ? null
-                    : leftTrackpadStableIdElement.GetString();
-            }
-
-            if (TryGetPropertyIgnoreCase(root, nameof(WindowsSettingsBundleFile.RightTrackpadStableId), out JsonElement rightTrackpadStableIdElement))
-            {
-                hasRightTrackpadStableId = true;
-                importedRightTrackpadStableId = rightTrackpadStableIdElement.ValueKind == JsonValueKind.Null
-                    ? null
-                    : rightTrackpadStableIdElement.GetString();
-            }
-
-            bundle = JsonSerializer.Deserialize<WindowsSettingsBundleFile>(
-                json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        }
-        catch (Exception ex)
-        {
-            error = ex.Message;
+            error = bundleParseError;
             return false;
         }
 
-        if (bundle?.Settings == null || string.IsNullOrWhiteSpace(bundle.KeymapJson))
+        if (!bundle.TryLoadPortableProfile(out UserSettings importedProfile, out KeymapStore keymap, out string bundleLoadError))
         {
-            error = "Expected a GlassToKey settings export with both settings and keymap data.";
-            return false;
-        }
-
-        KeymapStore keymap = KeymapStore.LoadBundledDefault();
-        if (!keymap.TryImportFromJson(bundle.KeymapJson, out string keymapError))
-        {
-            error = $"Keymap section is invalid: {keymapError}";
+            error = bundleLoadError;
             return false;
         }
 
@@ -342,19 +293,11 @@ public sealed class LinuxAppRuntime
         }
 
         LinuxHostSettings current = _settingsStore.Load();
-        current.SharedProfile = bundle.Settings.Clone();
+        current.SharedProfile = importedProfile;
         current.LayoutPresetName = current.SharedProfile.LayoutPresetName;
         current.KeymapPath = importedKeymapPath;
         current.KeymapRevision = NextKeymapRevision(current.KeymapRevision);
-        if (hasLeftTrackpadStableId)
-        {
-            current.LeftTrackpadStableId = importedLeftTrackpadStableId;
-        }
-
-        if (hasRightTrackpadStableId)
-        {
-            current.RightTrackpadStableId = importedRightTrackpadStableId;
-        }
+        ApplyLinuxHostExtension(bundle, current);
 
         settings = current;
         return true;
@@ -390,30 +333,22 @@ public sealed class LinuxAppRuntime
         return Path.Combine(settingsDirectory, $"{fileName}.keymap.json");
     }
 
-    private static bool LooksLikeWindowsSettingsBundle(string json)
+    private static LinuxHostProfileExtension BuildLinuxHostExtension(LinuxHostSettings settings)
     {
-        return TryDetectSettingsProperty(json, "ActiveLayer") ||
-               TryDetectSettingsProperty(json, "ColumnSettingsByLayout") ||
-               TryDetectSettingsProperty(json, "LeftDevicePath");
+        return new LinuxHostProfileExtension
+        {
+            LeftTrackpadStableId = settings.LeftTrackpadStableId,
+            RightTrackpadStableId = settings.RightTrackpadStableId
+        };
     }
 
-    private static bool TryDetectSettingsProperty(string json, string propertyName)
+    private static void ApplyLinuxHostExtension(GlassToKeyProfileBundle bundle, LinuxHostSettings settings)
     {
-        try
+        if (bundle.TryGetHostExtension("linux", out LinuxHostProfileExtension? hostExtension) &&
+            hostExtension != null)
         {
-            using JsonDocument document = JsonDocument.Parse(json);
-            JsonElement root = document.RootElement;
-            if (!TryGetPropertyIgnoreCase(root, "Settings", out JsonElement settingsElement) ||
-                settingsElement.ValueKind != JsonValueKind.Object)
-            {
-                return false;
-            }
-
-            return TryGetPropertyIgnoreCase(settingsElement, propertyName, out _);
-        }
-        catch
-        {
-            return false;
+            settings.LeftTrackpadStableId = hostExtension.LeftTrackpadStableId;
+            settings.RightTrackpadStableId = hostExtension.RightTrackpadStableId;
         }
     }
 
@@ -536,11 +471,8 @@ public sealed class LinuxAppRuntime
         return null;
     }
 
-    private sealed class WindowsSettingsBundleFile
+    private sealed class LinuxHostProfileExtension
     {
-        public int Version { get; set; } = 1;
-        public UserSettings Settings { get; set; } = new();
-        public string KeymapJson { get; set; } = string.Empty;
         public string? LeftTrackpadStableId { get; set; }
         public string? RightTrackpadStableId { get; set; }
     }
