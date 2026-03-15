@@ -1,8 +1,6 @@
 ## TODO
-- All fields in Column Tuning should be  50% / 50% column width
 - "Layout" label and Downdown column should be width of 50% / 50% column  
 ---
-- Column Scale X / Column Scale Y
 - Look at how it's implemented in Windows and implement the shortcut builder like that: If you click on any of the base buttons it toggles it: Ctrl, Shift, etc. and if you HOLD it will let you select which side from the dropdown.. Left Shift, Right Shift.. For Mac.. do we need a seperate AltGr or does Option fully replace it? Would it be nice as a compatibility option when people HOLD "Option" toggle?
 ---
 - Mx Spacing, Choc Spacing 50/50 buttons (that also set the padding to the correct spacing)

@@ -1280,6 +1280,24 @@ struct ContentView: View {
         var body: some View {
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 14) {
+                    EqualSplitFormRow {
+                        Text("Layout")
+                    } field: {
+                        Picker("", selection: layoutSelection) {
+                            ForEach(TrackpadLayoutPreset.allCases) { preset in
+                                Text(preset.displayName).tag(preset)
+                            }
+                        }
+                        .pickerStyle(MenuPickerStyle())
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.primary.opacity(0.05))
+                    )
+
                     if !editModeEnabled {
                         CollapsibleSection(
                             isExpanded: $typingTuningExpanded
@@ -1358,22 +1376,6 @@ struct ContentView: View {
 
                     if editModeEnabled {
                         VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Text("Layout")
-                                Spacer()
-                                Picker("", selection: layoutSelection) {
-                                    ForEach(TrackpadLayoutPreset.allCases) { preset in
-                                        Text(preset.displayName).tag(preset)
-                                    }
-                                }
-                                .pickerStyle(MenuPickerStyle())
-                            }
-                            .padding(12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.primary.opacity(0.05))
-                            )
-
                             CollapsibleSection(
                                 isExpanded: $columnTuningExpanded
                             ) {
