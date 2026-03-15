@@ -149,6 +149,11 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
 
     private static Process? TryStartEmojiPicker()
     {
+        if (!File.Exists(EmojiPickerExecutable))
+        {
+            return null;
+        }
+
         try
         {
             ProcessStartInfo startInfo = new()
