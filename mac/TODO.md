@@ -1,7 +1,5 @@
 ## TODO
-- What is Key Padding and when did it get here? I already have that.. it's called.. Column spacing.. I guess you added this because windows Column spacing is implemented at the layout level, not the column level, but I dont want you to add Key Padding. Remove it. I think you can accomplish the same thing by applying the same Column Spacing to each Column. I think, in the end, I will make Windows Column Spacing per-column as well - but that is not your job. Your job is to fix
-- Hm, we don't seem to be adding the extra horizontal spacing via Column X % and Column Y % like we do in windows?
-- add "mx spacing" and "choc spacing" 50/50 buttons (that also set the padding to the correct spacing based on mx dimensions!) please analyze how this is implemented in the ../windows_linux version of glasstokey and create a plan for porting this to mac!
+Fix and save MY & DEFAULT keymaps on mac
 ---
 - Can we add colored highlights like "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?
 - ^ Then I want to decide on a better theme for Shorcut Builder I hate that blue, lol. Its so un-mac looking..

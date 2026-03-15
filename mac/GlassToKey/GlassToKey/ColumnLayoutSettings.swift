@@ -6,8 +6,6 @@ struct ColumnLayoutSettings: Codable, Hashable {
     var scaleY: Double
     var offsetXPercent: Double
     var offsetYPercent: Double
-    // Legacy decode-only field. New mac layouts use layout-level spacing.
-    var rowSpacingPercent: Double
     var rotationDegrees: Double
 
     var scale: Double {
@@ -24,14 +22,12 @@ struct ColumnLayoutSettings: Codable, Hashable {
         scale: Double,
         offsetXPercent: Double,
         offsetYPercent: Double,
-        rowSpacingPercent: Double = 0.0,
         rotationDegrees: Double = 0.0
     ) {
         self.scaleX = scale
         self.scaleY = scale
         self.offsetXPercent = offsetXPercent
         self.offsetYPercent = offsetYPercent
-        self.rowSpacingPercent = rowSpacingPercent
         self.rotationDegrees = rotationDegrees
     }
 
@@ -40,14 +36,12 @@ struct ColumnLayoutSettings: Codable, Hashable {
         scaleY: Double,
         offsetXPercent: Double,
         offsetYPercent: Double,
-        rowSpacingPercent: Double = 0.0,
         rotationDegrees: Double = 0.0
     ) {
         self.scaleX = scaleX
         self.scaleY = scaleY
         self.offsetXPercent = offsetXPercent
         self.offsetYPercent = offsetYPercent
-        self.rowSpacingPercent = rowSpacingPercent
         self.rotationDegrees = rotationDegrees
     }
 
@@ -57,7 +51,6 @@ struct ColumnLayoutSettings: Codable, Hashable {
         case scale
         case offsetXPercent
         case offsetYPercent
-        case rowSpacingPercent
         case rotationDegrees
     }
 
@@ -68,7 +61,6 @@ struct ColumnLayoutSettings: Codable, Hashable {
         scaleY = try container.decodeIfPresent(Double.self, forKey: .scaleY) ?? legacyScale
         offsetXPercent = try container.decodeIfPresent(Double.self, forKey: .offsetXPercent) ?? 0.0
         offsetYPercent = try container.decodeIfPresent(Double.self, forKey: .offsetYPercent) ?? 0.0
-        rowSpacingPercent = try container.decodeIfPresent(Double.self, forKey: .rowSpacingPercent) ?? 0.0
         rotationDegrees = try container.decodeIfPresent(Double.self, forKey: .rotationDegrees) ?? 0.0
     }
 
@@ -143,7 +135,6 @@ enum LayoutKeySpacingStorage {
 enum LayoutKeySizePresetTuning {
     static let mxKeyWidthMm: CGFloat = 19.05
     static let mxKeyHeightMm: CGFloat = 19.05
-    static let defaultColumnSpacingPercent: Double = LayoutKeySpacingDefaults.defaultPercent
 
     static func applyKeySizePreset(
         layout: TrackpadLayoutPreset,
@@ -210,10 +201,6 @@ enum LayoutKeySizePresetTuning {
             return 0.0
         }
         let scaleX = Double(targetKeyWidthMm / baseKeyWidthMm)
-        if abs(scaleX - 1.0) < 0.000_01 {
-            return 0.0
-        }
-
         var targetAnchorsMm = Array(repeating: CGFloat.zero, count: anchors.count)
         targetAnchorsMm[0] = anchors[0].x
         for index in 1..<anchors.count {
@@ -242,7 +229,6 @@ enum LayoutKeySizePresetTuning {
 enum ColumnLayoutDefaults {
     static let scaleRange: ClosedRange<Double> = 0.5...2.0
     static let offsetPercentRange: ClosedRange<Double> = -30.0...30.0
-    static let legacyRowSpacingPercentRange: ClosedRange<Double> = -20.0...40.0
     static let rotationDegreesRange: ClosedRange<Double> = 0.0...360.0
 
     static func defaultSettings(columns: Int) -> [ColumnLayoutSettings] {
@@ -261,21 +247,6 @@ enum ColumnLayoutDefaults {
         _ settings: [ColumnLayoutSettings],
         columns: Int
     ) -> [ColumnLayoutSettings] {
-        normalizedSettings(settings, columns: columns, preserveLegacyRowSpacing: false)
-    }
-
-    static func normalizedLegacySettings(
-        _ settings: [ColumnLayoutSettings],
-        columns: Int
-    ) -> [ColumnLayoutSettings] {
-        normalizedSettings(settings, columns: columns, preserveLegacyRowSpacing: true)
-    }
-
-    private static func normalizedSettings(
-        _ settings: [ColumnLayoutSettings],
-        columns: Int,
-        preserveLegacyRowSpacing: Bool
-    ) -> [ColumnLayoutSettings] {
         var resolved = settings
         if resolved.count != columns {
             resolved = defaultSettings(columns: columns)
@@ -292,12 +263,6 @@ enum ColumnLayoutDefaults {
                     max(setting.offsetYPercent, offsetPercentRange.lowerBound),
                     offsetPercentRange.upperBound
                 ),
-                rowSpacingPercent: preserveLegacyRowSpacing
-                    ? min(
-                        max(setting.rowSpacingPercent, legacyRowSpacingPercentRange.lowerBound),
-                        legacyRowSpacingPercentRange.upperBound
-                    )
-                    : 0.0,
                 rotationDegrees: min(
                     max(setting.rotationDegrees, rotationDegreesRange.lowerBound),
                     rotationDegreesRange.upperBound

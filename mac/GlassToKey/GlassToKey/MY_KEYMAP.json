@@ -2,6 +2,13 @@
   "autoResyncMissingTrackpads" : false,
   "autocorrectEnabled" : false,
   "chordalShiftEnabled" : true,
+  "keySpacingPercentByLayout" : {
+    "5x3" : 8.5,
+    "5x4" : 8.5,
+    "6x3" : 8.5,
+    "6x4" : 8.5,
+    "Mobile Ortho 12x4" : 10
+  },
   "columnSettingsByLayout" : {
     "5x3" : [
       {
