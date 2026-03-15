@@ -1,5 +1,7 @@
 ## Current:
-- `OS agnostic Import/Export` keymap to windows,linux,and mac!
+- `OS agnostic Import/Export` keymap to windows_linux,and mac! To start I want to use Windows as the GOLD STANDARD and I want to make sure that I can 1. export my Windows keymap and import it into Linux. 2. export my Linux keymap and import it into Windows! Please do a full analysis of the relevant code and pay careful attention to the seams of the program so that we can make a beautiful edit. Since windows_linux uses a shared core this should be a pretty easy first start!
+- Next I want you to force Mac into compliance: What does it need to accept the Windows/Linux keymap? Don't worry about preserving legacy Mac keymap support, I am nuking it and starting over from Windows GOLD standard.
+- 
 - Can we add `3-finger tap` Gesture? this one should be easy to differentiate between typing fast, right? (Do you need an .atpcap?). If no 3-finger tap is set, it should not try to determine if an action is a 3-finger tap, so the hot path can stay hoter if no action is set.
 ---
 - `Handed Gestures`: Create Gestures (Left) and Gestures (Right) and make the gestures handed, instead of duplicate

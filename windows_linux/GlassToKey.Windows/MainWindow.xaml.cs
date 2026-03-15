@@ -1711,14 +1711,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             }
 
             EnsureExportIncludesAllPresetLayouts();
-            SettingsBundleFile bundle = new()
-            {
-                Version = 1,
-                Settings = BuildExportSettingsSnapshot(),
-                KeymapJson = _keymap.SerializeToJson(writeIndented: false)
-            };
+            UserSettings snapshot = BuildExportSettingsSnapshot();
+            GlassToKeyProfileBundle bundle = GlassToKeyProfileBundle.Create(snapshot, _keymap);
+            bundle.SetHostExtension("windows", BuildWindowsHostExtension(snapshot));
 
-            string json = JsonSerializer.Serialize(bundle, new JsonSerializerOptions { WriteIndented = true });
+            string json = bundle.SerializeToJson(writeIndented: true);
             File.WriteAllText(path, json);
             return true;
         }
@@ -1850,33 +1847,20 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private bool TryImportSettingsBundleJson(string json, out string error)
     {
         error = string.Empty;
-        if (string.IsNullOrWhiteSpace(json))
+        if (!GlassToKeyProfileBundle.TryParse(json, out GlassToKeyProfileBundle bundle, out string bundleParseError))
         {
-            error = "Import file is empty.";
+            error = bundleParseError;
             return false;
         }
 
-        SettingsBundleFile? bundle;
-        try
+        if (!bundle.TryLoadPortableProfile(out UserSettings importedSettings, out KeymapStore importedKeymap, out string bundleLoadError))
         {
-            bundle = JsonSerializer.Deserialize<SettingsBundleFile>(
-                json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        }
-        catch (Exception ex)
-        {
-            error = ex.Message;
+            error = bundleLoadError;
             return false;
         }
 
-        if (bundle?.Settings == null || string.IsNullOrWhiteSpace(bundle.KeymapJson))
-        {
-            error = "Expected a GlassToKey settings export with both settings and keymap data.";
-            return false;
-        }
-
-        UserSettings importedSettings = bundle.Settings.Clone();
-        importedSettings.NormalizeRanges();
+        ApplyCurrentWindowsHostSettings(importedSettings, _settings);
+        ApplyWindowsHostExtension(bundle, importedSettings);
 
         if (!StartupRegistration.TrySetEnabled(importedSettings.RunAtStartup, out string? startupError))
         {
@@ -1884,14 +1868,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return false;
         }
 
-        if (!_keymap.TryImportFromJson(bundle.KeymapJson, out string keymapError))
-        {
-            error = $"Keymap section is invalid: {keymapError}";
-            return false;
-        }
-
         _settings.CopyFrom(importedSettings);
         _settings.NormalizeRanges();
+        _keymap.TryImportFromJson(importedKeymap.SerializeToJson(writeIndented: false), out _);
 
         _preset = TrackpadLayoutPreset.ResolveByNameOrDefault(_settings.LayoutPresetName);
         _settings.LayoutPresetName = _preset.Name;
@@ -1927,6 +1906,48 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
         UpdateEngineStateDetails();
         return true;
+    }
+
+    private static WindowsHostProfileExtension BuildWindowsHostExtension(UserSettings settings)
+    {
+        return new WindowsHostProfileExtension
+        {
+            LeftDevicePath = settings.LeftDevicePath,
+            RightDevicePath = settings.RightDevicePath,
+            DecoderProfilesByDevicePath = settings.DecoderProfilesByDevicePath == null
+                ? null
+                : new Dictionary<string, string>(settings.DecoderProfilesByDevicePath, StringComparer.OrdinalIgnoreCase),
+            RunAtStartup = settings.RunAtStartup,
+            StartInTrayOnLaunch = settings.StartInTrayOnLaunch
+        };
+    }
+
+    private static void ApplyCurrentWindowsHostSettings(UserSettings target, UserSettings current)
+    {
+        target.LeftDevicePath = current.LeftDevicePath;
+        target.RightDevicePath = current.RightDevicePath;
+        target.DecoderProfilesByDevicePath = current.DecoderProfilesByDevicePath == null
+            ? null
+            : new Dictionary<string, string>(current.DecoderProfilesByDevicePath, StringComparer.OrdinalIgnoreCase);
+        target.RunAtStartup = current.RunAtStartup;
+        target.StartInTrayOnLaunch = current.StartInTrayOnLaunch;
+    }
+
+    private static void ApplyWindowsHostExtension(GlassToKeyProfileBundle bundle, UserSettings settings)
+    {
+        if (!bundle.TryGetHostExtension("windows", out WindowsHostProfileExtension? hostExtension) ||
+            hostExtension == null)
+        {
+            return;
+        }
+
+        settings.LeftDevicePath = hostExtension.LeftDevicePath;
+        settings.RightDevicePath = hostExtension.RightDevicePath;
+        settings.DecoderProfilesByDevicePath = hostExtension.DecoderProfilesByDevicePath == null
+            ? null
+            : new Dictionary<string, string>(hostExtension.DecoderProfilesByDevicePath, StringComparer.OrdinalIgnoreCase);
+        settings.RunAtStartup = hostExtension.RunAtStartup;
+        settings.StartInTrayOnLaunch = hostExtension.StartInTrayOnLaunch;
     }
 
     private void ApplyCoreSettings()
@@ -5162,11 +5183,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         public override string ToString() => Label;
     }
 
-    private sealed class SettingsBundleFile
+    private sealed class WindowsHostProfileExtension
     {
-        public int Version { get; set; } = 1;
-        public UserSettings Settings { get; set; } = new();
-        public string KeymapJson { get; set; } = string.Empty;
+        public string? LeftDevicePath { get; set; }
+        public string? RightDevicePath { get; set; }
+        public Dictionary<string, string>? DecoderProfilesByDevicePath { get; set; }
+        public bool RunAtStartup { get; set; }
+        public bool StartInTrayOnLaunch { get; set; }
     }
 
     private sealed class ReaderSession
