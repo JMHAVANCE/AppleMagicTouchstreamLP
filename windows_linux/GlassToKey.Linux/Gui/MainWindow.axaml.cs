@@ -4648,6 +4648,11 @@ public partial class MainWindow : Window
 
     private static string GetActionDisplayLabel(string action)
     {
+        if (IsChordShiftActionLabel(action))
+        {
+            return "Chordal Shift";
+        }
+
         if (TryGetSpecialActionDisplayLabel(action, out string label))
         {
             return label;
@@ -4672,6 +4677,19 @@ public partial class MainWindow : Window
             "RWin" or "RSuper" => "Right Super",
             _ => action
         };
+    }
+
+    private static bool IsChordShiftActionLabel(string? action)
+    {
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            return false;
+        }
+
+        string normalized = action.Trim();
+        return normalized.Equals("Chordal Shift", StringComparison.OrdinalIgnoreCase) ||
+               normalized.Equals("Chord Shift", StringComparison.OrdinalIgnoreCase) ||
+               normalized.Equals("ChordShift", StringComparison.OrdinalIgnoreCase);
     }
 
     private void OnMxSpacingClick(object? sender, RoutedEventArgs e)
