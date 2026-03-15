@@ -170,6 +170,8 @@ struct ContentView: View {
     static let minCustomButtonSize = CGSize(width: 0.05, height: 0.05)
     private static let editableLayers = KeyLayerConfig.editableLayers
     fileprivate static let columnScaleRange: ClosedRange<Double> = ColumnLayoutDefaults.scaleRange
+    fileprivate static let columnScalePercentRange: ClosedRange<Double> =
+        (ColumnLayoutDefaults.scaleRange.lowerBound * 100.0)...(ColumnLayoutDefaults.scaleRange.upperBound * 100.0)
     fileprivate static let columnOffsetPercentRange: ClosedRange<Double> = ColumnLayoutDefaults.offsetPercentRange
     fileprivate static let rowSpacingPercentRange: ClosedRange<Double> = ColumnLayoutDefaults.rowSpacingPercentRange
     fileprivate static let rotationDegreesRange: ClosedRange<Double> = ColumnLayoutDefaults.rotationDegreesRange
@@ -184,13 +186,13 @@ struct ContentView: View {
     fileprivate static let snapRadiusPercentRange: ClosedRange<Double> = 0.0...100.0
     private static let keyCornerRadius: CGFloat = 6.0
     private static let autoSplayTouchCount = 4
-    fileprivate static let columnScaleFormatter: NumberFormatter = {
+    fileprivate static let columnScalePercentFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 2
-        formatter.minimum = NSNumber(value: ContentView.columnScaleRange.lowerBound)
-        formatter.maximum = NSNumber(value: ContentView.columnScaleRange.upperBound)
+        formatter.minimum = NSNumber(value: ContentView.columnScalePercentRange.lowerBound)
+        formatter.maximum = NSNumber(value: ContentView.columnScalePercentRange.upperBound)
         return formatter
     }()
     fileprivate static let columnOffsetFormatter: NumberFormatter = {
@@ -1725,18 +1727,33 @@ struct ContentView: View {
                         }
                         VStack(alignment: .leading, spacing: 14) {
                             ColumnTuningRow(
-                                title: "Column Scale (%)",
+                                title: "Column Scale X (%)",
                                 value: Binding(
-                                    get: { settings.scale },
+                                    get: { settings.scaleX * 100.0 },
                                     set: { newValue in
                                         onUpdateColumn(index) { setting in
-                                            setting.scale = ContentView.normalizedColumnScale(newValue)
+                                            setting.scaleX = ContentView.normalizedColumnScale(newValue / 100.0)
                                         }
                                     }
                                 ),
-                                formatter: ContentView.columnScaleFormatter,
-                                range: ContentView.columnScaleRange,
-                                sliderStep: 0.05,
+                                formatter: ContentView.columnScalePercentFormatter,
+                                range: ContentView.columnScalePercentRange,
+                                sliderStep: 5.0,
+                                showSlider: false
+                            )
+                            ColumnTuningRow(
+                                title: "Column Scale Y (%)",
+                                value: Binding(
+                                    get: { settings.scaleY * 100.0 },
+                                    set: { newValue in
+                                        onUpdateColumn(index) { setting in
+                                            setting.scaleY = ContentView.normalizedColumnScale(newValue / 100.0)
+                                        }
+                                    }
+                                ),
+                                formatter: ContentView.columnScalePercentFormatter,
+                                range: ContentView.columnScalePercentRange,
+                                sliderStep: 5.0,
                                 showSlider: false
                             )
                             ColumnTuningRow(
@@ -3052,16 +3069,17 @@ struct ContentView: View {
               columnAnchorsMM.count == columns else {
             return ContentViewModel.Layout(normalizedKeyRects: [], trackpadSize: size)
         }
-        let scaleX = size.width / trackpadWidth
-        let scaleY = size.height / trackpadHeight
+        let viewScaleX = size.width / trackpadWidth
+        let viewScaleY = size.height / trackpadHeight
         let resolvedSettings = normalizedColumnSettings(
             columnSettings,
             columns: columns
         )
-        let columnScales = resolvedSettings.map { CGFloat($0.scale) }
+        let columnScaleXs = resolvedSettings.map { CGFloat($0.scaleX) }
+        let columnScaleYs = resolvedSettings.map { CGFloat($0.scaleY) }
         let adjustedAnchorsMM = scaledColumnAnchorsMM(
             columnAnchorsMM,
-            columnScales: columnScales
+            columnScaleXs: columnScaleXs
         )
 
         var keyRects: [[CGRect]] = Array(
@@ -3071,16 +3089,17 @@ struct ContentView: View {
         for row in 0..<rows {
             for col in 0..<columns {
                 let anchorMM = adjustedAnchorsMM[col]
-                let scale = columnScales[col]
+                let columnScaleX = columnScaleXs[col]
+                let columnScaleY = columnScaleYs[col]
                 let keySize = CGSize(
-                    width: keyWidth * scale * scaleX,
-                    height: keyHeight * scale * scaleY
+                    width: keyWidth * columnScaleX * viewScaleX,
+                    height: keyHeight * columnScaleY * viewScaleY
                 )
                 let rowSpacingPercent = resolvedSettings[col].rowSpacingPercent
                 let rowSpacing = keySize.height * CGFloat(rowSpacingPercent / 100.0)
                 keyRects[row][col] = CGRect(
-                    x: anchorMM.x * scaleX,
-                    y: anchorMM.y * scaleY + CGFloat(row) * (keySize.height + rowSpacing),
+                    x: anchorMM.x * viewScaleX,
+                    y: anchorMM.y * viewScaleY + CGFloat(row) * (keySize.height + rowSpacing),
                     width: keySize.width,
                     height: keySize.height
                 )
@@ -3118,11 +3137,11 @@ struct ContentView: View {
 
     private static func scaledColumnAnchorsMM(
         _ anchors: [CGPoint],
-        columnScales: [CGFloat]
+        columnScaleXs: [CGFloat]
     ) -> [CGPoint] {
         guard let originX = anchors.first?.x else { return anchors }
         return anchors.enumerated().map { index, anchor in
-            let scale = columnScales.indices.contains(index) ? columnScales[index] : 1.0
+            let scale = columnScaleXs.indices.contains(index) ? columnScaleXs[index] : 1.0
             let offsetX = anchor.x - originX
             return CGPoint(x: originX + offsetX * scale, y: anchor.y)
         }

@@ -1,17 +1,27 @@
 ## TODO
-- Mx Spacing, Choc Spacing 50/50 buttons (that also set the padding to the correct spacing)
+0. Key Rotation doesn't appear until a key is selected, that is incorrect behavior.
+1. Move Key Rotation up above Shortcut Builder and make the field 100% width of it's 50% / 50% column  
+- All fields in Column Tuning should be  50% / 50% column width
+- layout label and column should be width of 50% / 50% column  
+---
 - Column Scale X / Column Scale Y
+- Look at how it's implemented in Windows and implement the shortcut builder like that: If you click on any of the base buttons it toggles it: Ctrl, Shift, etc. and if you HOLD it will let you select which side from the dropdown.. Left Shift, Right Shift.. For Mac.. do we need a seperate AltGr or does Option fully replace it? Would it be nice as a compatibility option when people HOLD "Option" toggle?
+---
+- Mx Spacing, Choc Spacing 50/50 buttons (that also set the padding to the correct spacing)
+---
+- right click bugs bc 3 finger drag, lets fix!
+---
+- Can we add colored highlights like "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?
+- Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
+- Can we make Gesture Tuning section scrollable??
 -------
 - Sometimes Mixed mode ignores taps for typing? Frustrating when starting to type having to hit the key multiple times to start typing mode.
 - I think it was because early on i had you build a 2 key buffer before typing in the intent machine and I want to remove it.
 ^ tip switch like on windows?
 ^ capture
 ---
-- Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
-- Can we make Gesture Tuning section scrollable??
----
-- .atpcap should capture keymap! that would be super helpful!
 - auto-reconnect not working correctly after sleep
+- .atpcap should capture keymap! that would be super helpful!
 ---
 
 ## ICONIC:
