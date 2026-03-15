@@ -231,6 +231,27 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
+                  <Button x:Name="MxSpacingButton"
+                          Content="mx size"
+                          Height="28"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Center"
+                          VerticalContentAlignment="Center"
+                          Margin="0,0,6,0" />
+                  <Button x:Name="ChocSpacingButton"
+                          Grid.Column="1"
+                          Content="choc size"
+                          Height="28"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Center"
+                          VerticalContentAlignment="Center"
+                          Margin="6,0,0,0" />
+                </Grid>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
                   <Button x:Name="ColumnAutoSplayButton"
                           Content="Auto Splay (4+ Fingers)"
                           Height="26"
@@ -240,7 +261,7 @@
                           Margin="0,0,6,0" />
                   <Button x:Name="ColumnEvenSpaceButton"
                           Grid.Column="1"
-                          Content="e v e n s p a c e"
+                          Content="e v e n s p a c i n g"
                           Height="26"
                           HorizontalAlignment="Stretch"
                           HorizontalContentAlignment="Center"
@@ -287,27 +308,6 @@
 
                   <TextBlock Grid.Row="3" Grid.Column="0" Text="Key Rotation (0-360 deg)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,8,8,0" />
                   <TextBox x:Name="KeyRotationBox" Grid.Row="3" Grid.Column="1" Height="24" Margin="8,8,0,0" />
-                </Grid>
-                <Grid Margin="0,12,0,0">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                  </Grid.ColumnDefinitions>
-                  <Button x:Name="MxSpacingButton"
-                          Content="mx spacing"
-                          Height="28"
-                          HorizontalAlignment="Stretch"
-                          HorizontalContentAlignment="Center"
-                          VerticalContentAlignment="Center"
-                          Margin="0,0,6,0" />
-                  <Button x:Name="ChocSpacingButton"
-                          Grid.Column="1"
-                          Content="choc spacing"
-                          Height="28"
-                          HorizontalAlignment="Stretch"
-                          HorizontalContentAlignment="Center"
-                          VerticalContentAlignment="Center"
-                          Margin="6,0,0,0" />
                 </Grid>
                 <Border Margin="0,12,0,0"
                         Padding="12"

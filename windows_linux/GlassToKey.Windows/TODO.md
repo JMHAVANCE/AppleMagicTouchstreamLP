@@ -1,11 +1,5 @@
 ## Current:
-- Can we move Column Spacing to the top of Column Tuning?
-- Can we make it when you click "choc spacing" it tries to calculate the horizontal padding to match the vertical, like it does for "mx spacing?
----
-- Can we move "mx spacing" and "choc spacing" above "Autosplay" and "e v e n s p a c e"
-- Can we rename "mx spacing" > "mx size" and "choc spacing" > "choc size"
-- Can we rename "e v e n s p a c e" > "e v e n s p a c i n g"
----
+- `OS agnostic Import/Export` keymap to windows,linux,and mac!
 - Can we add `3-finger tap` Gesture? this one should be easy to differentiate between typing fast, right? (Do you need an .atpcap?). If no 3-finger tap is set, it should not try to determine if an action is a 3-finger tap, so the hot path can stay hoter if no action is set.
 ---
 - `Handed Gestures`: Create Gestures (Left) and Gestures (Right) and make the gestures handed, instead of duplicate
@@ -17,6 +11,7 @@
 - `Suppress Mouse in Keyboard mode` should be an OPTION *******
 - `Click & Drag Columns` allow user to drag columns around if "edit keymap" is enabled. Show different toggles if `edit keymap` is enabled? (more consistent GUI /w mac?)
 ---
+- `Force Dependant keymap` make a key variable output depending on the force used (similar to hold)
 - When the config opens, it opens maximized Can we have it opened windowed, unless the user maximizes it — and then remember their choice? Or would we have to add a bunch of nonsense to track that? (It wont be worth it in that case)
 - Tune velocity / drag cancel on windows /w codex
 
