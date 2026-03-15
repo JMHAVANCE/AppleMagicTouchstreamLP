@@ -1,6 +1,4 @@
 # TODO:
-- Ctrl, Shift, Alt, Super do not match the description in Shortcut Builder: when you click they DO toggle BUT nothing happens when I HOLD (it should present sided options: Left Shift, Right Shift, Alt, Left Right, AltGr) please see windows. I want to do AltGr+n > Accented N in Linux with a shortcut builder
-# Test AltGr+n on Linux
 - The GUI colors are so bad when you hover over any button please make it more high contrast
 - Add Linux Equivalents for: `System & Media`: EMOJI, VOICE, BRIGHT_UP, BRIGHT_DOWN
 -------
@@ -19,8 +17,6 @@
 - try installing Arch tonight, lol. 
 
 # GUI
-- BRIGHT_UP, BRIGHT_DOWN doesn't work on Linux. I think we need a Linux specific implementation. 
-
 - In Windows there are "contact pills" and "state pills" can you please implement those in Linux?
 
 # Autocorrect

@@ -41,16 +41,18 @@
       <Setter Property="Opacity" Value="0.45" />
     </Style>
     <Style Selector="Button.shortcutModifierPicker">
-      <Setter Property="Width" Value="28" />
-      <Setter Property="MinWidth" Value="28" />
-      <Setter Property="Padding" Value="0" />
+      <Setter Property="Width" Value="34" />
+      <Setter Property="MinWidth" Value="34" />
+      <Setter Property="Padding" Value="0,0,0,2" />
       <Setter Property="Foreground" Value="#FFF8F0" />
       <Setter Property="Background" Value="#1C2733" />
       <Setter Property="BorderBrush" Value="#86C6EC" />
       <Setter Property="BorderThickness" Value="2" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontSize" Value="16" />
       <Setter Property="FontWeight" Value="Bold" />
       <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.shortcutModifierPicker:pointerover">
       <Setter Property="Background" Value="#243445" />
@@ -453,6 +455,7 @@
                           <Grid ColumnDefinitions="*,Auto">
                             <ToggleButton x:Name="GestureShortcutCtrlToggle"
                                           Classes="shortcutModifierToggle"
+                                          HorizontalAlignment="Stretch"
                                           Content="Ctrl" />
                             <Button x:Name="GestureShortcutCtrlPickerButton"
                                     Grid.Column="1"
@@ -465,6 +468,7 @@
                                 ColumnDefinitions="*,Auto">
                             <ToggleButton x:Name="GestureShortcutShiftToggle"
                                           Classes="shortcutModifierToggle"
+                                          HorizontalAlignment="Stretch"
                                           Content="Shift" />
                             <Button x:Name="GestureShortcutShiftPickerButton"
                                     Grid.Column="1"
@@ -477,6 +481,7 @@
                                 ColumnDefinitions="*,Auto">
                             <ToggleButton x:Name="GestureShortcutAltToggle"
                                           Classes="shortcutModifierToggle"
+                                          HorizontalAlignment="Stretch"
                                           Content="Alt" />
                             <Button x:Name="GestureShortcutAltPickerButton"
                                     Grid.Column="1"
@@ -489,6 +494,7 @@
                                 ColumnDefinitions="*,Auto">
                             <ToggleButton x:Name="GestureShortcutWinToggle"
                                           Classes="shortcutModifierToggle"
+                                          HorizontalAlignment="Stretch"
                                           Content="Super" />
                             <Button x:Name="GestureShortcutWinPickerButton"
                                     Grid.Column="1"
