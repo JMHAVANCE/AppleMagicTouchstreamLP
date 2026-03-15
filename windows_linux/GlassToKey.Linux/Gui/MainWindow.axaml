@@ -19,7 +19,7 @@
       <Setter Property="Opacity" Value="0.45" />
     </Style>
     <Style Selector="ToggleButton.shortcutModifierToggle">
-      <Setter Property="Margin" Value="0,0,6,6" />
+      <Setter Property="Margin" Value="0" />
       <Setter Property="Padding" Value="10,5" />
       <Setter Property="Foreground" Value="#FFF8F0" />
       <Setter Property="Background" Value="#1C2733" />
@@ -38,6 +38,27 @@
       <Setter Property="BorderBrush" Value="#E6F7FF" />
     </Style>
     <Style Selector="ToggleButton.shortcutModifierToggle:disabled">
+      <Setter Property="Opacity" Value="0.45" />
+    </Style>
+    <Style Selector="Button.shortcutModifierPicker">
+      <Setter Property="Width" Value="28" />
+      <Setter Property="MinWidth" Value="28" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Foreground" Value="#FFF8F0" />
+      <Setter Property="Background" Value="#1C2733" />
+      <Setter Property="BorderBrush" Value="#86C6EC" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Button.shortcutModifierPicker:pointerover">
+      <Setter Property="Background" Value="#243445" />
+    </Style>
+    <Style Selector="Button.shortcutModifierPicker:pressed">
+      <Setter Property="Background" Value="#2D4357" />
+    </Style>
+    <Style Selector="Button.shortcutModifierPicker:disabled">
       <Setter Property="Opacity" Value="0.45" />
     </Style>
     <Style Selector="Button.shortcutActionButton">
@@ -429,23 +450,54 @@
                                        Content="Hold" />
                         </Grid>
                         <Grid ColumnDefinitions="*,*,*,*">
-                          <ToggleButton x:Name="GestureShortcutCtrlToggle"
-                                        Classes="shortcutModifierToggle"
-                                        Content="Ctrl" />
-                          <ToggleButton x:Name="GestureShortcutShiftToggle"
-                                        Grid.Column="1"
-                                        Classes="shortcutModifierToggle"
-                                        Content="Shift" />
-                          <ToggleButton x:Name="GestureShortcutAltToggle"
-                                        Grid.Column="2"
-                                        Classes="shortcutModifierToggle"
-                                        Content="Alt" />
-                          <ToggleButton x:Name="GestureShortcutWinToggle"
-                                        Grid.Column="3"
-                                        Classes="shortcutModifierToggle"
-                                        Content="Super" />
+                          <Grid ColumnDefinitions="*,Auto">
+                            <ToggleButton x:Name="GestureShortcutCtrlToggle"
+                                          Classes="shortcutModifierToggle"
+                                          Content="Ctrl" />
+                            <Button x:Name="GestureShortcutCtrlPickerButton"
+                                    Grid.Column="1"
+                                    Margin="6,0,0,0"
+                                    Classes="shortcutModifierPicker"
+                                    Content="v" />
+                          </Grid>
+                          <Grid Grid.Column="1"
+                                Margin="8,0,0,0"
+                                ColumnDefinitions="*,Auto">
+                            <ToggleButton x:Name="GestureShortcutShiftToggle"
+                                          Classes="shortcutModifierToggle"
+                                          Content="Shift" />
+                            <Button x:Name="GestureShortcutShiftPickerButton"
+                                    Grid.Column="1"
+                                    Margin="6,0,0,0"
+                                    Classes="shortcutModifierPicker"
+                                    Content="v" />
+                          </Grid>
+                          <Grid Grid.Column="2"
+                                Margin="8,0,0,0"
+                                ColumnDefinitions="*,Auto">
+                            <ToggleButton x:Name="GestureShortcutAltToggle"
+                                          Classes="shortcutModifierToggle"
+                                          Content="Alt" />
+                            <Button x:Name="GestureShortcutAltPickerButton"
+                                    Grid.Column="1"
+                                    Margin="6,0,0,0"
+                                    Classes="shortcutModifierPicker"
+                                    Content="v" />
+                          </Grid>
+                          <Grid Grid.Column="3"
+                                Margin="8,0,0,0"
+                                ColumnDefinitions="*,Auto">
+                            <ToggleButton x:Name="GestureShortcutWinToggle"
+                                          Classes="shortcutModifierToggle"
+                                          Content="Super" />
+                            <Button x:Name="GestureShortcutWinPickerButton"
+                                    Grid.Column="1"
+                                    Margin="6,0,0,0"
+                                    Classes="shortcutModifierPicker"
+                                    Content="v" />
+                          </Grid>
                         </Grid>
-                        <TextBlock Text="Click to toggle. Hold to choose general, left, or right."
+                        <TextBlock Text="Click a pill to toggle its generic modifier. Use v to choose left or right."
                                    Foreground="#8FB6CF"
                                    FontSize="11"
                                    FontStyle="Italic"

@@ -1,15 +1,8 @@
 # TODO:
-- Please make all "Custom" actions added at the bottom with their own fancy `Custom` header~ (like in Windows)
-- What is the Difference between Super and AltGr in Linux?
-- I'm having a really hard time stopping glasstokey when running `dotnet run` do you think that is indicitave of actual installs or just testing?
----
-- Add Linux Equivalents for: `System & Media`: EMOJI, VOICE, BRIGHT_UP, BRIGHT_DOWN
-- Ctrl, Shift, Alt, Super do not match the description in Shortcut Builder: when you click they DO toggle but nothing happens when I HOLD (should present sided options: Left Shift, Right Shift) please see windows. How does AltGr work in Linux? How do I do AltGr+n > Accented N in Linux?
----
-- Test AltGr on Linux
-1. You said Super+N then N should send the international letter? I can't get it to work now, (because it's set to Win?)
-- Meta keys? or is that same as Super? distinct enough to add to shortcut builder and action dropdowns?
+- Ctrl, Shift, Alt, Super do not match the description in Shortcut Builder: when you click they DO toggle BUT nothing happens when I HOLD (it should present sided options: Left Shift, Right Shift, Alt, Left Right, AltGr) please see windows. I want to do AltGr+n > Accented N in Linux with a shortcut builder
+# Test AltGr+n on Linux
 - The GUI colors are so bad when you hover over any button please make it more high contrast
+- Add Linux Equivalents for: `System & Media`: EMOJI, VOICE, BRIGHT_UP, BRIGHT_DOWN
 -------
 # Test Linux Restart:
 - Linux does not respect `open in tray` and always opens in fullscreen
