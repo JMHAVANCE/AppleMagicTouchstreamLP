@@ -1,6 +1,4 @@
 # TODO:
-- Great, now I want you to apply that theme to `Import Settings`, `Export Settings`, `Refresh Devices` and `Browse` Please!!
----
 - Add Linux Equivalents for: `System & Media`: EMOJI
 - Add Linux Equivalents for: `System & Media`: VOICE, 
 - Add Linux Equivalents for: `System & Media`: BRIGHT_UP and BRIGHT_DOWN
@@ -9,6 +7,7 @@
 - Linux does not respect `open in tray` and always opens in fullscreen
 - Test `open after restart` in linux by restarting
 - Test typing password after restart in Linux type shit.
+- Test this again, but from headless startup (like Login from startup)
 
 # BUG:
 - If I Switch between keyboard (purple) and mouse (red) during keyboard/mouse mode.. It actually wont give mouse control back to the mouse until I click - Is there another way to accomplish this? I really don't like EVIOCGRAB style suppression. =x 

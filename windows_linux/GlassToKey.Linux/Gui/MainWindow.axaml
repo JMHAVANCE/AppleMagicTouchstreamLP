@@ -12,7 +12,7 @@
   </Window.Resources>
   <Window.Styles>
     <Style Selector="RadioButton.shortcutTargetRadio">
-      <Setter Property="Foreground" Value="#FFF6EA" />
+      <Setter Property="Foreground" Value="#F7F2EA" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
     <Style Selector="RadioButton.shortcutTargetRadio:disabled">
@@ -86,7 +86,10 @@
       <Setter Property="BorderBrush" Value="#11161B" />
     </Style>
     <Style Selector="Button.shortcutActionButton:disabled">
-      <Setter Property="Opacity" Value="0.45" />
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="Foreground" Value="#6A5241" />
+      <Setter Property="Background" Value="#D8C4A4" />
+      <Setter Property="BorderBrush" Value="#A98552" />
     </Style>
     <Style Selector="Button.outlineActionButton">
       <Setter Property="Foreground" Value="#11161B" />
@@ -117,7 +120,7 @@
       <Setter Property="TextBlock.Foreground" Value="#11161B" />
     </Style>
     <Style Selector="TextBlock.shortcutFieldLabel">
-      <Setter Property="Foreground" Value="#FFF6EA" />
+      <Setter Property="Foreground" Value="#F7F2EA" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
   </Window.Styles>
@@ -462,19 +465,19 @@
                                Margin="0,8,0,2" />
                     </Grid>
 
-                    <Border Background="#101821"
-                            BorderBrush="#2F5D78"
+                    <Border Background="#23303A"
+                            BorderBrush="#425866"
                             BorderThickness="1"
                             CornerRadius="10"
                             Padding="12">
                       <StackPanel Spacing="8">
                         <TextBlock Text="Shortcut Builder"
-                                   Foreground="#CFE6F5"
+                                   Foreground="#F7F2EA"
                                    FontSize="12"
                                    FontWeight="SemiBold" />
                         <TextBlock x:Name="GestureShortcutTargetText"
                                    Text=""
-                                   Foreground="#8FB6CF"
+                                   Foreground="#D9C7B5"
                                    FontSize="11"
                                    TextWrapping="Wrap"
                                    IsVisible="False" />
@@ -544,7 +547,7 @@
                           </Grid>
                         </Grid>
                         <TextBlock Text="Click a pill to toggle its generic modifier. Use v to choose left or right."
-                                   Foreground="#8FB6CF"
+                                   Foreground="#D9C7B5"
                                    FontSize="11"
                                    FontStyle="Italic"
                                    TextAlignment="Center"
@@ -580,7 +583,7 @@
                         </Grid>
                         <TextBlock x:Name="GestureShortcutPreviewText"
                                    Text="Shortcut: none"
-                                   Foreground="#CFE6F5"
+                                   Foreground="#F7F2EA"
                                    FontSize="11" />
                       </StackPanel>
                     </Border>
