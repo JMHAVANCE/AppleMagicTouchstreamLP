@@ -1954,6 +1954,22 @@ struct ContentView: View {
             return "none"
         }
 
+        private var keyRotationBinding: Binding<Double> {
+            Binding(
+                get: {
+                    guard let selection = keySelection else { return 0.0 }
+                    return keyRotationDegrees(selection.key)
+                },
+                set: { newValue in
+                    guard let selection = keySelection else { return }
+                    onUpdateKeyRotation(
+                        selection.key,
+                        ContentView.normalizedRotationDegrees(newValue)
+                    )
+                }
+            )
+        }
+
         private var selectedPrimaryAction: KeyAction {
             primaryActionBinding.wrappedValue
         }
@@ -2168,6 +2184,14 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .disabled(!hasEditableSelection)
                 }
+                EqualSplitFormRow {
+                    Text("Key Rotation (0-360 deg)")
+                } field: {
+                    TextField("", value: keyRotationBinding, formatter: ContentView.rotationDegreesFormatter)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: .infinity)
+                        .disabled(keySelection == nil)
+                }
                 VStack(alignment: .leading, spacing: 8) {
                     highlightedSectionLabel("Shortcut Builder")
                     Picker("", selection: $actionBuilderTarget) {
@@ -2223,25 +2247,6 @@ struct ContentView: View {
                     Text(actionBuilderPreview)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                }
-                if let selection = keySelection {
-                    ColumnTuningRow(
-                        title: "Key Rotation (0-360 deg)",
-                        value: Binding(
-                            get: { keyRotationDegrees(selection.key) },
-                            set: { newValue in
-                                onUpdateKeyRotation(
-                                    selection.key,
-                                    ContentView.normalizedRotationDegrees(newValue)
-                                )
-                            }
-                        ),
-                        formatter: ContentView.rotationDegreesFormatter,
-                        range: ContentView.rotationDegreesRange,
-                        sliderStep: 1.0,
-                        buttonStep: 0.5,
-                        showSlider: false
-                    )
                 }
                 highlightedSectionLabel("Custom Buttons")
                 addButtonsRow

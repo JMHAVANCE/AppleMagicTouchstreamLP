@@ -1,6 +1,4 @@
 ## TODO
-0. Key Rotation doesn't appear until a key is selected, that is incorrect behavior.
-1. Move Key Rotation up above Shortcut Builder and make the field 100% width of it's 50% / 50% column  
 - All fields in Column Tuning should be  50% / 50% column width
 - layout label and column should be width of 50% / 50% column  
 ---
@@ -12,6 +10,7 @@
 - right click bugs bc 3 finger drag, lets fix!
 ---
 - Can we add colored highlights like "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?
+- ^ Then I want to decide on a better theme for Shorcut Builder I hate that blue, lol. Its so un-mac looking..
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
 - Can we make Gesture Tuning section scrollable??
 -------
