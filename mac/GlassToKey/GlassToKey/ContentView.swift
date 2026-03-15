@@ -2198,7 +2198,7 @@ struct ContentView: View {
                 return action.pickerText
             }
             if let action = builtShortcutAction {
-                return "Shortcut: \(action.label)"
+                return "Shortcut: \(action.pickerText)"
             }
             return "Shortcut: none"
         }

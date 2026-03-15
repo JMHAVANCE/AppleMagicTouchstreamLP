@@ -300,6 +300,47 @@ enum ShortcutModifier: String, CaseIterable, Hashable, Codable {
         }
     }
 
+    func displayLabel(for variant: ShortcutModifierVariant) -> String {
+        switch self {
+        case .control:
+            switch variant {
+            case .generic:
+                return "Ctrl"
+            case .left:
+                return "Left Ctrl"
+            case .right:
+                return "Right Ctrl"
+            }
+        case .shift:
+            switch variant {
+            case .generic:
+                return "Shift"
+            case .left:
+                return "Left Shift"
+            case .right:
+                return "Right Shift"
+            }
+        case .option:
+            switch variant {
+            case .generic:
+                return "Option"
+            case .left:
+                return "Left Option"
+            case .right:
+                return "AltGr"
+            }
+        case .command:
+            switch variant {
+            case .generic:
+                return "Cmd"
+            case .left:
+                return "Left Cmd"
+            case .right:
+                return "Right Cmd"
+            }
+        }
+    }
+
     func serializedLabel(for variant: ShortcutModifierVariant) -> String {
         switch self {
         case .control:
@@ -434,6 +475,13 @@ struct ShortcutActionSpec: Hashable {
     var label: String {
         let parts = orderedModifierSelections.map { modifier, variant in
             modifier.serializedLabel(for: variant)
+        } + [keyLabel]
+        return parts.joined(separator: "+")
+    }
+
+    var displayLabel: String {
+        let parts = orderedModifierSelections.map { modifier, variant in
+            modifier.displayLabel(for: variant)
         } + [keyLabel]
         return parts.joined(separator: "+")
     }
@@ -1695,6 +1743,9 @@ struct KeyAction: Codable, Hashable {
             case .appLaunch:
                 return AppLaunchActionHelper.keymapDisplayLabel(for: label)
             default:
+                if let spec = KeyActionCatalog.shortcutSpec(for: self) {
+                    return spec.displayLabel
+                }
                 return label
             }
         }
@@ -1706,6 +1757,9 @@ struct KeyAction: Codable, Hashable {
             case .appLaunch:
                 return AppLaunchActionHelper.displayLabel(for: label)
             default:
+                if let spec = KeyActionCatalog.shortcutSpec(for: self) {
+                    return spec.displayLabel
+                }
                 return label
             }
         }
