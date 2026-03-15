@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using GlassToKey.Platform.Linux.Uinput;
@@ -12,8 +13,31 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
     private const string EmojiActionLabel = "EMOJI";
     private const string EmojiPickerExecutable = "/usr/libexec/ibus-ui-emojier";
     private const string EmojiCopiedMessage = "Copied an emoji to your clipboard.";
+    private const string XpropExecutable = "/usr/bin/xprop";
+    private static readonly Regex QuotedValueRegex = new("\"([^\"]+)\"", RegexOptions.Compiled);
     private static readonly TimeSpan EmojiExitGracePeriod = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan EmojiPasteDelay = TimeSpan.FromMilliseconds(125);
+    private static readonly string[] TerminalWindowClassMarkers =
+    [
+        "gnome-terminal",
+        "gnome-console",
+        "org.gnome.console",
+        "kgx",
+        "ptyxis",
+        "kitty",
+        "alacritty",
+        "wezterm",
+        "xterm",
+        "xfce4-terminal",
+        "konsole",
+        "tilix",
+        "terminator",
+        "lxterminal",
+        "mate-terminal",
+        "qterminal",
+        "io.elementary.terminal",
+        "deepin-terminal"
+    ];
 
     private readonly LinuxUinputDispatcher _inner;
     private int _emojiPickerActive;
@@ -209,6 +233,7 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
 
     private void EmitPasteShortcut()
     {
+        DispatchSemanticAction semanticAction = ResolvePasteSemanticAction();
         _inner.Dispatch(new DispatchEvent(
             TimestampTicks: Stopwatch.GetTimestamp(),
             Kind: DispatchEventKind.KeyTap,
@@ -218,13 +243,148 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
             Flags: DispatchEventFlags.None,
             Side: TrackpadSide.Left,
             DispatchLabel: "Paste",
-            SemanticAction: new DispatchSemanticAction(
+            SemanticAction: semanticAction));
+    }
+
+    private static DispatchSemanticAction ResolvePasteSemanticAction()
+    {
+        if (TryGetFocusedWindowClass(out string windowClass) &&
+            LooksLikeTerminalWindowClass(windowClass))
+        {
+            return new DispatchSemanticAction(
                 DispatchSemanticKind.KeyChord,
-                "Ctrl+V",
+                "Ctrl+Shift+V",
                 PrimaryCode: DispatchSemanticCode.V,
-                SecondaryCode: DispatchSemanticCode.Ctrl,
+                SecondaryCode: DispatchSemanticCode.None,
                 MouseButton: DispatchMouseButton.None,
-                Modifiers: DispatchModifierFlags.Ctrl)));
+                Modifiers: DispatchModifierFlags.Ctrl | DispatchModifierFlags.Shift);
+        }
+
+        return new DispatchSemanticAction(
+            DispatchSemanticKind.KeyChord,
+            "Ctrl+V",
+            PrimaryCode: DispatchSemanticCode.V,
+            SecondaryCode: DispatchSemanticCode.Ctrl,
+            MouseButton: DispatchMouseButton.None,
+            Modifiers: DispatchModifierFlags.Ctrl);
+    }
+
+    private static bool TryGetFocusedWindowClass(out string windowClass)
+    {
+        windowClass = string.Empty;
+        if (!OperatingSystem.IsLinux() ||
+            !string.Equals(Environment.GetEnvironmentVariable("XDG_SESSION_TYPE"), "x11", StringComparison.OrdinalIgnoreCase) ||
+            string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DISPLAY")) ||
+            !File.Exists(XpropExecutable) ||
+            !TryRunProcess(XpropExecutable, ["-root", "_NET_ACTIVE_WINDOW"], out string activeWindowOutput))
+        {
+            return false;
+        }
+
+        string windowId = ExtractWindowId(activeWindowOutput);
+        if (string.IsNullOrWhiteSpace(windowId) ||
+            !TryRunProcess(XpropExecutable, ["-id", windowId, "WM_CLASS"], out string classOutput))
+        {
+            return false;
+        }
+
+        MatchCollection matches = QuotedValueRegex.Matches(classOutput);
+        if (matches.Count == 0)
+        {
+            return false;
+        }
+
+        string[] values = new string[matches.Count];
+        for (int index = 0; index < matches.Count; index++)
+        {
+            values[index] = matches[index].Groups[1].Value;
+        }
+
+        windowClass = string.Join('\n', values);
+        return true;
+    }
+
+    private static bool TryRunProcess(string fileName, string[] arguments, out string output)
+    {
+        output = string.Empty;
+
+        try
+        {
+            ProcessStartInfo startInfo = new()
+            {
+                FileName = fileName,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+
+            for (int index = 0; index < arguments.Length; index++)
+            {
+                startInfo.ArgumentList.Add(arguments[index]);
+            }
+
+            using Process? process = Process.Start(startInfo);
+            if (process is null)
+            {
+                return false;
+            }
+
+            output = process.StandardOutput.ReadToEnd();
+            if (!process.WaitForExit(milliseconds: 750))
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch
+                {
+                    // Best-effort cleanup.
+                }
+
+                return false;
+            }
+
+            return process.ExitCode == 0;
+        }
+        catch (Win32Exception)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private static string ExtractWindowId(string output)
+    {
+        int marker = output.IndexOf("0x", StringComparison.OrdinalIgnoreCase);
+        if (marker < 0)
+        {
+            return string.Empty;
+        }
+
+        int end = marker + 2;
+        while (end < output.Length && Uri.IsHexDigit(output[end]))
+        {
+            end++;
+        }
+
+        return end > marker + 2 ? output[marker..end] : string.Empty;
+    }
+
+    private static bool LooksLikeTerminalWindowClass(string windowClass)
+    {
+        string normalized = windowClass.ToLowerInvariant();
+        for (int index = 0; index < TerminalWindowClassMarkers.Length; index++)
+        {
+            if (normalized.Contains(TerminalWindowClassMarkers[index], StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsEmojiAction(DispatchSemanticAction semanticAction)

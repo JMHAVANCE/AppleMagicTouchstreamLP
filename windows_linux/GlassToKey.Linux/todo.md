@@ -1,9 +1,5 @@
 # TODO:
-[x] Add Linux Equivalents for: `System & Media`: EMOJI
-> Added to the Linux Action dropdown. Linux runtime now launches `/usr/libexec/ibus-ui-emojier`, waits for either the clipboard message or process completion, and then attempts a paste.
-  
 - Add Linux Equivalents for: `System & Media`: BRIGHT_UP and BRIGHT_DOWN
-
 - Add Linux Equivalents for: `System & Media`: VOICE, 
 
 -------
